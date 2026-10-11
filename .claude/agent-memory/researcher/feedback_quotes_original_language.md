@@ -3,7 +3,7 @@ name: Quotes stay in original language
 description: Julius wants every quote kept in the language of its source, never silently translated
 type: feedback
 ---
-Keep quotes in their original language (e.g. the German OpenAI page stays German).
+Keep quotes in their original language
 
 **Why:** Julius asked for this explicitly (2026-10-11). Exact wording matters for accuracy and for the game's source fidelity.
 

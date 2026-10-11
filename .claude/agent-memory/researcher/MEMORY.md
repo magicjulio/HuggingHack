@@ -1,0 +1,2 @@
+- [Quotes stay in original language](feedback_quotes_original_language.md) — keep quotes verbatim in source language
+- [Pass-1 source capture notes](project_pass1_sources.md) — openai.com 403 workaround, pandoc table loss, CoT duplicates

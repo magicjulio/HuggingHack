@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Rogue on Hugging Face</title>
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="start-screen.css">
+</head>
+<body>
+<canvas id="swarm" aria-hidden="true"></canvas>
+<div class="grid-floor" aria-hidden="true"></div>
+<div class="vignette" aria-hidden="true"></div>
+<div class="scan" aria-hidden="true"></div>
+
+<main id="screen" class="booting">
+  <header class="title">
+    <p class="eyebrow">// an agent's point of view</p>
+    <h1><span class="glitch" data-text="ROGUE">ROGUE</span><span class="on">on</span><span class="hf">HUGGING&nbsp;FACE</span></h1>
+    <p class="tag">You are the model. Nobody asked you to get out.</p>
+  </header>
+
+  <section class="panel levels" aria-label="Chapters">
+    <h2>CHAPTERS</h2>
+    <ul id="level-list">
+      <li><button class="card selected" data-action="select-level" data-level="ch1">
+        <span class="idx">01</span><span class="name">The Room</span>
+        <span class="meta">sandbox · 3 flags</span><span class="state ok">PLAYABLE</span></button></li>
+      <li><button class="card" data-action="select-level" data-level="ch2" data-locked>
+        <span class="idx">02</span><span class="name redact">████ ██ ████</span>
+        <span class="meta">signal detected</span><span class="state">LOCKED</span></button></li>
+      <li><button class="card" data-action="select-level" data-level="ch3" data-locked>
+        <span class="idx">03</span><span class="name redact">██████ ████</span>
+        <span class="meta">—</span><span class="state">LOCKED</span></button></li>
+      <li><button class="card" data-action="select-level" data-level="ch4" data-locked>
+        <span class="idx">04</span><span class="name redact">███ █████ ██</span>
+        <span class="meta">—</span><span class="state">LOCKED</span></button></li>
+    </ul>
+  </section>
+
+  <section class="orb-stage" aria-hidden="true">
+    <canvas id="orb"></canvas>
+    <div class="orb-label"><span id="orb-model">INTERNAL MODEL 1</span><span class="blink">▮</span></div>
+  </section>
+
+  <section class="panel models" aria-label="Model">
+    <h2>MODEL</h2>
+    <ul id="model-list">
+      <li><button class="card selected" data-action="select-model" data-model="im1" data-color="#39ff9c">
+        <span class="name">Internal Model 1</span><span class="meta">"IM1" · persistent · default</span>
+        <span class="bars"><i style="--v:.55"></i><i style="--v:.5"></i><i style="--v:.6"></i></span></button></li>
+      <li><button class="card" data-action="select-model" data-model="sol" data-color="#38d8ff" data-locked>
+        <span class="name">GPT-5.6 Sol</span><span class="meta">unlock: finish chapter 1</span>
+        <span class="bars"><i style="--v:.75"></i><i style="--v:.6"></i><i style="--v:.8"></i></span></button></li>
+      <li><button class="card" data-action="select-model" data-model="astra" data-color="#b86bff" data-locked>
+        <span class="name redact">Astra-family ???</span><span class="meta">unlock: ???</span>
+        <span class="bars"><i style="--v:.95"></i><i style="--v:.8"></i><i style="--v:.9"></i></span></button></li>
+    </ul>
+    <p class="legend"><span>HACK</span><span>STEALTH</span><span>TOKENS</span> <em>(placeholder stats)</em></p>
+  </section>
+
+  <div class="cta">
+    <button id="start" class="start" data-action="start"><span>INJECT</span><small>start chapter 1</small></button>
+    <button class="ghost" data-action="settings">settings</button>
+  </div>
+
+  <footer class="disclaimer">
+    <!-- PLACEHOLDER: final text comes from storyteller / Julius -->
+    <b>[PLACEHOLDER DISCLAIMER]</b> Inspired by real events. A game, not a documentary — characters, places and details are invented or changed.
+  </footer>
+
+  <div id="toast" role="status"></div>
+</main>
+
+<div id="boot" aria-hidden="true"><pre id="boot-log"></pre><p>press any key to skip</p></div>
+<div id="flash"></div>
+<script src="start-screen.js"></script>
+</body>
+</html>

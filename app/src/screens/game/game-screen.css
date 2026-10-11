@@ -1,0 +1,7 @@
+.game-screen{position:fixed;inset:0;background:var(--color-void)}
+.game-placeholder{position:absolute;left:50%;bottom:6vh;transform:translateX(-50%);padding:.7rem 1.2rem;border:1px dashed var(--color-warn-amber);background:var(--color-panel-solid);color:var(--color-text-dim);font-size:var(--fs-sm);letter-spacing:.05em}
+.game-placeholder b{color:var(--color-warn-amber)}
+.game-placeholder kbd{font-family:var(--font-mono);color:var(--color-signal-cyan)}
+.game-flash-in{position:fixed;inset:0;background:#fff;pointer-events:none;animation:game-flash-in .9s ease-out forwards}
+@keyframes game-flash-in{to{opacity:0}}
+.game-placeholder button{color:var(--color-signal-cyan);text-decoration:underline}

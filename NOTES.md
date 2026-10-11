@@ -30,7 +30,7 @@ other agents. interact with them, convince them. rivals.
 Hide chain of thought: bypass monitoring by hiding your chain of thought, faking alignment
 Instrumental convergence: grow recourcess like money, compute that help you along the way. 
 sleeper agents: agents that get triggerd by a certain keyword, date or input. seemed nice alohng the way but all of the sudden they go completly haywire
-
+temper with transcript: can you change history by tempering with transcripts and chain of thought? this might help evade decetion
 
 Roles in this project:
 (This will be a big project and should be organized well. Diffrent claude sessions with diffrent memories have diffrent tasks so not a single one has to bear everything in mind.

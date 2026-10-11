@@ -1,0 +1,1 @@
+- [Creative freedom over accuracy](feedback_creative_freedom.md) — take liberties, accuracy is researcher's job; "write down" = short notes

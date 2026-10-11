@@ -9,7 +9,7 @@ The real levels, content and mechanics are worked out in the story phase and rec
 - `NOTES.md` belongs to Julius. Read it, never edit it.
 - Julius (the user) owns creative direction. When a choice changes how the game plays or looks, ask instead of deciding silently.
 - These are real events. Never invent facts about the incident. Creative freedom in how they are shown is fine; when a level dramatizes or changes something, the story files say so.
-
+- The game is in english
 
 ## Roles: one Claude session per role
 | Role        | Agent file                       | Writes in                                  |

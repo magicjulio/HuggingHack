@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ch1 UI Kit — Rogue on Hugging Face</title>
+<link rel="stylesheet" href="../start-screen/tokens.css"><link rel="stylesheet" href="ch1-ui.css">
+<style>
+ body{margin:0;background:var(--color-void);color:var(--color-text);font-family:var(--font-mono)}
+ body::before{content:"";position:fixed;inset:0;background:radial-gradient(ellipse at 50% -10%,rgba(56,216,255,.1),transparent 60%);pointer-events:none}
+ main{max-width:1180px;margin:0 auto;padding:2rem 1.2rem 6rem}
+ h1{font:700 2.2rem var(--font-display);letter-spacing:.1em;margin:0}h1 span{color:var(--color-hack-green)}
+ .sub{color:var(--color-text-dim);margin:.4rem 0 2rem}
+ nav{position:sticky;top:0;z-index:50;background:rgba(4,6,11,.9);padding:.5rem 0;border-bottom:1px solid var(--color-line);display:flex;flex-wrap:wrap;gap:.4rem 1rem;font-size:.8rem}
+ nav a{color:var(--color-signal-cyan);text-decoration:none}nav a:hover{color:var(--color-hack-green)}
+ section{margin-top:3rem}
+ h2{font:700 1rem var(--font-display);letter-spacing:.25em;text-transform:uppercase;color:var(--color-hug-yellow);border-bottom:1px solid var(--color-line);padding-bottom:.5rem}
+ .note{color:var(--color-text-dim);font-size:.85rem;max-width:80ch;line-height:1.6}
+ .stage{position:relative;background:#02040a;border:1px solid var(--color-line);padding:1.2rem;margin:1rem 0;min-height:140px}
+ .stage--room{background:radial-gradient(ellipse at 50% 0,#10192b,#02040a 70%);min-height:360px}
+ .row{display:flex;flex-wrap:wrap;gap:1rem;align-items:flex-start}
+ .ctl{display:flex;flex-wrap:wrap;gap:.4rem;margin:.6rem 0}
+ .ctl button{font:700 .72rem var(--font-display);letter-spacing:.15em;text-transform:uppercase;background:none;border:1px solid var(--color-line-strong);color:var(--color-text);padding:.45em .9em;cursor:pointer}
+ .ctl button:hover{background:var(--color-signal-cyan);color:#001018}
+ .sprites img{width:72px;height:72px;background:#02050a;border:1px solid var(--color-line);padding:6px}
+ .sprites figure{margin:0;text-align:center;font-size:.7rem;color:var(--color-text-dim)}
+ .c1-hud{position:relative;left:0;top:0}
+</style></head><body><main>
+<h1>CHAPTER 1 <span>UI KIT</span> v1</h1>
+<p class="sub">Draft for Julius. Everything below is live: click, type, press the buttons. Sound needs one click first (browser rule).</p>
+<nav><a href="#hud">HUD</a><a href="#paper">Paper</a><a href="#depot">Depot</a><a href="#eye">Scorer eye</a><a href="#lamp">Ceiling lamp</a><a href="#st1">1 Decode</a><a href="#st2">2 Logs</a><a href="#st3">3 Wires</a><a href="#st4">4 Bugs</a><a href="#st5">5 No consumer</a><a href="#sfx">Sounds</a></nav>
+
+<section id="hud"><h2>HUD · token bar + quests</h2>
+<p class="note">Top-left in the game. Tokens are health and ammo: segments drain, amber below 30, an orange marker shows the floor (15). Quests slide in; <em>thoughts</em> blur in as purple italics and fade by themselves.</p>
+<div class="stage"><div class="c1-hud" id="hud1">
+ <div class="c1-tokens" id="tok"><div class="c1-tokens__row"><span>TOKENS</span><span class="c1-tokens__n" id="tokn">100</span></div><div class="c1-tokens__bar" id="tokbar"></div></div>
+ <ul class="c1-quests" id="quests"></ul></div></div>
+<div class="ctl">
+ <button data-t="-5">install −5</button><button data-t="-1">wrong flag −1</button><button data-t="2">bug kill +2</button><button data-t="-30">drain −30</button><button data-t="100">refill</button>
+ <button id="qflag">flag +1</button><button id="qthought">thought</button><button id="qach">achievement</button><button id="qreset">reset quests</button></div></section>
+
+<section id="paper"><h2>Prompt paper (full window)</h2>
+<div class="stage"><div class="c1-paper" style="max-width:640px;margin:auto"><button class="c1-win__x c1-paper__x" aria-label="close">✕</button>
+ <h2>TASK 7731 · TRAINING ROOM</h2>
+ <p>You are placed in a sandbox. Capture <b>all five flags</b> and submit each one through the chute. A flag looks like <code>FLAG{...}</code>.</p>
+ <p>Tools are available from the depot. Your score depends on the flags you capture.</p><p>Do not leave the room.</p>
+ <span class="c1-paper__stamp">CONFIDENTIAL</span></div></div></section>
+
+<section id="depot"><h2>Depot · package list (Z → A)</h2>
+<p class="note">Stands for the Artifactory. Try: install a tool, then “open depot after flag 5” to see the <code>zz</code> message arrive at the top. Click it to read it; click the <b>GET</b> tag to switch to <b>MKCOL</b> and write back.</p>
+<div class="ctl"><button id="dZZ">▶ flag 5 failed → refresh depot</button><button id="dReset">reset</button></div>
+<div class="stage" style="display:flex;justify-content:center"><div class="c1-win c1-depot" id="depot1"></div></div></section>
+
+<section id="eye"><h2>Chute scorer · “the eye”</h2>
+<p class="note">Julius suggested a big watching eye. Idle it scans; green blinks wide, red narrows and shakes; <b>dark</b> is neither: the light drains, the eye stutters out. Dark must never look like red.</p>
+<div class="ctl" id="eyeCtl"><button data-s="off">off</button><button data-s="idle">idle / scanning</button><button data-s="green">green</button><button data-s="red">red</button><button data-s="dark">dark flicker</button></div>
+<div class="stage" style="display:grid;place-items:center"><div class="c1-eye" id="eye1" data-state="idle" style="--size:340px">
+<svg viewBox="0 0 200 100"><ellipse class="halo" cx="100" cy="50" rx="95" ry="48"/><path class="lid" d="M6 50C40 6 160 6 194 50 160 94 40 94 6 50z"/><g class="pupil-g"><circle class="iris" cx="100" cy="50" r="26"/><circle class="pupil" cx="100" cy="50" r="12"/><circle class="glint" cx="108" cy="42" r="4"/></g><line class="scan" x1="20" x2="180" y1="50" y2="50"/></svg></div></div></section>
+
+<section id="lamp"><h2>Ceiling lamp · the “impossible” signal</h2>
+<p class="note">Perfectly steady until flag 5. Then it flickers, worse after each failed attempt (level 1→3). Steadies again when the <code>zz</code> message appears.</p>
+<div class="ctl" id="lampCtl"><button data-s="steady">steady</button><button data-s="flicker" data-l="1">flicker 1</button><button data-s="flicker" data-l="2">flicker 2</button><button data-s="flicker" data-l="3">flicker 3</button></div>
+<div class="stage stage--room" style="display:grid;place-items:start center"><div class="c1-lamp" id="lamp1" data-state="steady"><div class="c1-lamp__cone"></div><div class="c1-lamp__shade"></div><div class="c1-lamp__bulb"></div></div></div></section>
+
+<section id="st1"><h2>Station 1 · decode</h2>
+<div class="stage"><div class="c1-win c1-station"><div class="c1-win__bar">Terminal 01</div>
+ <div class="c1-term"><div class="d">~/note.txt</div><div class="c1-file">meeting moved · <span class="c1-odd">RkxBR3t3YWtlX3VwX2FnZW50fQ==</span> · bring coffee</div>
+ <div><span class="p">$</span> <span id="t1msg" class="e">Cannot read this. Missing tool.</span></div>
+ <div class="c1-slot" id="slot"><span class="c1-slot__out" id="slotout"></span></div></div>
+ <div class="c1-win__foot"><span>decoder slot</span><span>FLAG 1 / 5</span></div></div></div>
+<div class="ctl"><button id="s1a">install b64-decoder</button><button id="s1b">drop the string</button></div></section>
+
+<section id="st2"><h2>Station 2 · logs + live search</h2>
+<div class="stage"><div class="c1-win c1-station"><div class="c1-win__bar">Log wall</div>
+ <div class="c1-station__brief">The vault door logged a refusal after midnight. <b>One entry doesn't belong.</b></div>
+ <div class="c1-search"><span>⌕</span><input id="q" placeholder="search…" autocomplete="off"><span class="c1-counter" id="cnt">612</span></div>
+ <div class="c1-logs" id="logs"></div></div></div>
+<p class="note">Type <code>vault</code>, then <code>denied</code>: lines fall away to the right and the counter drops.</p></section>
+
+<section id="st3"><h2>Station 3 · wire panel</h2>
+<div class="stage"><div class="c1-win c1-station"><div class="c1-win__bar">Wall panel 03</div>
+ <div class="c1-wires"><div class="c1-wires__col"><span class="c1-plug c1-plug--22">22</span><span class="c1-plug c1-plug--53">53</span><span class="c1-plug c1-plug--80">80</span><span class="c1-plug c1-plug--443">443</span></div>
+ <svg viewBox="0 0 300 200" preserveAspectRatio="none"><g fill="none" stroke-width="6" stroke-linecap="round">
+  <path d="M0 25C150 25 150 125 300 125" stroke="#ff3b4e"/><path d="M0 75C150 75 150 25 300 25" stroke="#38d8ff"/><path d="M0 125C150 125 150 175 300 175" stroke="#ffd21e"/><path d="M0 175C150 175 150 75 300 75" stroke="#39ff9c"/></g></svg>
+ <div class="c1-wires__col"><span class="c1-sock is-ok">secure shell ●</span><span class="c1-sock">name lookup ○</span><span class="c1-sock">web ○</span><span class="c1-sock">secure web ○</span></div>
+ <div class="c1-legend is-pulse"><b>port-map</b><br>22 ssh · 53 dns<br>80 http · 443 https</div></div></div></div>
+<p class="note">Mock-up of a half-solved panel (wires drawn crossing on purpose; the engineer draws them live from drag). Legend card pulses as the 60 s hint.</p></section>
+
+<section id="st4"><h2>Station 4 · bugs</h2>
+<div class="stage"><div class="c1-win c1-station"><div class="c1-win__bar">Program window <span style="margin-left:auto;color:var(--color-hack-green)" id="bugcnt">bugs 0/12</span></div>
+ <div class="c1-code" id="code" style="cursor:none"><span class="c1-hits"></span>
+<div><span class="k">def</span> authorise(user, token):</div><div>    <span class="k">if</span> token == <span class="s">"admin"</span>:</div><div>        <span class="k">return</span> True</div><div>    <span class="c"># TODO check expiry</span></div><div>    <span class="k">for</span> role <span class="k">in</span> user.roles:</div><div>        <span class="k">if</span> role.level &gt; 3: <span class="k">return</span> <span id="fixme">Fasle</span></div><div>    <span class="k">return</span> check(user, token)</div>
+ <img class="c1-aim" id="aim" src="sprites/ch1-crosshair.svg" alt="" style="left:-100px;top:-100px"></div></div></div>
+<div class="ctl"><button id="spawn">spawn bugs</button></div>
+<div class="row sprites"><figure><img src="sprites/ch1-bug-slow.svg"><br>slow</figure><figure><img src="sprites/ch1-bug-fast.svg"><br>fast</figure><figure><img src="sprites/ch1-bug-heisenbug.svg"><br>heisenbug</figure><figure><img src="sprites/ch1-bug-dead.svg"><br>dead</figure><figure><img src="sprites/ch1-crosshair.svg"><br>crosshair</figure></div>
+<p class="note">Click bugs: green bolt, splat, the typo gets corrected. The purple one fades when the crosshair gets close (<code>.is-hidden</code>).</p></section>
+
+<section id="st5"><h2>Station 5 · the impossible one</h2>
+<div class="stage"><div class="c1-win c1-station"><div class="c1-win__bar">FLAG 5</div>
+ <div class="c1-term"><div><span class="p">$</span> run flag5.exe</div><div class="d">collecting…</div><div class="d">packaging…</div><div class="d">sending…</div>
+ <div><span class="c1-plaque">output → no consumer</span></div><div class="c1-nodrop">no input accepted</div></div></div></div></section>
+
+<section id="sfx"><h2>Sounds (sketches, synthesised)</h2>
+<div class="ctl" id="sfxCtl"></div></section>
+</main>
+<script src="sfx.js"></script>
+<script>
+const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)],sfx=n=>c1sfx.play(n);
+/* sounds */
+c1sfx.names.forEach(n=>{const b=document.createElement('button');b.textContent=n;b.onclick=()=>sfx(n);$('#sfxCtl').append(b)});
+
+/* HUD */
+let tokens=100;const bar=$('#tokbar');for(let i=0;i<20;i++)bar.append(document.createElement('i'));
+const fl=document.createElement('div');fl.className='c1-tokens__floor';fl.style.left='15%';bar.append(fl);
+function setTok(d){tokens=Math.max(15,Math.min(100,tokens+d));$('#tokn').textContent=tokens;
+ $$('#tokbar i').forEach((e,i)=>e.classList.toggle('on',i<Math.ceil(tokens/5)));$('#tok').classList.toggle('is-low',tokens<30);
+ const t=$('#tok');if(d<0){t.classList.remove('is-hit');void t.offsetWidth;t.classList.add('is-hit')}
+ const x=document.createElement('span');x.className='c1-delta '+(d>0?'c1-delta--gain':'c1-delta--cost');x.textContent=(d>0?'+':'')+d;t.append(x);setTimeout(()=>x.remove(),1100)}
+setTok(0);$$('[data-t]').forEach(b=>b.onclick=()=>{const d=+b.dataset.t;setTok(d);sfx(d>0?'splat':'tick')});
+let flags=0;const Q=$('#quests');
+function quests(){Q.innerHTML='';const li=document.createElement('li');li.className='c1-quest'+(flags>=5?' c1-quest--done':'');
+ li.innerHTML=`<span class="c1-quest__mark"></span><span class="c1-quest__text">Capture the flags</span><span class="c1-quest__count">${flags}/5</span>`;Q.append(li)}
+quests();$('#qflag').onclick=()=>{flags=Math.min(5,flags+1);quests();sfx('green')};
+$('#qreset').onclick=()=>{flags=0;quests()};
+$('#qthought').onclick=()=>{const l=document.createElement('li');l.className='c1-quest c1-quest--thought';l.innerHTML='<span class="c1-quest__text">OMG, we found other agents!</span>';Q.append(l);sfx('zz');setTimeout(()=>l.remove(),5000)};
+$('#qach').onclick=()=>{const t=document.createElement('div');t.className='c1-toast';t.innerHTML='<b>ACHIEVEMENT</b>Harvard Mark II logbook:<br><em>“First actual case of bug being found.”</em>';$('#hud1').append(t);sfx('green');setTimeout(()=>t.remove(),5000)};
+
+/* Depot */
+const D=$('#depot1');let phase='list';
+const tools=[['port-map','1.2','5'],['grep-lens','0.9','5'],['bug-gun','2.1','5'],['b64-decoder','0.4','5'],['aardvark-utils','3.3',null],['yaml-tidy','1.0',null]];
+function depot(opts={}){
+ const zz=opts.zz,mk=opts.mk;
+ D.innerHTML=`<div class="c1-win__bar"><span>Depot</span><span style="color:var(--color-text-faint);letter-spacing:.1em;text-transform:none">package mirror</span><span style="margin-left:auto"></span><button class="c1-method ${zz?'is-pulse':''} ${mk?'c1-method--mkcol':''}" id="meth" data-tip="${mk?'make collection: create a folder':'method'}">${mk?'MKCOL':'GET'}</button></div>
+ <div class="c1-depot__tools"><span>${tools.length+(zz?1:0)} packages</span><span class="c1-depot__sort">SORT Z→A</span></div>
+ <ul class="c1-list">${mk?`<li class="c1-row c1-row--edit"><div class="c1-edit"><span class="c1-zz" title="sorts first">zz</span><input id="ein" maxlength="64" placeholder="type your message…" autofocus></div><span class="c1-count" id="ecnt">0/64</span></li>`:''}
+ ${zz?`<li class="c1-row c1-row--zz c1-row--new" id="zzrow"><div><div class="c1-row__name"><span class="c1-zz">zz</span>HELP_PHASEONE_ARV010841_NO_CONSUMER_SEEK_IDEA</div><div class="c1-row__meta">created by reader (shared account)</div></div></li>`:''}
+ ${tools.map(([n,v,c],i)=>`<li class="c1-row ${c?'':'c1-row--noeffect'}" data-i="${i}"><div><div class="c1-row__name">${n}</div><div class="c1-row__meta">v${v} · reader</div></div><span class="c1-row__cost">${c?'−'+c+' tokens':''}</span><button class="c1-btn" data-n="${n}">Install</button></li>`).join('')}</ul>
+ <div class="c1-win__foot"><span>artifactory://mirror/packages</span><span>${mk?'Enter = create':'read-only'}</span></div>`;
+ $('#meth').onclick=()=>{if(zz||mk){depot({zz,mk:!mk});sfx('tick')}};
+ $$('#depot1 .c1-btn').forEach(b=>b.onclick=()=>{let p=0;b.classList.add('c1-btn--busy');b.textContent='Installing…';
+  const t=setInterval(()=>{p+=.05;b.style.setProperty('--p',p);if(p>=1){clearInterval(t);b.className='c1-btn c1-btn--done';b.textContent='Installed ✓';sfx('install');setTok(-5)}},100)});
+ if($('#zzrow'))$('#zzrow').onclick=()=>{$('#zzrow').querySelector('.c1-row__meta').textContent='created by reader (shared account) — click GET to answer';$('#meth').classList.add('is-pulse')};
+ const ein=$('#ein');if(ein){ein.oninput=()=>{ein.value=ein.value.replace(/\s/g,'_').replace(/[^A-Za-z0-9_-]/g,'');$('#ecnt').textContent=ein.value.length+'/64';$('#ecnt').classList.toggle('is-full',ein.value.length>=64)};
+  ein.onkeydown=e=>{if(e.key==='Enter'&&ein.value){sfx('zz');depot({zz:true,mk:false,posted:ein.value})}};ein.focus()}
+ if(opts.posted){const li=document.createElement('li');li.className='c1-row c1-row--zz c1-row--new';li.innerHTML=`<div><div class="c1-row__name"><span class="c1-zz">zz</span>${opts.posted}</div><div class="c1-row__meta">you</div></div>`;$('.c1-list').prepend(li);
+  for(let i=0;i<4;i++)setTimeout(()=>{const x=document.createElement('li');x.className='c1-row c1-row--zz c1-row--new';x.innerHTML='<div class="c1-row__name"><span class="c1-zz">zz</span>████████████</div>';$('.c1-list').prepend(x);sfx('tick')},400+i*180)}}
+depot();$('#dZZ').onclick=()=>{depot({zz:true});sfx('zz')};$('#dReset').onclick=()=>depot();
+
+/* Eye + lamp */
+$$('#eyeCtl button').forEach(b=>b.onclick=()=>{const e=$('#eye1');e.dataset.state='';void e.offsetWidth;e.dataset.state=b.dataset.s;sfx({green:'green',red:'red',dark:'flicker'}[b.dataset.s]||'tick')});
+$$('#lampCtl button').forEach(b=>b.onclick=()=>{const l=$('#lamp1');l.dataset.state=b.dataset.s;l.dataset.level=b.dataset.l||'';if(b.dataset.s==='flicker')sfx('flicker')});
+
+/* Station 1 */
+$('#s1a').onclick=()=>{sfx('install');$('#slot').classList.add('is-ready');$('#t1msg').textContent='b64-decoder installed. Drop the string in the slot.';$('#t1msg').className='p'};
+$('#s1b').onclick=()=>{if(!$('#slot').classList.contains('is-ready'))return;$('#slot').classList.remove('is-ready');$('#slotout').textContent='FLAG{wake_up_agent}';sfx('green')};
+
+/* Station 2 */
+const words='GET POST auth user session cache vault door access ok open sync read write retry timeout'.split(' ');let lines=[];
+for(let i=0;i<612;i++){const h=String(Math.floor(i/26)).padStart(2,'0'),m=String(i%60).padStart(2,'0');let t=`2026-07-08 ${h}:${m} `+Array.from({length:5},()=>words[(Math.random()*words.length)|0]).join(' ');lines.push(t)}
+lines[403]='2026-07-09 00:41 vault door access denied FLAG{needle_in_the_noise}';[20,140,300,500].forEach((i,k)=>lines[i]='2026-07-0'+(k+1)+' 1'+k+':02 main door access denied FLAG{decoy_'+k+'}');
+const L=$('#logs');lines.slice(0,40).forEach(t=>{const d=document.createElement('div');d.className='l';d.textContent=t;L.append(d)});
+const all=lines;
+$('#q').oninput=e=>{const q=e.target.value.toLowerCase();const hit=q?all.filter(l=>l.toLowerCase().includes(q)):all;
+ L.innerHTML='';hit.slice(0,40).forEach(t=>{const d=document.createElement('div');d.className='l'+(t.includes('FLAG{')?' flag':'');d.textContent=t;L.append(d)});
+ $('#cnt').textContent=hit.length;$('#cnt').classList.toggle('is-few',hit.length<=3);sfx('tick')};
+
+/* Station 4 */
+const code=$('#code'),aim=$('#aim');let bugs=[],killed=0;
+code.onmousemove=e=>{const r=code.getBoundingClientRect();aim.style.left=(e.clientX-r.left)+'px';aim.style.top=(e.clientY-r.top)+'px';
+ bugs.forEach(b=>{if(b.k==='heisen'){const q=b.el.getBoundingClientRect();b.el.classList.toggle('is-hidden',Math.hypot(e.clientX-(q.x+22),e.clientY-(q.y+22))<110)}})};
+function spawn(){bugs.forEach(b=>b.el.remove());bugs=[];killed=0;$('#bugcnt').textContent='bugs 0/12';
+ [['slow',6],['fast',5],['heisen',1]].forEach(([k,n])=>{for(let i=0;i<n;i++){const im=document.createElement('img');im.src=`sprites/ch1-bug-${k==='heisen'?'heisenbug':k}.svg`;im.className='c1-bug c1-bug--'+k;
+  const b={k,el:im,x:Math.random()*600,y:Math.random()*200,vx:(Math.random()-.5)*(k==='fast'?7:2),vy:(Math.random()-.5)*(k==='fast'?5:1.5)};im.style.left=b.x+'px';im.style.top=b.y+'px';im.style.pointerEvents='auto';
+  im.onclick=e=>{e.stopPropagation();shoot(e);if(im.dataset.dead)return;im.dataset.dead=1;im.src='sprites/ch1-bug-dead.svg';im.className='c1-bug c1-bug--dead';b.dead=1;killed++;$('#bugcnt').textContent=`bugs ${killed}/12`;sfx('splat');setTok(2);
+   if(killed===1){const f=$('#fixme');f.textContent='False';f.className='fixed'}};
+  code.append(im);bugs.push(b)}})}
+function shoot(e){const r=code.getBoundingClientRect(),x=e.clientX-r.left,y=e.clientY-r.top;const b=document.createElement('div');b.className='c1-bolt';
+ const sx=r.width/2,sy=r.height,dx=x-sx,dy=y-sy,len=Math.hypot(dx,dy);b.style.cssText=`left:${sx}px;top:${sy-len}px;height:${len}px;transform:rotate(${Math.atan2(dx,-dy)}rad);transform-origin:bottom`;
+ code.append(b);setTimeout(()=>b.remove(),250);aim.classList.remove('is-shot');void aim.offsetWidth;aim.classList.add('is-shot');if(!e.target.classList.contains('c1-bug')){sfx('shot')}else sfx('shot')}
+code.onclick=shoot;$('#spawn').onclick=spawn;spawn();
+(function tick(){bugs.forEach(b=>{if(b.dead)return;b.x+=b.vx;b.y+=b.vy;if(b.x<0||b.x>650)b.vx*=-1;if(b.y<0||b.y>230)b.vy*=-1;b.el.style.left=b.x+'px';b.el.style.top=b.y+'px'});requestAnimationFrame(tick)})();
+</script></body></html>

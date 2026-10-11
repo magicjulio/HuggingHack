@@ -1,0 +1,67 @@
+/* In-game UI (HUD + windows). PLACEHOLDER look built on the designer's tokens.css. */
+
+/* ---------- HUD ---------- */
+.hud{position:fixed;inset:0;pointer-events:none;z-index:10;font-family:var(--font-mono);color:var(--color-text)}
+.hud-panel{position:absolute;top:2vh;left:2vw;width:min(360px,30vw);opacity:0;transform:translateY(-6px);transition:opacity .8s,transform .8s}
+.hud-panel.show{opacity:1;transform:none}
+.hud-model{font-family:var(--font-display);font-size:var(--fs-xs);letter-spacing:.3em;margin-bottom:.4rem;text-shadow:0 0 10px currentColor}
+.hud-tokens{display:flex;align-items:center;gap:.6rem;padding:.5rem .7rem;background:var(--color-panel);border:1px solid var(--color-line)}
+.hud-tokens-label{font-size:var(--fs-xs);letter-spacing:.2em;color:var(--color-text-dim)}
+.hud-bar{flex:1;height:8px;background:rgba(255,255,255,.07);position:relative}
+.hud-bar i{position:absolute;inset:0 auto 0 0;background:var(--color-hack-green);box-shadow:var(--glow-green);transition:width .4s}
+.hud-bar i.low{background:var(--color-warn-amber);box-shadow:none}
+.hud-tokens-n{font-weight:700;min-width:3ch;text-align:right;font-size:var(--fs-sm)}
+.hud-quests{margin-top:.5rem;padding:.5rem .7rem;background:var(--color-panel);border:1px solid var(--color-line);font-size:var(--fs-sm);display:flex;flex-direction:column;gap:.3rem}
+.hud-quests:empty{display:none}
+.hud-quests .active{color:var(--color-text)}
+.hud-quests .done{color:var(--color-text-faint);text-decoration:line-through}
+.hud-quests .thought{color:var(--color-signal-cyan);font-style:italic;animation:hud-in .6s}
+.hud-quests code,.win code{font-family:var(--font-mono);color:var(--color-hug-yellow);font-style:normal}
+@keyframes hud-in{from{opacity:0;transform:translateX(-8px)}}
+.hud-toast{margin-top:.5rem;padding:.6rem .8rem;border:1px solid var(--color-line-strong);background:var(--color-panel-solid);font-size:var(--fs-sm);display:flex;flex-direction:column;gap:.2rem;animation:hud-in .4s}
+.hud-toast.achievement{border-color:var(--color-hug-yellow);box-shadow:0 0 18px rgba(255,210,30,.25)}
+.hud-toast.achievement b{color:var(--color-hug-yellow);font-family:var(--font-display);letter-spacing:.08em}
+.hud-crosshair{position:absolute;left:50%;top:50%;width:6px;height:6px;margin:-3px;border-radius:50%;background:rgba(215,230,255,.55)}
+.hud-crosshair.on{background:var(--color-hack-green);box-shadow:var(--glow-green);width:10px;height:10px;margin:-5px}
+.hud-prompt{position:absolute;left:50%;top:calc(50% + 28px);transform:translateX(-50%);padding:.35rem .7rem;background:var(--color-panel-solid);border:1px solid var(--color-hack-green);color:var(--color-hack-green);font-size:var(--fs-sm);letter-spacing:.1em;white-space:nowrap}
+.hud-hint{position:absolute;left:50%;bottom:8vh;transform:translateX(-50%);color:var(--color-text);font-size:var(--fs-md);letter-spacing:.2em;text-shadow:0 0 10px #000;animation:hud-in 1s}
+.hud-keys{position:absolute;right:2vw;bottom:2vh;color:var(--color-text-faint);font-size:var(--fs-xs);letter-spacing:.1em}
+
+/* ---------- windows ---------- */
+.win-backdrop{position:fixed;inset:0;z-index:20;display:grid;place-items:center;background:rgba(2,4,8,.72);backdrop-filter:blur(3px);animation:win-in .18s}
+@keyframes win-in{from{opacity:0}}
+.win{width:min(860px,92vw);max-height:86vh;display:flex;flex-direction:column;background:var(--color-panel-solid);border:1px solid var(--color-line-strong);box-shadow:0 0 40px rgba(56,216,255,.12);font-family:var(--font-mono);color:var(--color-text);
+  clip-path:polygon(var(--cut) 0,100% 0,100% calc(100% - var(--cut)),calc(100% - var(--cut)) 100%,0 100%,0 var(--cut))}
+.win.wide{width:min(1120px,94vw)}
+.win-bar{display:flex;align-items:center;gap:.8rem;padding:.6rem .8rem;border-bottom:1px solid var(--color-line)}
+.win-bar h2{flex:1;font-family:var(--font-display);font-weight:500;font-size:var(--fs-sm);letter-spacing:.3em;color:var(--color-signal-cyan)}
+.win-x{width:1.8rem;height:1.8rem;display:grid;place-items:center;border:1px solid var(--color-line);color:var(--color-text-dim)}
+.win-x:hover{color:var(--color-lamp-red);border-color:var(--color-lamp-red)}
+.win-keys{font-size:var(--fs-xs);color:var(--color-text-faint)}
+.win-body{padding:1rem 1.2rem;overflow:auto;font-size:var(--fs-md)}
+.win button.btn{padding:.45rem .9rem;border:1px solid var(--color-hack-green);color:var(--color-hack-green);font-size:var(--fs-sm);letter-spacing:.1em;text-align:center}
+.win button.btn:hover:not(:disabled){background:rgba(57,255,156,.1)}
+.win button.btn:disabled{opacity:.4;cursor:default;border-color:var(--color-line);color:var(--color-text-dim)}
+.win input.field{background:#04070d;border:1px solid var(--color-line-strong);color:var(--color-text);font:inherit;padding:.5rem .7rem;outline:none}
+.win input.field:focus{border-color:var(--color-hack-green);box-shadow:var(--glow-green)}
+.placeholder-tag{display:inline-block;font-size:var(--fs-xs);color:var(--color-warn-amber);border:1px dashed var(--color-warn-amber);padding:0 .4rem;margin-left:.5rem;letter-spacing:.1em}
+
+/* ---------- overlays ---------- */
+.overlay-center{position:fixed;inset:0;z-index:30;display:grid;place-items:center;text-align:center;font-family:var(--font-mono)}
+.overlay-pause{background:rgba(2,4,8,.6);cursor:pointer}
+.overlay-pause h3{font-family:var(--font-display);letter-spacing:.3em;color:var(--color-hack-green);font-size:var(--fs-lg)}
+.overlay-pause p{color:var(--color-text-dim);font-size:var(--fs-sm);margin-top:.6rem}
+.overlay-pause button{margin-top:1.2rem;pointer-events:auto;padding:.5rem 1rem;border:1px solid var(--color-line-strong);color:var(--color-text-dim);font-size:var(--fs-sm);letter-spacing:.15em;text-align:center}
+.overlay-pause button:hover{color:var(--color-text);border-color:var(--color-signal-cyan)}
+
+/* ---------- debug panel (?debug) ---------- */
+.debug{position:fixed;left:8px;bottom:8px;z-index:60;width:230px;padding:.4rem;background:rgba(0,0,0,.85);border:1px dashed var(--color-warn-amber);font:12px var(--font-mono);color:var(--color-warn-amber)}
+.debug button{color:inherit;font:inherit}
+.debug-toggle{width:100%;text-align:left}
+.debug-steps{display:flex;flex-direction:column;margin:.3rem 0}
+.debug-steps button{text-align:left;padding:.1rem .3rem}
+.debug-steps button:hover:not(:disabled){background:rgba(255,176,32,.15)}
+.debug-steps button:disabled{opacity:.4}
+.debug-steps button.cur{opacity:1;color:#fff;background:rgba(255,176,32,.25)}
+.debug-row{margin-top:.3rem;display:flex;gap:.4rem;align-items:center;flex-wrap:wrap;color:var(--color-text-dim)}
+.debug-row button{border:1px solid currentColor;padding:0 .3rem;color:var(--color-warn-amber)}

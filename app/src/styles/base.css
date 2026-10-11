@@ -1,0 +1,7 @@
+/* Global resets shared by every screen (from the designer's start-screen.css). */
+*{box-sizing:border-box;margin:0;padding:0}
+html,body,#root{height:100%}
+html,body{background:var(--color-void);color:var(--color-text);font-family:var(--font-mono);overflow:hidden}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;text-align:left}
+ul{list-style:none}
+.screen-loading{position:fixed;inset:0;background:#fff}
