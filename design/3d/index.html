@@ -1,0 +1,475 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>3D Asset Review</title>
+<link rel="stylesheet" href="../start-screen/tokens.css">
+<style>
+  html,body{margin:0;height:100%;background:var(--color-void,#04060b);color:var(--color-text,#d7e6ff);font-family:var(--font-mono,monospace);overflow:hidden}
+  canvas{display:block}
+  .panel{position:fixed;left:20px;padding:14px 18px;background:var(--color-panel,rgba(10,18,32,.72));border:1px solid var(--color-line,rgba(120,180,255,.18));backdrop-filter:blur(6px);box-sizing:border-box;width:340px}
+  .board{top:20px;clip-path:polygon(0 0,calc(100% - 14px) 0,100% 14px,100% 100%,0 100%)}
+  .note{bottom:20px;font-size:12px;line-height:1.5}
+  h1{font-family:var(--font-display,sans-serif);font-size:19px;margin:0 0 2px;letter-spacing:.06em}
+  .sub{color:var(--color-text-dim,#7f93b5);font-size:11px;margin-bottom:10px}
+  .lbl{font-size:10.5px;color:var(--color-text-faint,#4a5a78);text-transform:uppercase;letter-spacing:.12em;margin:12px 0 6px}
+  .row{display:flex;flex-wrap:wrap;gap:6px}
+  button{font:inherit;font-size:12px;color:var(--color-text);background:transparent;border:1px solid var(--color-line-strong,rgba(120,200,255,.45));padding:6px 10px;cursor:pointer}
+  button.on{border-color:var(--c,#38d8ff);color:var(--c,#38d8ff);box-shadow:0 0 10px color-mix(in srgb,var(--c,#38d8ff) 50%,transparent)}
+  button:disabled{opacity:.4;cursor:default}
+  .assets button{flex:1 1 45%;text-align:left}
+  .assets button small{display:block;font-size:10px;color:var(--color-text-faint);margin-top:2px}
+  label{font-size:12px;display:flex;gap:8px;align-items:center;color:var(--color-text-dim)}
+  input[type=range]{flex:1}
+  .ctl[hidden]{display:none}
+  .note b{color:var(--color-signal-cyan,#38d8ff);font-weight:400;text-transform:uppercase;font-size:10.5px;letter-spacing:.12em;display:block;margin-top:8px}
+  .note b:first-child{margin-top:0}
+  .note code{color:var(--color-text-dim)}
+  .hint{position:fixed;right:20px;bottom:16px;font-size:11px;color:var(--color-text-faint)}
+  .tag{display:inline-block;font-size:10px;padding:1px 6px;border:1px solid currentColor;margin-left:6px;vertical-align:1px}
+</style>
+</head>
+<body>
+<div class="panel board">
+  <h1>3D ASSET REVIEW</h1>
+  <div class="sub">Rogue on Hugging Face · ch1 · real .glb files in three.js</div>
+  <div class="lbl">Asset</div>
+  <div class="row assets" id="assets"></div>
+
+  <div class="ctl" data-ctl="state">
+    <div class="lbl">Lamp state (as in game)</div>
+    <div class="row" id="states">
+      <button data-s="off" style="--c:#7f93b5">off</button>
+      <button data-s="green" style="--c:#39ff9c">green</button>
+      <button data-s="red" style="--c:#ff3b4e">red</button>
+      <button data-s="dark" style="--c:#b86bff">dark flicker</button>
+    </div>
+  </div>
+  <div class="ctl" data-ctl="motion">
+    <div class="lbl">Motion</div>
+    <div class="row">
+      <button id="blink">blink</button>
+      <button id="follow" class="on">eye follows mouse</button>
+      <button id="spin" class="on">rings spin</button>
+    </div>
+  </div>
+  <div class="ctl" data-ctl="ticks">
+    <div class="lbl">Score ticks on the bezel (idea, optional)</div>
+    <label>flags <input id="ticks" type="range" min="0" max="5" value="3"><span id="tv">3/5</span></label>
+  </div>
+  <div class="ctl" data-ctl="pad">
+    <div class="lbl">Scan pad</div>
+    <div class="row" id="pads">
+      <button data-p="off" style="--c:#7f93b5">off</button>
+      <button data-p="idle">ready</button>
+      <button data-p="scan">scanning</button>
+    </div>
+  </div>
+  <div class="ctl" data-ctl="depot">
+    <div class="lbl">Depot state (as in game)</div>
+    <div class="row" id="dstates">
+      <button data-d="off" style="--c:#7f93b5">off</button>
+      <button data-d="on">on</button>
+      <button data-d="glimmer" style="--c:#ffb020">glimmer (beacon, new tool)</button>
+    </div>
+    <div class="lbl">Screen</div>
+    <div class="row">
+      <button id="dlist" class="on">list UI mock</button>
+      <button id="dinstall" style="--c:#39ff9c">install → delivery bay (idea)</button>
+    </div>
+  </div>
+  <div class="ctl" data-ctl="submit">
+    <div class="lbl">Lay a flag on the pad</div>
+    <div class="row" id="submits">
+      <button data-k="green" style="--c:#39ff9c">real flag</button>
+      <button data-k="red" style="--c:#ff3b4e">decoy</button>
+      <button data-k="dark" style="--c:#b86bff">flag 5 (impossible)</button>
+    </div>
+    <div class="lbl">Eye variant</div>
+    <div class="row" id="variants">
+      <button data-v="scorer">armoured</button>
+      <button data-v="smooth">smooth</button>
+    </div>
+  </div>
+</div>
+
+<div class="panel note" id="note"></div>
+<div class="hint">drag to orbit · scroll to zoom</div>
+
+<script src="scorer/ch1-scorer.glb.js"></script>
+<script src="scorer/ch1-scorer-smooth.glb.js"></script>
+<script src="plinth/ch1-scan-plinth.glb.js"></script>
+<script src="depot/ch1-depot.glb.js"></script>
+<script type="importmap">
+{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+
+// ---------------------------------------------------------------- asset registry (edit status/next here)
+const ASSETS = {
+  scorer: {
+    label: 'Scorer eye', tag: 'approved', tagC: '#39ff9c', id: 'ch1.scorer', file: 'scorer/ch1-scorer.glb',
+    where: 'Floats above the scan plinth by the chute, right wall (layout.ts <code>SCORER_LAMP</code> [5.4, 2.5, 2.0]). Watches the player.',
+    status: 'v1 approved by Julius (2026-10-12). Trimmed to 19.8k tris; exported to handoff (models/ch1-scorer.glb).',
+    next: 'Engineer integrates (handoff 2026-10-12-ch1-3d-props).',
+    ctl: ['state', 'motion', 'ticks'], cam: [[-0.75, 0.25, 1.85], [0, 0, 0]],
+  },
+  smooth: {
+    label: 'Scorer eye · smooth', tag: 'test', tagC: '#ffb020', id: 'ch1.scorer (variant)', file: 'scorer/ch1-scorer-smooth.glb',
+    where: 'Same place and the same node names as the armoured eye, so it is a drop-in swap.',
+    status: 'Test variant (2026-10-12): one seamless ceramic shell, finer iris, single ring, no plates or fins.',
+    next: 'Julius compares with the armoured eye and picks one (or a mix).',
+    ctl: ['state', 'motion', 'ticks'], cam: [[-0.75, 0.25, 1.85], [0, 0, 0]],
+  },
+  plinth: {
+    label: 'Scan plinth', tag: 'review', tagC: '#38d8ff', id: 'ch1.scan-plinth', file: 'plinth/ch1-scan-plinth.glb',
+    where: 'Under the scorer, by the chute on the right wall. The player lays a flag on the tilted pad; a return slot at the back takes accepted flags.',
+    status: 'v1 draft for review (2026-10-12). ~1k tris. Glowing mesh <code>screen</code> = the pad.',
+    next: 'Exported to handoff as draft. Waiting on Julius: type/paste the flag as flat 3D letters on the pad (proposal), and plinth vs chute placement.',
+    ctl: ['pad'], cam: [[-1.3, 1.35, 2.1], [0, 0.55, 0]],
+  },
+  depot: {
+    label: 'Package depot', tag: 'approved', tagC: '#39ff9c', id: 'ch1.depot', file: 'depot/ch1-depot.glb',
+    where: 'Left wall, facing the room (layout.ts <code>depot</code> pos [-5.75, 1.3, 0.4]). Stands for Artifactory, the package mirror, which turns out to be the weak spot.',
+    status: 'v2 (2026-10-12): rusty cyberpunk drop-point kiosk after Julius\'s refs. Sign ARTIFACTORY. Worn paint/rust/grime textures generated in the build script. ~10.6k tris, 1.4 MB. 3.0 m tall and frame/hood stick out ~0.17 m beyond the layout box. Glowing mesh <code>screen</code> (2.0 × 1.8, list stays HTML). Animatable: <code>hatch</code>, <code>service_door</code>, <code>beacon</code>, <code>tube_broken</code>.',
+    next: 'Approved and exported to handoff (models/ch1-depot.glb). Waiting on Julius: in-world install on the screen (proposal in the handoff).',
+    ctl: ['depot'], cam: [[-2.4, 2.1, 7.0], [-0.4, 1.5, 0]],
+  },
+  station: {
+    label: 'Scan station', tag: 'mockup', tagC: '#b86bff', id: 'scorer + plinth', file: 'scorer/*.glb + plinth/ch1-scan-plinth.glb',
+    where: 'Right wall: plinth on the floor, the eye 1.57 m above the pad (same heights as layout.ts).',
+    status: 'Interaction mockup: lay flag → eye looks down → scan sweep → green / red / dark flicker.',
+    next: 'If it feels right: engineer wires it to the chute step (scan ≈ 1.4 s, result = existing lampSeconds).',
+    ctl: ['submit'], cam: [[-2.1, 1.75, 2.9], [0, 1.2, 0]],
+  },
+};
+
+// ---------------------------------------------------------------- renderer
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.toneMapping = THREE.AgXToneMapping;
+document.body.appendChild(renderer.domElement);
+const scene = new THREE.Scene();
+scene.background = new THREE.Color('#04060b');
+scene.environment = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), 0.04).texture;
+scene.environmentIntensity = 0.18;
+const camera = new THREE.PerspectiveCamera(35, innerWidth / innerHeight, 0.01, 50);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+const key = new THREE.DirectionalLight('#dbe8ff', 1.4); key.position.set(-1.3, 2.3, 1.2); scene.add(key);
+const rim = new THREE.DirectionalLight('#38d8ff', 1.1); rim.position.set(1.0, 1.7, -1.1); scene.add(rim);
+const composer = new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene, camera));
+composer.addPass(new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.55, 0.35, 1.0));
+composer.addPass(new OutputPass());
+
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(8, 8), new THREE.MeshStandardMaterial({ color: '#070b14', roughness: 0.85 }));
+floor.rotation.x = -Math.PI / 2;
+const grid = new THREE.GridHelper(8, 32, '#12304a', '#0b1a2a');
+grid.position.y = 0.001;
+
+const loadGLB = (name) => new Promise((ok) => {
+  const bin = Uint8Array.from(atob(window.GLB[name]), (c) => c.charCodeAt(0)).buffer;
+  new GLTFLoader().parse(bin, '', (g) => ok(g.scene));
+});
+
+// ---------------------------------------------------------------- scorer rig
+const STATES = { off: ['#1a2333', 0.3], green: ['#39ff9c', 3.0], red: ['#ff3b4e', 3.0], dark: ['#b86bff', 1.0] };
+function scorerRig(root) {
+  const r = { root, state: 'off', lid: 0, blinkT: -1, spinners: [], ticks: [], look: new THREE.Vector3(0, 0, 5), aim: null };
+  root.traverse((o) => {
+    if (o.name === 'bulb') r.bulb = o.material;
+    if (o.name === 'eye') r.eye = o;
+    if (o.name === 'lid_top') r.lidTop = o;
+    if (o.name === 'lid_bottom') r.lidBottom = o;
+    if (/^ring_(outer|inner)_(band|nodes)$/.test(o.name)) r.spinners.push(o);
+    const m = o.name.match(/^tick_(\d)$/);
+    if (m) { o.material.emissive.set('#38d8ff'); r.ticks[m[1] - 1] = o.material; }
+  });
+  r.glow = new THREE.PointLight('#39ff9c', 0, 2.5); r.glow.position.set(0, 0, 0.35); r.eye.add(r.glow);
+  r.setTicks = (n) => r.ticks.forEach((m, i) => (m.emissiveIntensity = i < n ? 4 : 0));
+  r.update = (dt, t) => {
+    const [c, k0] = STATES[r.state];
+    let k = k0;
+    if (r.state === 'dark') k = Math.random() < 0.35 ? 0.05 : 0.8 * Math.abs(Math.sin(t * 9)); // same rule as Room.tsx
+    r.bulb.emissive.set(c); r.bulb.emissiveIntensity = k;
+    r.glow.color.set(c); r.glow.intensity = r.state === 'off' ? 0 : k * 0.15;
+    let l = r.state === 'dark' ? 0.45 : r.squint || 0;
+    if (r.blinkT >= 0) { r.blinkT += dt; l = Math.max(l, Math.sin(Math.min(r.blinkT / 0.28, 1) * Math.PI)); if (r.blinkT > 0.28) r.blinkT = -1; }
+    r.lid += (l - r.lid) * Math.min(1, dt * 18);
+    const a = THREE.MathUtils.degToRad(52) * r.lid;
+    if (r.lidTop) r.lidTop.rotation.x = a;
+    if (r.lidBottom) r.lidBottom.rotation.x = -a;
+    if (ui.spin) r.spinners.forEach((o, i) => {
+      o.rotation.z += (i < 2 ? 0.25 : -0.35) * (r.state === 'dark' ? (Math.random() < 0.1 ? 6 : 0.2) : 1) * dt;
+    });
+    if (r.aim) { r.look.lerp(r.aim, Math.min(1, dt * 6)); r.eye.lookAt(r.look); }
+  };
+  return r;
+}
+
+// ---------------------------------------------------------------- plinth rig
+function plinthRig(root) {
+  const r = { root, pad: 'idle', tint: null };
+  root.traverse((o) => { if (o.name === 'screen') { r.screen = o; r.mat = o.material; } });
+  r.update = (dt, t) => {
+    let c = '#38d8ff', k = 0.6;
+    if (r.pad === 'off') k = 0.02;
+    if (r.pad === 'scan') k = 0.9 + 0.6 * Math.sin(t * 14);
+    if (r.tint) { c = STATES[r.tint][0]; k = r.tint === 'dark' ? (Math.random() < 0.4 ? 0.05 : 0.7) : 1.4; }
+    r.mat.emissive.set(c); r.mat.emissiveIntensity = k;
+  };
+  return r;
+}
+
+// ---------------------------------------------------------------- depot rig
+// Mock of the HTML list (story ch1: Z-to-A, Install per row). Package names are the story's; the real UI is HTML in app/.
+function depotScreen() {
+  const cv = document.createElement('canvas'); cv.width = 1000; cv.height = 900;
+  const x = cv.getContext('2d');
+  const rows = [['port-map', '-5'], ['grep-lens', '-5'], ['bug-gun', '-5'], ['b64-decoder', 'installed']];
+  const draw = (hi) => {
+    x.fillStyle = '#03101a'; x.fillRect(0, 0, 1000, 900);
+    x.strokeStyle = 'rgba(56,216,255,.35)'; x.lineWidth = 3; x.strokeRect(30, 30, 940, 840);
+    x.fillStyle = '#38d8ff'; x.font = 'bold 54px "Chakra Petch", sans-serif'; x.fillText('ARTIFACTORY', 70, 115);
+    x.font = '28px "JetBrains Mono", monospace'; x.fillStyle = 'rgba(160,200,230,.6)'; x.fillText('packages · sorted Z → A', 70, 165);
+    rows.forEach(([n, c], i) => {
+      const y = 230 + i * 140;
+      x.fillStyle = i === hi ? 'rgba(56,216,255,.14)' : 'rgba(56,216,255,.05)'; x.fillRect(60, y, 880, 110);
+      x.fillStyle = '#d7e6ff'; x.font = '44px "JetBrains Mono", monospace'; x.fillText(n, 95, y + 70);
+      const inst = c === 'installed';
+      x.strokeStyle = inst ? 'rgba(57,255,156,.6)' : '#38d8ff'; x.lineWidth = 3; x.strokeRect(680, y + 22, 230, 66);
+      x.fillStyle = inst ? '#39ff9c' : '#38d8ff'; x.font = '30px "JetBrains Mono", monospace';
+      x.fillText(inst ? 'installed' : 'INSTALL ' + c, 698, y + 66);
+    });
+    tex.needsUpdate = true;
+  };
+  const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace; tex.flipY = false;
+  draw(-1);
+  return { tex, draw };
+}
+function depotRig(root) {
+  const r = { root, state: 'on', list: true, fans: [], hatchT: -1 };
+  root.traverse((o) => {
+    if (o.name === 'screen') r.screen = o;
+    if (o.name === 'hatch') r.hatch = o;
+    if (o.name === 'tube_broken') r.bad = o.material;
+    if (o.name === 'beacon_lens') r.beacon = o.material;
+    if (o.name === 'tube_0') r.tube = o.material;
+  });
+  r.base = r.screen.material;
+  r.ui = depotScreen();
+  r.uiMat = new THREE.MeshStandardMaterial({ color: '#000', emissive: '#fff', emissiveMap: r.ui.tex, roughness: 0.6 });
+  r.glow = new THREE.PointLight('#ffb020', 0, 3); r.glow.position.set(0.86, 3.1, 0.1); root.add(r.glow);
+  r.update = (dt, t) => {
+    const g = r.state === 'glimmer', off = r.state === 'off';
+    const pulse = g ? 0.55 + 0.45 * Math.sin(t * 5) : 1;
+    r.screen.material = r.list && !off ? r.uiMat : r.base;
+    r.uiMat.emissiveIntensity = (g ? 0.35 + 0.35 * pulse : 0.85) * (Math.random() < (g ? 0.05 : 0.01) ? 0.4 : 1);
+    r.base.emissiveIntensity = off ? 0.01 : 0.16 * pulse;
+    const beat = g && (t * 2.2) % 1 < 0.45; // beacon blinks while a new tool waits
+    r.beacon.emissiveIntensity = beat ? 8 : 0.3; r.glow.intensity = beat ? 2.5 : 0;
+    r.tube.emissiveIntensity = off ? 0.05 : 3;
+    r.bad.emissiveIntensity = off ? 0.02 : Math.random() < 0.12 ? 3 : Math.random() < 0.5 ? 0.15 : 0.6; // buggy tube
+    if (r.hatchT >= 0) {
+      r.hatchT += dt;
+      const a = r.hatchT < 0.25 ? r.hatchT / 0.25 : r.hatchT < 1.4 ? 1 : Math.max(0, 1 - (r.hatchT - 1.4) / 0.35);
+      r.hatch.rotation.x = -THREE.MathUtils.degToRad(70) * a; // lift out toward the player (vending-tray flap)
+      if (r.hatchT > 1.8) r.hatchT = -1;
+    }
+  };
+  r.install = () => {
+    r.ui.draw(0); r.hatchT = 0;
+    setTimeout(() => r.ui.draw(-1), 900);
+  };
+  return r;
+}
+
+// ---------------------------------------------------------------- views
+const ui = { follow: true, spin: true, ticks: 3, variant: 'scorer' };
+const views = {};
+let current = null;
+const rigs = [];
+
+async function buildViews() {
+  for (const k of ['scorer', 'smooth']) {
+    const g = new THREE.Group(); const rig = scorerRig(await loadGLB(k === 'scorer' ? 'ch1-scorer' : 'ch1-scorer-smooth'));
+    rig.state = 'green'; rig.setTicks(3); g.add(rig.root);
+    views[k] = { group: g, scorer: rig }; rigs.push(rig);
+  }
+  {
+    const g = new THREE.Group(); const p = plinthRig(await loadGLB('ch1-scan-plinth'));
+    g.add(p.root); views.plinth = { group: g, plinth: p, floor: true }; rigs.push(p);
+  }
+  {
+    const g = new THREE.Group(); const d = depotRig(await loadGLB('ch1-depot'));
+    g.add(d.root); views.depot = { group: g, depot: d, floor: true }; rigs.push(d);
+  }
+  {
+    const g = new THREE.Group();
+    const p = plinthRig(await loadGLB('ch1-scan-plinth'));
+    g.add(p.root);
+    const eyes = {};
+    for (const v of ['scorer', 'smooth']) {
+      const s = scorerRig(await loadGLB(v === 'scorer' ? 'ch1-scorer' : 'ch1-scorer-smooth'));
+      s.root.position.set(0, 2.5, -0.12); s.state = 'off'; s.setTicks(0);
+      g.add(s.root); eyes[v] = s; rigs.push(s);
+    }
+    rigs.push(p);
+    views.station = { group: g, plinth: p, eyes, floor: true, station: makeStation(g, p) };
+  }
+  Object.values(views).forEach((v) => { v.group.visible = false; scene.add(v.group); });
+  select(location.hash.slice(1) in ASSETS ? location.hash.slice(1) : 'scorer');
+}
+
+// ---------------------------------------------------------------- station: lay flag → scan → result
+function flagCard(text, color) {
+  const cv = document.createElement('canvas'); cv.width = 512; cv.height = 160;
+  const x = cv.getContext('2d');
+  x.fillStyle = '#06110c'; x.fillRect(0, 0, 512, 160);
+  x.strokeStyle = color; x.lineWidth = 6; x.strokeRect(6, 6, 500, 148);
+  x.fillStyle = color; x.font = 'bold 54px "JetBrains Mono", monospace'; x.textAlign = 'center'; x.textBaseline = 'middle';
+  x.fillText(text, 256, 82);
+  const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace;
+  const m = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.075, 0.006),
+    new THREE.MeshStandardMaterial({ map: tex, emissiveMap: tex, emissive: '#ffffff', emissiveIntensity: 0.9, roughness: 0.4, transparent: true }));
+  return m;
+}
+function makeStation(group, plinth) {
+  const beamMat = new THREE.MeshBasicMaterial({ color: '#38d8ff', transparent: true, opacity: 0.22, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
+  const beamGeo = new THREE.BufferGeometry(); beamGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(9), 3));
+  const beam = new THREE.Mesh(beamGeo, beamMat); beam.frustumCulled = false; beam.visible = false; group.add(beam);
+  const line = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.004, 0.004), new THREE.MeshBasicMaterial({ color: '#9ff3ff' }));
+  line.visible = false; group.add(line);
+  const st = { phase: 'idle', t: 0, kind: null, flag: null, beam, line };
+  const padPos = new THREE.Vector3(), padQ = new THREE.Quaternion(), right = new THREE.Vector3(), fwd = new THREE.Vector3(), up = new THREE.Vector3();
+  const pad = () => {
+    plinth.screen.getWorldPosition(padPos); plinth.screen.getWorldQuaternion(padQ);
+    right.set(1, 0, 0).applyQuaternion(padQ); fwd.set(0, 0, 1).applyQuaternion(padQ); up.set(0, 1, 0).applyQuaternion(padQ);
+  };
+  st.submit = (kind) => {
+    if (st.flag) group.remove(st.flag);
+    pad();
+    const text = { green: 'FLAG{3c0d3}', red: 'FLAG{d3c0y}', dark: 'FLAG{?????}' }[kind];
+    st.flag = flagCard(text, '#39ff9c');
+    st.flag.position.copy(padPos).addScaledVector(up, 0.006);
+    st.flag.quaternion.copy(padQ).multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -Math.PI / 2));
+    group.add(st.flag);
+    st.kind = kind; st.phase = 'look'; st.t = 0;
+  };
+  st.update = (dt, eye) => {
+    st.t += dt; pad();
+    const apex = new THREE.Vector3(); eye.eye.getWorldPosition(apex);
+    if (st.phase === 'idle') { eye.aim = camera.position.clone(); eye.squint = 0; return; }
+    eye.aim = padPos.clone();
+    if (st.phase === 'look') { plinth.pad = 'idle'; eye.squint = 0.15; if (st.t > 0.6) { st.phase = 'scan'; st.t = 0; } }
+    if (st.phase === 'scan') {
+      plinth.pad = 'scan';
+      const s = Math.sin(Math.min(st.t / 1.4, 1) * Math.PI * 2) * 0.11; // sweep forward and back
+      const a = padPos.clone().addScaledVector(fwd, s).addScaledVector(up, 0.008);
+      const p = beam.geometry.attributes.position;
+      const fdir = apex.clone().sub(padPos).normalize();
+      apex.addScaledVector(fdir, -0.13);
+      p.setXYZ(0, apex.x, apex.y, apex.z);
+      const l = a.clone().addScaledVector(right, -0.2), rr = a.clone().addScaledVector(right, 0.2);
+      p.setXYZ(1, l.x, l.y, l.z); p.setXYZ(2, rr.x, rr.y, rr.z); p.needsUpdate = true;
+      beam.visible = line.visible = true;
+      line.position.copy(a); line.quaternion.copy(padQ);
+      if (st.t > 1.4) { st.phase = 'result'; st.t = 0; beam.visible = line.visible = false; eye.state = st.kind; plinth.pad = 'idle'; plinth.tint = st.kind; eye.squint = 0; }
+    }
+    if (st.phase === 'result') {
+      if (st.kind === 'green' && st.t > 0.8 && st.flag) { // accepted flag slides into the return slot
+        const k = Math.min((st.t - 0.8) / 0.6, 1);
+        st.flag.position.copy(padPos).addScaledVector(fwd, -0.2 * k).addScaledVector(up, 0.006 - 0.03 * k * k);
+        st.flag.material.opacity = 1 - k;
+      }
+      if (st.t > (st.kind === 'dark' ? 3.0 : 2.2)) {
+        eye.state = 'off'; plinth.tint = null; st.phase = 'idle';
+        if (st.kind === 'green') { group.remove(st.flag); st.flag = null; ui.ticks = Math.min(5, ui.ticks + 1); }
+      }
+    }
+  };
+  return st;
+}
+
+// ---------------------------------------------------------------- UI
+const $ = (s) => document.querySelector(s);
+$('#assets').innerHTML = Object.entries(ASSETS).map(([k, a]) =>
+  `<button data-a="${k}">${a.label}<span class="tag" style="color:${a.tagC}">${a.tag}</span><small>${a.id}</small></button>`).join('');
+function select(k) {
+  current = k; location.hash = k;
+  const a = ASSETS[k], v = views[k];
+  Object.values(views).forEach((x) => (x.group.visible = false));
+  v.group.visible = true;
+  floor.removeFromParent(); grid.removeFromParent();
+  if (v.floor) scene.add(floor, grid);
+  document.querySelectorAll('#assets button').forEach((b) => b.classList.toggle('on', b.dataset.a === k));
+  document.querySelectorAll('.ctl').forEach((c) => (c.hidden = !a.ctl.includes(c.dataset.ctl)));
+  const tgt = new THREE.Vector3(...a.cam[1]), off = new THREE.Vector3(...a.cam[0]).sub(tgt);
+  camera.position.copy(tgt).addScaledVector(off, Math.max(1, 1.25 / camera.aspect)); // fit narrow windows
+  controls.target.copy(tgt); controls.update();
+  $('#note').innerHTML = `<b>Where it lives</b>${a.where}<b>Status</b>${a.status}<b>Next</b>${a.next}<b>File</b><code>design/3d/${a.file}</code>`;
+  syncButtons();
+}
+function syncButtons() {
+  const v = views[current];
+  if (v.scorer) document.querySelectorAll('#states button').forEach((b) => b.classList.toggle('on', b.dataset.s === v.scorer.state));
+  if (v.plinth) document.querySelectorAll('#pads button').forEach((b) => b.classList.toggle('on', b.dataset.p === v.plinth.pad));
+  if (v.depot) document.querySelectorAll('#dstates button').forEach((b) => b.classList.toggle('on', b.dataset.d === v.depot.state));
+  document.querySelectorAll('#variants button').forEach((b) => b.classList.toggle('on', b.dataset.v === ui.variant));
+  $('#ticks').value = ui.ticks; $('#tv').textContent = ui.ticks + '/5';
+}
+$('#assets').onclick = (e) => { const b = e.target.closest('button'); if (b) select(b.dataset.a); };
+$('#states').onclick = (e) => { const b = e.target.closest('button'); if (b) { views[current].scorer.state = b.dataset.s; syncButtons(); } };
+$('#pads').onclick = (e) => { const b = e.target.closest('button'); if (b) { views[current].plinth.pad = b.dataset.p; syncButtons(); } };
+$('#submits').onclick = (e) => { const b = e.target.closest('button'); if (b) views.station.station.submit(b.dataset.k); };
+$('#variants').onclick = (e) => { const b = e.target.closest('button'); if (b) { ui.variant = b.dataset.v; syncButtons(); } };
+$('#dstates').onclick = (e) => { const b = e.target.closest('button'); if (b) { views.depot.depot.state = b.dataset.d; syncButtons(); } };
+$('#dlist').onclick = () => { const d = views.depot.depot; d.list = !d.list; $('#dlist').classList.toggle('on', d.list); };
+$('#dinstall').onclick = () => views.depot.depot.install();
+$('#ticks').oninput = (e) => { ui.ticks = +e.target.value; syncButtons(); };
+$('#blink').onclick = () => { const s = views[current].scorer; if (s) s.blinkT = 0; };
+const tog = (id, key) => { $(id).onclick = () => { ui[key] = !ui[key]; $(id).classList.toggle('on', ui[key]); }; };
+tog('#follow', 'follow'); tog('#spin', 'spin');
+
+const mouse = new THREE.Vector2(), ray = new THREE.Raycaster();
+addEventListener('pointermove', (e) => mouse.set((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1));
+const clock = new THREE.Clock();
+renderer.setAnimationLoop(() => {
+  const dt = Math.min(clock.getDelta(), 0.05), t = clock.elapsedTime;
+  const v = views[current];
+  if (v) {
+    if (v.scorer) {
+      ray.setFromCamera(mouse, camera);
+      v.scorer.aim = ui.follow ? ray.ray.origin.clone().addScaledVector(ray.ray.direction, 1.2) : new THREE.Vector3(0, 0, 5);
+      v.scorer.setTicks(ui.ticks);
+    }
+    if (v.station) {
+      for (const [k, e] of Object.entries(v.eyes)) e.root.visible = k === ui.variant;
+      const eye = v.eyes[ui.variant];
+      eye.setTicks(ui.ticks);
+      v.station.update(dt, eye);
+    }
+    rigs.forEach((r) => r.root.visible !== false && r.update(dt, t));
+  }
+  controls.update();
+  composer.render();
+});
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight); composer.setSize(innerWidth, innerHeight);
+});
+buildViews();
+</script>
+</body>
+</html>

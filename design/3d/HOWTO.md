@@ -5,7 +5,7 @@ Julius approved this approach ("fantastic, really impressive"). Repeat it for th
 ## Pipeline
 1. **One Python build script per prop** (`design/3d/<prop>/<prop>.py`) is the source of truth. It builds the model from code (bmesh + modifiers), sets up preview lights, camera and bloom, renders the state previews and exports `.glb` + `.blend`. Rebuild with `blender -b --factory-startup -P <prop>.py`; it takes seconds.
 2. **Build headless, look at renders, iterate.** Render one state, look at the PNG, fix, re-render. Show Julius a picture early, before polishing.
-3. **A review page per prop** (`index.html`): three.js loads the real `.glb` (embedded as base64 in `<prop>.glb.js` so file:// works), with buttons for every game state. It uses the same renderer as the game, so it shows what the engineer will get. Serve it with `python3 -m http.server` from `design/` to view it in the browser pane.
+3. **One review hub for all props: `design/3d/index.html`.** It has an asset picker, a top-left board with controls per asset, and a bottom-left note (where it lives, status, next). three.js loads the real `.glb`s from base64 `<name>.glb.js` files, so file:// works; run `python3 design/3d/tools/embed.py` after every export. To add an asset: add a row to `ASSETS` (label, tag, where, status, next, controls, camera), add a `<script>` tag for its `.glb.js`, and add a view in `buildViews()`. Keep the status/next text current there, because that's what Julius reads. Serve with `python3 -m http.server` from `design/` for the browser pane.
 4. Only after Julius approves: export to `handoff/design-to-app/` and add it to the manifest.
 
 ## What made it look good
@@ -20,3 +20,8 @@ Julius approved this approach ("fantastic, really impressive"). Repeat it for th
 - Export: deselect everything first or the user's objects get exported. `temp_override(scene=…)` around the glTF export crashed Blender 4.3. Removing meshes in the live GUI session crashed it too, so build headless.
 - The browser pane shows local files as data: snapshots, so relative files break. Use a localhost server.
 - The Claude Blender extension doesn't speak the installed add-on's protocol. Use `design/3d/tools/bl.py` if live Blender is needed.
+- Screens that get a texture in three.js need UVs: `bm.loops.layers.uv.new()` then `create_grid(..., calc_uvs=True)`. Set `tex.flipY = false` on a CanvasTexture applied to a glTF mesh.
+- Glossy screens catch the preview key light and wash out. Use roughness ~0.65 and a low emission (~0.16), and let the UI texture carry the light.
+- Preview-only props (floor, wall): export only `root` + `root.children_recursive`, not every mesh.
+- Worn/rusty looks: generate textures in the build script with numpy (fbm noise → chipped paint over rust, vertical drip grime, dents → normal map). Wire them as Image → Base Color, ORM image → Separate Color (G→Roughness, B→Metallic), normal image → Normal Map, which is the pattern the glTF exporter understands. Box-project world-scale UVs per mesh (v = Z on walls so drips run down) and export with `export_image_format="JPEG"`. See `depot/depot.py`.
+- `create_grid(calc_uvs=True)` silently writes no UVs unless a UV layer exists first (`bm.loops.layers.uv.new()`).

@@ -1,6 +1,7 @@
 # Scorer eye (ch1.scorer) — builds the model into a scene "scorer", renders previews, exports .glb.
 # Live:     python3 -I design/3d/tools/bl.py code <runner>  (runner sets OUT / ACTION, then exec()s this file)
-# Headless: blender -b -P design/3d/scorer/scorer.py
+# Headless: blender -b --factory-startup -P design/3d/scorer/scorer.py
+# Variant:  SCORER_VARIANT=smooth ... -> ch1-scorer-smooth.glb (less armoured: one ceramic shell, no plates/fins)
 # Blender Z up, eye looks along -Y (= glTF +Z, so three.js lookAt() aims it). Origin = eye centre.
 import bpy, bmesh, math, os
 from math import sin, cos, radians as rad
@@ -9,6 +10,9 @@ from mathutils import Vector
 OUT = globals().get("OUT") or os.path.dirname(os.path.abspath(__file__))
 ACTION = globals().get("ACTION", "all")  # build | render | export | all
 TAU = 2 * math.pi
+VARIANT = globals().get("VARIANT") or os.environ.get("SCORER_VARIANT", "armoured")
+SMOOTH = VARIANT == "smooth"
+SUF = "-smooth" if SMOOTH else ""
 
 
 def lin(h):
@@ -133,7 +137,11 @@ M = {
     "trim": mat("scorer_trim", lin("#8a94a3"), 1.0, 0.22),
     "glass": mat("scorer_lens", lin("#020304"), 0.0, 0.04, coat=1.0),
     "bulb": mat("bulb", (0, 0, 0), 0.0, 0.4),
+    "shell": mat("scorer_shell", lin("#c3c9d2"), 0.0, 0.32, coat=0.6),
+    "satin": mat("scorer_satin", lin("#1b2029"), 0.25, 0.45),
 }
+SHELL = M["shell"] if SMOOTH else M["hull"]
+TRIM = M["satin"] if SMOOTH else M["trim"]
 TICKS = [mat(f"tick_{i}", lin("#0a1a22"), 0.2, 0.4, em=lin("#38d8ff"), strength=0.0) for i in range(1, 6)]
 
 
@@ -145,9 +153,33 @@ def build():
 
     # core (only seen through the panel gaps)
     bm = bmesh.new()
-    bmesh.ops.create_uvsphere(bm, u_segments=32, v_segments=16, radius=0.188)
+    bmesh.ops.create_uvsphere(bm, u_segments=24, v_segments=12, radius=0.188)
     bmesh.ops.delete(bm, geom=[f for f in bm.faces if f.calc_center_median().y < -0.10], context="FACES")
     link("core", bm, M["core"], eye)
+    if SMOOTH:
+        build_smooth_body(eye)
+    else:
+        build_armour(eye)
+    build_lens(eye)
+    build_lids_and_rings(root, eye)
+    return root
+
+
+def build_smooth_body(eye):
+    """One seamless ceramic shell instead of plates."""
+    bm = bmesh.new()
+    bmesh.ops.create_uvsphere(bm, u_segments=48, v_segments=24, radius=0.2)
+    bmesh.ops.delete(bm, geom=[f for f in bm.faces if math.degrees(math.acos(max(-1, min(1, -f.calc_center_median().normalized().y)))) < 54], context="FACES")
+    o = link("housing", bm, M["shell"], eye)
+    sol = o.modifiers.new("solidify", "SOLIDIFY")
+    sol.thickness, sol.offset = 0.01, -1
+    bevel(o, 0.003, 2, 30)
+    bm = bmesh.new()
+    lathe(bm, [(0.0, 0.185), (0.045, 0.185), (0.05, 0.205), (0.0, 0.212)], 32)
+    link("hub", bm, M["satin"], eye)
+
+
+def build_armour(eye):
 
     # housing: armour plates in rings around the eye axis, with gaps
     bm = bmesh.new()
@@ -189,37 +221,51 @@ def build():
     sol = o.modifiers.new("solidify", "SOLIDIFY")
     sol.thickness, sol.offset = 0.012, -1
     bevel(o, 0.0025, 1, 30)
-
-    # lens bezel (bright trim) + inner throat (dark)
-    bm = bmesh.new()
-    lathe(bm, [(0.150, -0.105), (0.168, -0.112), (0.171, -0.150), (0.163, -0.163), (0.142, -0.163), (0.134, -0.152), (0.136, -0.112)], 64)
-    o = link("bezel", bm, M["trim"], eye)
-    bevel(o, 0.0015, 1, 25)
-    bm = bmesh.new()
-    lathe(bm, [(0.134, -0.150), (0.137, -0.150), (0.122, -0.108), (0.118, -0.108)], 48)
-    link("throat", bm, M["hull"], eye)
     # fine grip ring behind the bezel
     bm = bmesh.new()
     for k in range(72):
         box(bm, (0.158 * cos(k / 72 * TAU), -0.100, 0.158 * sin(k / 72 * TAU)), (0.004, 0.012, 0.006), -k / 72 * TAU)
     link("grip", bm, M["hull"], eye, smooth=False)
+    # back: hub + radial cooling fins
+    bm = bmesh.new()
+    lathe(bm, [(0.0, 0.17), (0.055, 0.17), (0.06, 0.205), (0.045, 0.228), (0.0, 0.228)], 24)
+    o = link("hub", bm, M["hull"], eye)
+    bevel(o, 0.002, 2, 30)
+    bm = bmesh.new()
+    for k in range(8):
+        a = k / 8 * TAU + TAU / 16
+        box(bm, (0.105 * cos(a), 0.175, 0.105 * sin(a)), (0.09, 0.05, 0.006), -a)
+    o = link("fins", bm, M["hull"], eye, smooth=False)
+    bevel(o, 0.0015, 1, 30)
+
+
+def build_lens(eye):
+
+    # lens bezel (bright trim) + inner throat (dark)
+    bm = bmesh.new()
+    lathe(bm, [(0.150, -0.105), (0.168, -0.112), (0.171, -0.150), (0.163, -0.163), (0.142, -0.163), (0.134, -0.152), (0.136, -0.112)], 64)
+    o = link("bezel", bm, TRIM, eye)
+    bevel(o, 0.0015, 1, 25)
+    bm = bmesh.new()
+    lathe(bm, [(0.134, -0.150), (0.137, -0.150), (0.122, -0.108), (0.118, -0.108)], 48)
+    link("throat", bm, M["hull"], eye)
 
     # iris backplate (dark) + segmented glowing iris + pupil
     bm = bmesh.new()
-    lathe(bm, [(0.0, -0.104), (0.121, -0.104), (0.121, -0.110), (0.0, -0.118)], 48)
+    lathe(bm, [(0.0, -0.104), (0.121, -0.104), (0.121, -0.110), (0.0, -0.118)], 32)
     link("iris_back", bm, M["core"], eye)
     bm = bmesh.new()
-    nseg, gap = 32, rad(2.2)
+    nseg, gap = (64, rad(0.8)) if SMOOTH else (32, rad(2.2))
     for k in range(nseg):
         a0, a1 = k / nseg * TAU + gap / 2, (k + 1) / nseg * TAU - gap / 2
         lathe(bm, [(0.064, -0.124), (0.113, -0.114), (0.113, -0.109), (0.064, -0.118)], 3, a0, a1)
     finish(bm)
     link("bulb", bm, M["bulb"], eye, smooth=False)
     bm = bmesh.new()
-    lathe(bm, [(0.047, -0.112), (0.066, -0.120), (0.066, -0.128), (0.050, -0.132)], 48)
-    o = link("pupil_ring", bm, M["trim"], eye)
+    lathe(bm, [(0.047, -0.112), (0.066, -0.120), (0.066, -0.128), (0.050, -0.132)], 36)
+    o = link("pupil_ring", bm, TRIM, eye)
     bm = bmesh.new()
-    bmesh.ops.create_uvsphere(bm, u_segments=24, v_segments=12, radius=0.05)
+    bmesh.ops.create_uvsphere(bm, u_segments=20, v_segments=10, radius=0.05)
     bmesh.ops.scale(bm, vec=(1, 0.55, 1), verts=bm.verts)
     bmesh.ops.translate(bm, vec=(0, -0.106, 0), verts=bm.verts)
     link("pupil", bm, M["glass"], eye)
@@ -235,18 +281,9 @@ def build():
         box(bm, (0.1525 * cos(a), -0.1645, 0.1525 * sin(a)), (0.012, 0.003, 0.006), -a)
         link(f"tick_{i + 1}", bm, TICKS[i], eye, smooth=False)
 
-    # back: hub + radial cooling fins
-    bm = bmesh.new()
-    lathe(bm, [(0.0, 0.17), (0.055, 0.17), (0.06, 0.205), (0.045, 0.228), (0.0, 0.228)], 24)
-    o = link("hub", bm, M["hull"], eye)
-    bevel(o, 0.002, 2, 30)
-    bm = bmesh.new()
-    for k in range(8):
-        a = k / 8 * TAU + TAU / 16
-        box(bm, (0.105 * cos(a), 0.175, 0.105 * sin(a)), (0.09, 0.05, 0.006), -a)
-    o = link("fins", bm, M["hull"], eye, smooth=False)
-    bevel(o, 0.0015, 1, 30)
 
+
+def build_lids_and_rings(root, eye):
     # eyelids: two armoured shells pivoting around X (open = retracted top/bottom)
     for name, t0, t1 in (("lid_top", 52, 168), ("lid_bottom", -52, -168)):
         bm = bmesh.new()
@@ -258,10 +295,12 @@ def build():
             for i in range(A):
                 bm.faces.new((grid[j][i], grid[j][i + 1], grid[j + 1][i + 1], grid[j + 1][i]))
         finish(bm)
-        o = link(name, bm, M["hull"], eye)
+        o = link(name, bm, SHELL, eye)
         sol = o.modifiers.new("solidify", "SOLIDIFY")
-        sol.thickness, sol.offset = 0.014, 1
+        sol.thickness, sol.offset = (0.008, 1) if SMOOTH else (0.014, 1)
         bevel(o, 0.003, 2, 30)
+        if SMOOTH:
+            continue
         # bright lip along the leading edge
         bm = bmesh.new()
         lip = [bm.verts.new((0.2235 * sin(al), -0.2235 * cos(al) * cos(rad(t0)), 0.2235 * cos(al) * sin(rad(t0))))
@@ -274,8 +313,9 @@ def build():
             v.radius = (0.0035, 0.0035)
 
     # gyroscope rings (rotate around the eye), with glowing nodes at the arc ends
-    for name, r0, r1, rot in (("ring_outer", 0.282, 0.296, (rad(14), rad(0), rad(-8))),
-                              ("ring_inner", 0.250, 0.262, (rad(-12), rad(60), rad(10)))):
+    rings = [("ring_outer", 0.282, 0.296, (rad(14), rad(0), rad(-8))),
+             ("ring_inner", 0.250, 0.262, (rad(-12), rad(60), rad(10)))]
+    for name, r0, r1, rot in rings[:1] if SMOOTH else rings:
         piv = empty(name, root)
         piv.rotation_euler = rot
         bm = bmesh.new()
@@ -287,10 +327,9 @@ def build():
             for a in (a0 - rad(3.5), a1 + rad(3.5)):
                 box(nodes, ((r0 + r1) / 2 * cos(a), 0, (r0 + r1) / 2 * sin(a)), (0.012, 0.014, 0.012), -a)
         finish(bm)
-        o = link(name + "_band", bm, M["trim"], piv)
+        o = link(name + "_band", bm, TRIM, piv)
         bevel(o, 0.0015, 1, 30)
         link(name + "_nodes", nodes, M["bulb"], piv, smooth=False)
-    return root
 
 
 def set_state(st):
@@ -367,12 +406,13 @@ def render(states):
     os.makedirs(os.path.join(OUT, "previews"), exist_ok=True)
     for st in states:
         set_state(st)
-        sc.render.filepath = os.path.join(OUT, "previews", f"scorer-{st}.png")
+        sc.render.filepath = os.path.join(OUT, "previews", f"scorer{SUF}-{st}.png")
         bpy.ops.render.render(write_still=True, scene=sc.name)
     set_state("green")
 
 
 def export():
+    bpy.context.preferences.filepaths.save_version = 0  # no .blend1 backups
     set_state("off")  # ship neutral; the app drives the state
     keep = set()
     def walk(o):
@@ -385,10 +425,10 @@ def export():
         o.select_set(False)
     for o in sc.objects:
         o.select_set(o in keep, view_layer=vl)
-    bpy.ops.export_scene.gltf(filepath=os.path.join(OUT, "ch1-scorer.glb"), export_format="GLB",
+    bpy.ops.export_scene.gltf(filepath=os.path.join(OUT, f"ch1-scorer{SUF}.glb"), export_format="GLB",
                               use_selection=True, export_apply=True, export_yup=True, export_lights=False,
                               export_cameras=False, export_extras=False)
-    bpy.ops.wm.save_as_mainfile(filepath=os.path.join(OUT, "scorer.blend"), copy=not bpy.app.background)
+    bpy.ops.wm.save_as_mainfile(filepath=os.path.join(OUT, f"scorer{SUF}.blend"), copy=not bpy.app.background)
     set_state("green")
 
 
