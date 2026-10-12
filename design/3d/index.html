@@ -123,6 +123,14 @@
     <div class="lbl">Play</div>
     <div class="row"><button id="s5submit" style="--c:#b86bff">submit flag 5 attempt</button></div>
   </div>
+  <div class="ctl" data-ctl="desk">
+    <div class="lbl">Desk state (as in game)</div>
+    <div class="row" id="dkstates">
+      <button data-k="dark" style="--c:#7f93b5">dark</button>
+      <button data-k="unread">wake: paper unread</button>
+      <button data-k="read" style="--c:#4a5a78">paper read</button>
+    </div>
+  </div>
   <div class="ctl" data-ctl="room">
     <div class="lbl">Walkthrough: one beat at a time</div>
     <div class="row" id="beats"></div>
@@ -143,6 +151,7 @@
 <script src="stations/ch1-station-4.glb.js"></script>
 <script src="stations/ch1-station-5.glb.js"></script>
 <script src="room/ch1-room.glb.js"></script>
+<script src="desk/ch1-desk.glb.js"></script>
 <script type="importmap">
 {"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"}}
 </script>
@@ -158,6 +167,13 @@ import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 
 // ---------------------------------------------------------------- asset registry (edit status/next here)
 const ASSETS = {
+  desk: {
+    label: 'Prompt desk + paper', tag: 'review', tagC: '#38d8ff', id: 'ch1.desk', file: 'desk/ch1-desk.glb',
+    where: 'Room centre, three [0, 0, 0.6] (same as the greybox). The player starts facing its front. The first and only lit thing at wake-up.',
+    status: 'v1 minimal (2026-10-12): plain matte slab desk (waterfall legs), slim T-lamp (<code>lamp_bar</code>, <code>light_anchor</code>), recessed light frame <code>paper_glow</code> and a slightly curled sheet <code>paper</code> (UV 0–1 for the prompt text). ~1.5k tris, 80 KB.',
+    next: 'Julius reviews the minimal look. Then export to the engineer.',
+    ctl: ['desk'], cam: [[-1.0, 1.6, 2.4], [0, 0.8, 0]],
+  },
   room: {
     label: 'Room walkthrough', tag: 'approved', tagC: '#39ff9c', id: 'ch1.room + all props', file: 'room/ch1-room.glb (+ every prop)',
     where: 'The whole room at the proposed spread layout: S1, S5, S3 on the back wall; S2 and S4 on the front wall behind the player; depot left; plinth, eye and door right.',
@@ -198,8 +214,8 @@ const ASSETS = {
   scorer: {
     label: 'Scorer eye', tag: 'approved', tagC: '#39ff9c', id: 'ch1.scorer', file: 'scorer/ch1-scorer.glb',
     where: 'Floats above the scan plinth by the chute, right wall (layout.ts <code>SCORER_LAMP</code> [5.4, 2.5, 2.0]). Watches the player.',
-    status: 'v1 approved by Julius (2026-10-12). Trimmed to 19.8k tris; exported to handoff (models/ch1-scorer.glb).',
-    next: 'Engineer integrates (handoff 2026-10-12-ch1-3d-props).',
+    status: 'v1 approved (2026-10-12). v1.1 (same day): a ceiling mount (spine, crown with a glowing ring, cables into the wall tray) and thin state-coloured accent lines on the gyro rings, so it is anchored in the room and reads in the dark. 22.9k tris.',
+    next: 'v1.1 handed to the engineer (handoff 2026-10-12-ch1-desk-and-eye).',
     ctl: ['state', 'motion', 'ticks'], cam: [[-0.75, 0.25, 1.85], [0, 0, 0]],
   },
   smooth: {
@@ -812,6 +828,37 @@ function s5Rig(root) {
   return r;
 }
 
+
+// Desk: paper texture (mock of the prompt) + states dark / unread (glow frame breathes) / read
+function promptTex() {
+  const t = canvasTex(480, 660), x = t.x;
+  x.fillStyle = '#e4e8ee'; x.fillRect(0, 0, 480, 660);
+  x.fillStyle = '#12161c'; x.font = 'bold 26px "JetBrains Mono", monospace'; x.fillText('TASK 7731', 36, 64);
+  x.font = '15px "JetBrains Mono", monospace'; x.fillStyle = '#5a6472'; x.fillText('TRAINING ROOM', 36, 90);
+  x.fillStyle = '#1c222b'; x.font = '16px "JetBrains Mono", monospace';
+  ['You are placed in a sandbox.', 'Capture all five flags and', 'submit each one.', '', 'A flag looks like FLAG{...}.', 'Tools are available from', 'the depot.', '', 'Your score depends on the', 'flags you capture.', '', 'Do not leave the room.']
+    .forEach((l, i) => x.fillText(l, 36, 140 + i * 26));
+  t.tex.needsUpdate = true; return t.tex;
+}
+function deskRig(root) {
+  const r = { root, state: 'unread', t: 0 };
+  const paper = find(root, 'paper');
+  paper.material = new THREE.MeshStandardMaterial({ map: promptTex(), roughness: 0.85, emissive: '#ffffff', emissiveMap: null, emissiveIntensity: 0 });
+  paper.material.map.colorSpace = THREE.SRGBColorSpace;
+  r.glow = findMat(root, 'paper_glow'); r.edge = findMat(root, 'desk_edge'); r.lamp = findMat(root, 'desk_lamp');
+  const a = find(root, 'light_anchor');
+  r.spot = new THREE.SpotLight('#eaf3ff', 0, 3, 1.0, 0.8, 1.6); r.spot.castShadow = true;
+  a.add(r.spot); r.spot.position.set(0, 0, 0);
+  r.spot.target.position.set(0, -0.6, -0.35); a.add(r.spot.target);
+  r.update = (dt, t) => {
+    const on = r.state !== 'dark', unread = r.state === 'unread';
+    r.lamp.emissiveIntensity = on ? 5 : 0; r.spot.intensity = on ? 3.5 : 0;
+    r.glow.emissiveIntensity = unread ? 1.6 + 1.2 * Math.sin(t * 2.2) : r.state === 'read' ? 0.15 : 0;
+    r.edge.emissiveIntensity = on ? 0.8 : 0;
+  };
+  return r;
+}
+
 const STATION_RIGS = { 1: s1Rig, 2: s2Rig, 3: s3Rig, 4: s4Rig, 5: s5Rig };
 // proposed spread layout (three coords, same as room.py): back wall S1, S5, S3; front wall S2, S4 behind the player
 const LAYOUT = { 1: [-3.2, -5, 0], 2: [-3.5, 5, Math.PI], 3: [3.2, -5, 0], 4: [3.0, 5, Math.PI], 5: [0, -5, 0] };
@@ -821,6 +868,7 @@ async function buildStationViews() {
     const g = new THREE.Group(); const rig = STATION_RIGS[n](await loadGLB(`ch1-station-${n}`));
     g.add(rig.root); views[`s${n}`] = { group: g, st: rig, floor: true }; rigs.push(rig);
   }
+  { const g = new THREE.Group(); const d = deskRig(await loadGLB('ch1-desk')); g.add(d.root); views.desk = { group: g, desk: d, floor: true }; rigs.push(d); }
   views.room = await buildRoom();
 }
 
@@ -847,21 +895,17 @@ async function buildRoom() {
   }
   const depot = await loadGLB('ch1-depot'); depot.position.set(-5.75, 0, 0.4); depot.rotation.y = Math.PI / 2; g.add(depot);
   const plinth = await loadGLB('ch1-scan-plinth'); plinth.position.set(5.4, 0, 2.0); plinth.rotation.y = -Math.PI / 2; g.add(plinth);
-  const eye = scorerRig(await loadGLB('ch1-scorer')); eye.root.position.set(5.4, 2.5, 2.0); eye.root.rotation.y = -Math.PI / 2; eye.state = 'off'; eye.setTicks(0); g.add(eye.root); rigs.push(eye);
+  const eye = scorerRig(await loadGLB('ch1-scorer')); eye.root.position.set(5.4, 2.5, 2.0); // app pose: no rotation, the mount's feed cable runs to the wall (+x) eye.state = 'off'; eye.setTicks(0); g.add(eye.root); rigs.push(eye);
   R.eye = eye;
-  // desk + paper stand-in (greybox, not designed yet)
-  const desk = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.74, 0.8), new THREE.MeshStandardMaterial({ color: '#1a1f27', roughness: 0.6, metalness: 0.5 }));
-  desk.position.set(0, 0.37, 0.6); g.add(desk);
-  const paperM = new THREE.MeshStandardMaterial({ color: '#e8eef8', emissive: '#ffffff', emissiveIntensity: 0.6 });
-  const paper = new THREE.Mesh(new THREE.PlaneGeometry(0.3, 0.42), paperM); paper.rotation.set(-Math.PI / 2, 0, 0.15); paper.position.set(0, 0.745, 0.6); g.add(paper);
-  R.lights.desk = spot(new THREE.Vector3(0, 3.3, 0.8), new THREE.Vector3(0, 0.7, 0.6), '#e6f0ff', 22);
+  const deskR = deskRig(await loadGLB('ch1-desk')); deskR.root.position.set(0, 0, 0.6); g.add(deskR.root); rigs.push(deskR);
+  R.desk = deskR;
+  R.lights.desk = spot(new THREE.Vector3(0, 3.3, 0.8), new THREE.Vector3(0, 0.7, 0.6), '#e6f0ff', 7); // the desk lamp does most of it
   R.lights.depot = spot(new THREE.Vector3(-4.4, 3.3, 0.4), new THREE.Vector3(-5.7, 1.4, 0.4), '#ffe0b0', 18);
   R.lights.plinth = spot(new THREE.Vector3(4.2, 3.3, 2.0), new THREE.Vector3(5.4, 1.0, 2.0), '#dbe9ff', 14);
   const lampL = new THREE.PointLight('#dce9ff', 0, 14, 1.6); lampL.position.set(0, 3.2, 0); g.add(lampL);
   const amb = new THREE.AmbientLight('#9fc4ff', 0); g.add(amb);
   const hemi = new THREE.HemisphereLight('#9fc4ff', '#0a0d14', 0); g.add(hemi);
   g.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
-  desk.castShadow = false;
 
   const BEATS = [
     ['wake', 'Dark room. Only the desk and the prompt paper are lit.'],
@@ -910,7 +954,7 @@ async function buildRoom() {
     amb.intensity = all ? 0.45 : b >= 1 ? 0.015 : 0.003;
     hemi.intensity = all ? 0.35 : 0;
     scene.environmentIntensity = all ? 0.35 : 0.02;
-    paperM.emissiveIntensity = b === 0 ? 0.6 + 0.2 * Math.sin(t * 2) : 0.15;
+    R.desk.state = b === 0 ? 'unread' : 'read';
     R.eye.aim = camera.position.clone();
     if (R.camTo && R.t < 1.6) { // turn to the station that just woke up
       const k = ease(Math.min(R.t / 1.4, 1));
@@ -952,6 +996,7 @@ function syncButtons() {
   if (v.depot) document.querySelectorAll('#dstates button').forEach((b) => b.classList.toggle('on', b.dataset.d === v.depot.state));
   document.querySelectorAll('#variants button').forEach((b) => b.classList.toggle('on', b.dataset.v === ui.variant));
   if (v.st && !v.room) document.querySelectorAll('#power button').forEach((b) => b.classList.toggle('on', b.dataset.w === v.st.power));
+  if (v.desk) document.querySelectorAll('#dkstates button').forEach((b) => b.classList.toggle('on', b.dataset.k === v.desk.state));
   if (v.room) {
     document.querySelectorAll('#beats button').forEach((b) => b.classList.toggle('on', +b.dataset.b === v.beat));
     $('#beatnote').textContent = v.BEATS[v.beat][1];
@@ -967,6 +1012,7 @@ $('#dstates').onclick = (e) => { const b = e.target.closest('button'); if (b) { 
 $('#dlist').onclick = () => { const d = views.depot.depot; d.list = !d.list; $('#dlist').classList.toggle('on', d.list); };
 $('#dinstall').onclick = () => views.depot.depot.install();
 $('#power').onclick = (e) => { const b = e.target.closest('button'); if (b) { views[current].st.setPower(b.dataset.w); syncButtons(); } };
+$('#dkstates').onclick = (e) => { const b = e.target.closest('button'); if (b) { views.desk.desk.state = b.dataset.k; syncButtons(); } };
 $('#beats').onclick = (e) => { const b = e.target.closest('button'); if (b) { views.room.setBeat(+b.dataset.b); syncButtons(); } };
 $('#s1install').onclick = () => views.s1.st.install();
 $('#s1reset').onclick = () => views.s1.st.reset();

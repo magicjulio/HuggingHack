@@ -59,3 +59,12 @@
 - Hub `design/3d/index.html`: views Room walkthrough (beats 0–6) and Station 1–5 (playable: install, drag wires, shoot bugs, flag-5 pulse).
 - Exported as draft: `handoff/design-to-app/2026-10-12-ch1-room-and-stations.md` + MANIFEST rows.
 - Next: Julius reviews → desk + paper prop, station wake sound, maybe the orb body. S3 is at 20.5k tris (trim if the engineer asks).
+
+## Desk + paper v1 minimal (2026-10-12, handed to the engineer as draft)
+- `design/3d/desk/desk.py` → `ch1-desk.glb` (~1.5k tris, 80 KB), previews `desk-wake.png` / `desk-close.png`. Julius asked for "not rusty but fits in, minimalistic": a plain matte slab with waterfall legs, a slim T-lamp (`lamp_bar` `desk_lamp`, `light_anchor`), a recessed cyan frame `paper_glow` (breathes while the paper is unread) and a curled sheet `paper` (UV 0–1 for the prompt text texture). Hairline `desk_edge`.
+- Hub: "Prompt desk + paper" view (dark / unread / read), and it replaces the greybox desk in the room walkthrough (the room's desk spot is lowered to 7, because the lamp carries the light).
+- Exported: `handoff/design-to-app/2026-10-12-ch1-desk-and-eye.md` + MANIFEST row (draft).
+
+## Scorer eye v1.1 (2026-10-12, handed to the engineer)
+- Julius asked whether the eye still fits the room. My verdict: the eye stays clean (the judge, like S5), but it floated unanchored and was unreadable in the dark. Added to `scorer.py` (`build_mount`): a static ceiling `mount` (plate, telescoping spine, `crown` + `crown_glow` on `bulb`, cables, a feed into the right wall tray at +x), plus glowing accent lines on the ring arcs (merged into `ring_*_nodes`, `bulb`). 22.9k tris. The smooth variant was rebuilt too.
+- `scorer/context.py` renders the eye in its real app pose with the room (`-- <glb> <png> [ambient]`). The "before" was 19.8k tris without the mount (kept only as a render: `previews/scorer-in-room-before.png`).

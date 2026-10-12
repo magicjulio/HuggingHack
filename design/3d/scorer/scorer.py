@@ -162,6 +162,7 @@ def build():
         build_armour(eye)
     build_lens(eye)
     build_lids_and_rings(root, eye)
+    build_mount(root)
     return root
 
 
@@ -324,12 +325,87 @@ def build_lids_and_rings(root, eye):
             a0 = k / 3 * TAU + rad(10)
             a1 = a0 + rad(100)
             lathe(bm, [(r0, -0.009), (r1, -0.009), (r1, 0.009), (r0, 0.009)], 18, a0, a1)
+            rm = (r0 + r1) / 2  # accent: a thin glowing line on both faces, so the rings read in the dark room
+            for y0, y1 in ((-0.0102, -0.0088), (0.0088, 0.0102)):
+                lathe(nodes, [(rm - 0.0016, y0), (rm + 0.0016, y0), (rm + 0.0016, y1), (rm - 0.0016, y1)], 10, a0 + rad(4), a1 - rad(4))
             for a in (a0 - rad(3.5), a1 + rad(3.5)):
                 box(nodes, ((r0 + r1) / 2 * cos(a), 0, (r0 + r1) / 2 * sin(a)), (0.012, 0.014, 0.012), -a)
         finish(bm)
         o = link(name + "_band", bm, TRIM, piv)
         bevel(o, 0.0015, 1, 30)
         link(name + "_nodes", nodes, M["bulb"], piv, smooth=False)
+
+
+def tube(name, pts, r, material, parent, res=4):
+    cu = bpy.data.curves.new(name, "CURVE")
+    cu.dimensions, cu.bevel_depth, cu.bevel_resolution, cu.resolution_u = "3D", r, 0, res
+    cu.use_fill_caps = True
+    sp = cu.splines.new("BEZIER")
+    sp.bezier_points.add(len(pts) - 1)
+    for p, c in zip(sp.bezier_points, pts):
+        p.co, p.handle_left_type, p.handle_right_type = c, "AUTO", "AUTO"
+    o = bpy.data.objects.new(name, cu)
+    sc.collection.objects.link(o)
+    bpy.context.view_layer.objects.active = o
+    for x in sc.objects:
+        x.select_set(x == o)
+    bpy.ops.object.convert(target="MESH")
+    o = bpy.context.object
+    o.name = o.data.name = name
+    o.data.materials.clear()
+    o.data.materials.append(material)
+    o.parent = parent
+    for f in o.data.polygons:
+        f.use_smooth = True
+    return o
+
+
+def build_mount(root):
+    """Ceiling suspension (added 2026-10-12 after seeing the eye in the room): ties the floating eye into the room.
+    Static, under `mount`; it does not turn with the eye. App pose has no rotation, so local +X (Blender and three)
+    points at the right wall and its cable tray; +Z is up to the ceiling (1.1 m above the eye centre)."""
+    from mathutils import Matrix
+    up = Matrix.Rotation(rad(90), 3, "X")       # lathe axis Y -> Z
+    m = empty("mount", root)
+    CEIL, CROWN = 1.1, 0.37
+    bm = bmesh.new()  # ceiling plate with a raised boss
+    box(bm, (0, 0, CEIL - 0.012), (0.3, 0.3, 0.024))
+    box(bm, (0, 0, CEIL - 0.04), (0.14, 0.14, 0.04))
+    o = link("mount_plate", finish(bm), M["plate"], m, smooth=False); bevel(o, 0.004, 2)
+    bm = bmesh.new()
+    for dx in (-0.12, 0.12):
+        for dy in (-0.12, 0.12):
+            box(bm, (dx, dy, CEIL - 0.027), (0.018, 0.018, 0.008))
+    link("mount_bolts", finish(bm), M["trim"], m, smooth=False)
+    # telescoping spine: outer sleeve, collar, inner rod
+    bm = bmesh.new()
+    lathe(bm, [(0.0, CEIL - 0.06), (0.03, CEIL - 0.06), (0.03, 0.66), (0.0, 0.66)], 12)
+    bmesh.ops.rotate(bm, verts=bm.verts, cent=(0, 0, 0), matrix=up)
+    o = link("mount_sleeve", finish(bm), M["hull"], m); bevel(o, 0.002, 1)
+    bm = bmesh.new()
+    lathe(bm, [(0.0, 0.69), (0.04, 0.69), (0.04, 0.63), (0.0, 0.63)], 12)
+    lathe(bm, [(0.0, 0.47), (0.0175, 0.47), (0.0175, 0.645), (0.0, 0.645)], 10)
+    bmesh.ops.rotate(bm, verts=bm.verts, cent=(0, 0, 0), matrix=up)
+    o = link("mount_rod", finish(bm), M["trim"], m); bevel(o, 0.002, 1)
+    # crown: a downward dish that "holds" the eye by its field; glowing underside ring in the state colour
+    bm = bmesh.new()
+    lathe(bm, [(0.0, CROWN + 0.12), (0.03, CROWN + 0.12), (0.06, CROWN + 0.06), (0.115, CROWN + 0.012),
+               (0.118, CROWN), (0.07, CROWN - 0.004), (0.0, CROWN - 0.004)], 24)
+    bmesh.ops.rotate(bm, verts=bm.verts, cent=(0, 0, 0), matrix=up)
+    o = link("crown", finish(bm), M["plate"], m, sharp=40); bevel(o, 0.002, 1)
+    bm = bmesh.new()
+    lathe(bm, [(0.08, CROWN - 0.003), (0.1, CROWN - 0.003), (0.1, CROWN - 0.008), (0.08, CROWN - 0.008)], 24)
+    bmesh.ops.rotate(bm, verts=bm.verts, cent=(0, 0, 0), matrix=up)
+    link("crown_glow", finish(bm), M["bulb"], m)
+    bm = bmesh.new()  # three small fins on the crown
+    for k in range(3):
+        a = k / 3 * TAU + rad(30)
+        box(bm, (0.085 * cos(a), 0.085 * sin(a), CROWN + 0.04), (0.05, 0.008, 0.05))
+    link("crown_fins", finish(bm), M["trim"], m, smooth=False)
+    # cables: two hug the spine, one heavy feed swings over to the wall cable tray (x +0.45, z +0.64)
+    tube("mount_cable_0", [(0.04, 0.0, CEIL - 0.07), (0.05, 0.02, 0.8), (0.045, -0.015, 0.55), (0.035, 0.0, CROWN + 0.1)], 0.009, M["core"], m)
+    tube("mount_cable_1", [(-0.035, 0.03, CEIL - 0.07), (-0.05, 0.0, 0.85), (-0.04, 0.03, 0.6), (-0.03, 0.02, CROWN + 0.1)], 0.007, M["core"], m)
+    tube("mount_feed", [(0.06, 0.0, CROWN + 0.06), (0.16, 0.0, CROWN + 0.02), (0.32, 0.02, 0.5), (0.47, 0.03, 0.66)], 0.016, M["core"], m)
 
 
 def set_state(st):
