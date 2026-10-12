@@ -50,3 +50,12 @@
   - Open idea (look only): an installed tool drops into the delivery bay.
 - **Depot v2 (2026-10-12) replaces v1.** Julius rejected v1 as "too modern / clean" and asked for a rusty cyberpunk drop-point kiosk (Cyberpunk 2077 refs) with ARTIFACTORY as the sign. `depot.py` now generates worn paint/rust/grime albedo + ORM + normal textures with numpy (`depot/tex/`), embedded as JPEG. ~10.6k tris, 1.4 MB. It is 3.0 m tall (layout box 2.6), and the frame/hood stick out ~0.17 m in front; the engineer needs to know once it's approved. New nodes: `service_door`, `beacon` (blinks on glimmer), `tube_broken` (flickers). Waiting for review.
 - **Handoff 2026-10-12:** `handoff/design-to-app/2026-10-12-ch1-3d-props.md` + MANIFEST rows. Depot v2 (approved, WebP textures), scorer v1 (approved, trimmed to 19.8k tris), plinth (draft). It includes the station behaviour and in-world interaction, **approved by Julius**: depot UI via drei `<Html transform>` on `screen`, and the flag typed as flat 3D letters on the plinth pad. Still open: the storyteller on plinth vs chute. Next reader: engineer.
+
+## Room + stations v1 (2026-10-12, APPROVED by Julius)
+- Shared build kit `design/3d/lib/kit.py` (materials, texture synth, box/cyl/torus/plane/text/wire/hazard, `station_header`, preview `stage`, `export`). New prop scripts import it; see the top of any `stations/s*_*.py`.
+- Stations: `design/3d/stations/s1_decode.py … s5_impossible.py` → `ch1-station-<n>.glb` + `previews/`. The room shell is `design/3d/room/room.py` → `ch1-room.glb`; it also renders whole-room previews with every prop placed at the spread layout.
+- Station family: worn gunmetal + off-white panels + steel trim, a shared numbered header with a light strip `bulb`, and a `light_anchor`. S4 has a red ribbed arcade cabinet. S5 is deliberately clean black obsidian with purple seams (ominous, unlike the rest).
+- Julius: spread the stations around the room (S2 and S4 behind the player) and make discovery one at a time (the room was too bright). S1/S4/S5 are played in-world, S3 by dragging 3D cables, S2 keeps its window.
+- Hub `design/3d/index.html`: views Room walkthrough (beats 0–6) and Station 1–5 (playable: install, drag wires, shoot bugs, flag-5 pulse).
+- Exported as draft: `handoff/design-to-app/2026-10-12-ch1-room-and-stations.md` + MANIFEST rows.
+- Next: Julius reviews → desk + paper prop, station wake sound, maybe the orb body. S3 is at 20.5k tris (trim if the engineer asks).

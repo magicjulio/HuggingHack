@@ -25,3 +25,9 @@ Julius approved this approach ("fantastic, really impressive"). Repeat it for th
 - Preview-only props (floor, wall): export only `root` + `root.children_recursive`, not every mesh.
 - Worn/rusty looks: generate textures in the build script with numpy (fbm noise → chipped paint over rust, vertical drip grime, dents → normal map). Wire them as Image → Base Color, ORM image → Separate Color (G→Roughness, B→Metallic), normal image → Normal Map, which is the pattern the glTF exporter understands. Box-project world-scale UVs per mesh (v = Z on walls so drips run down) and export with `export_image_format="JPEG"`. See `depot/depot.py`.
 - `create_grid(calc_uvs=True)` silently writes no UVs unless a UV layer exists first (`bm.loops.layers.uv.new()`).
+
+## Added 2026-10-12 (room + stations)
+- **Shared kit:** `lib/kit.py`. Call `kit.reset(name, OUT)` first, then `from kit import *`. Use `kit.sc` (not `sc`) in prop scripts, because the star import copies `sc` while it is still None.
+- **Glow export rule:** glTF drops the emissive colour when the strength is 0. `kit.export` raises every material made with `mat(..., em=…)` to strength 1 before exporting. Don't apply this to all materials: Blender's default emission colour is white, so everything would glow.
+- **Headless browser check:** serve `design/` (`python3 -m http.server 8765`) and drive `/usr/bin/google-chrome` with app's Playwright (`executablePath`, `--use-angle=swiftshader --enable-unsafe-swiftshader`). It catches JS errors and layout bugs. Animation is under 1 fps there, so judge motion by numbers, not by screenshots.
+- Prism profiles drawn in XZ and turned into a side panel need rotation +90° about Z (not −90°), or they end up behind the wall.
