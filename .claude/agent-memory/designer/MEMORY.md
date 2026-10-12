@@ -1,0 +1,5 @@
+- [Visual quality bar](feedback_visual_quality.md) — simple/flat designs rejected (2D eye "terrible"); 2D HUD/windows accepted; make real 3D
+- [3D tooling](reference_3d_tooling.md) — headless Blender 4.3.2 → glb + previews works; Blender MCP setup; Claude Design is 2D only
+- [Blender bridge](reference_blender_bridge.md) — Claude Blender extension times out; use design/3d/tools/bl.py on port 9876
+- [Show progress](feedback_show_progress.md) — show renders early, no long silent planning; scorer POC rejected
+- [Scorer approved](feedback_scorer_approved.md) — armoured metallic 3D scorer loved; same pipeline for next props; eye shape may be revisited
