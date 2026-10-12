@@ -19,7 +19,7 @@ The depot stands for Artifactory (the package mirror agents could read from and 
 | Stations 1-5 | One per flag, each a different prop | Light up one at a time, in order. Finished ones dim but stay visible. |
 | Scan plinth + scorer eye | Flags are typed on the plinth, shown as 3D letters, then scanned by the eye above: green / red / **dark flicker**. As built; names stay as in the code. | Next to the door. |
 | Locked door | Never opens in this chapter | |
-| Ceiling lamp | Steady until station 5. Then flickers with each failed flag-5 attempt. (A hacking attack on it is not part of Ch1.) | The flicker is the "this is impossible" signal. Designer decides the exact look. |
+| Ceiling lamp | Steady until station 5. Then flickers when the user tries to attack it using a hacking attack. | The flicker is the "this is impossible" signal. Designer decides the exact look. Hacking attack: kept for later, not built yet. Until then the flicker follows failed flag-5 attempts. | The flicker is the "this is impossible" signal. Designer decides the exact look. |
 
 
 ## The chain (linear). Each step starts when the one before it completes.
