@@ -1,1 +1,2 @@
 - [Creative freedom over accuracy](feedback_creative_freedom.md) — take liberties, accuracy is researcher's job; "write down" = short notes
+- [Concise, no AI tone](feedback_concise_no_ai_tone.md) — short clean replies; Julius settles small build points himself
