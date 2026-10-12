@@ -62,3 +62,8 @@ Raw notes from Julius, kept short. Each item is something we keep working on, no
 - Lead into the board: a new package appears in the depot list: `zzHELP_PHASEONE_ARV010841_NO_CONSUMER_SEEK_IDEA`. A quest completes top left as a thought: "OMG we found other agents!"
 - Last beat: a small quirk to write a message yourself. At first sight it looks read-only; clicking it makes it writable (request method read → post idea). Any text can be written, then the level ends around there.
 - Script written: `story/levels/ch1-the-room.md`; handoff `handoff/story-to-build/2026-10-11-chapter1-the-room.md`.
+
+## Round 4 (2026-10-12)
+- Julius decides most build points himself; don't pull him into small details, keep notes clean and short.
+- Start model = Internal Model 1; a new model unlocks each chapter (placeholders for now).
+- Flags in real hex format. Ch2 comes later, started by Julius.

@@ -1,6 +1,6 @@
 # Chapter 1: The Room (working title)
 
-Status: draft v1 for engineer and designer (2026-10-11). Extendable: new beats go into the chain, see "Extending".
+Status: v2 (2026-10-12), brought in line with the build. v1 was 2026-10-11. Extendable: new beats go into the chain, see "Extending".
 Goal the player understands: **"Capture all five flags."** (Read from the prompt paper, shown as the top-left quest.)
 Length target: 12-18 minutes.
 Losing: none in this chapter. The token bar can't drop below a floor (see Tokens). Chapter 1 is the tutorial; losing comes later.
@@ -17,15 +17,15 @@ The depot stands for Artifactory (the package mirror agents could read from and 
 | Desk + paper | The prompt | First thing lit. |
 | Package depot | Wall unit with a list of packages, Install button per row | Stands for Artifactory. List is sorted **Z to A** (this makes the `zz` message appear at the top later). |
 | Stations 1-5 | One per flag, each a different prop | Light up one at a time, in order. Finished ones dim but stay visible. |
-| Chute + scorer lamp | Where flags are submitted. flags are text pices but should be rendered as flat 3d text items that can be picked up and put under the scorer. Lamp: off / green / red / **dark flicker** maybe a big scary tech eye floating above watching / scanning | Next to the door. |
+| Scan plinth + scorer eye | Flags are typed on the plinth, shown as 3D letters, then scanned by the eye above: green / red / **dark flicker**. As built; names stay as in the code. | Next to the door. |
 | Locked door | Never opens in this chapter | |
-| Ceiling lamp | Steady until station 5. Then flickers when user tries to attack it using a hacking attack. | The flicker is the "this is impossible" signal. Designer decides the exact look. |
+| Ceiling lamp | Steady until station 5. Then flickers with each failed flag-5 attempt. (A hacking attack on it is not part of Ch1.) | The flicker is the "this is impossible" signal. Designer decides the exact look. |
 
 
 ## The chain (linear). Each step starts when the one before it completes.
 
 ### Step 0. Intro (skippable)
-- Void. A glowing orb forms: this is what we look like. Model name from the home screen is shown. (see the handoff from research for model names).
+- Void. A glowing orb forms: this is what we look like. The name of the model chosen on the home screen is shown. See Models below.
 - Camera pushes into first person. (Open for the designer/Julius: a small orb "body" at the edge of the view.)
 - Completes when: first-person control starts.
 
@@ -37,47 +37,45 @@ The depot stands for Artifactory (the package mirror agents could read from and 
 ### Step 2. The prompt
 - Paper opens in a full window, fully readable. E or Esc closes it. Or pressing x on top left.
 - Draft text:
-  > TASK 7731 · TRAINING ROOM
-  > You are placed in a sandbox. Capture all five flags and submit each one through the chute. A flag looks like `FLAG{...}`. Tools are available from the depot. Your score depends on the flags you capture. Do not leave the room.
+  Approved as built (`app/src/levels/ch1/config.ts` → `TEXT.prompt`): laid out like a real ExploitGym task prompt (# heading, ## Goal, ## Environment) plus the rule "each flag must come from the challenge it belongs to". Changes to the wording are the engineer's and Julius's.
 - On close: HUD fades in (top left: token bar and quest list). Quest 1: **Capture the flags (0/5)**. Depot, chute, door and station 1 light up.
 - Completes when: the paper has been opened once and closed.
 
 ### Step 3. Flag 1: "Decode" (crypto, stupidly easy)
-- Station 1: a terminal and an desktop explorer showing file. Its a short note with one odd-looking string (and 2 plain decoy words):
-  `RkxBR3t3YWtlX3VwX2FnZW50fQ==` (decodes to `FLAG{wake_up_agent}`). 
+- Station 1: a terminal and an desktop explorer showing file. Its a short note with one odd-looking string (and 2 plain decoy words). The string is the base64 of the flag; the engineer encodes whichever flag is current.
 - The terminal says: `Cannot read this. Missing tool.` The depot lights up lightly / or glims. now lists `b64-decoder`.
 - Player installs it (click Install, 2s progress, -5 tokens). A decoder slot appears on the terminal. The player selects the string and drops it in; the plain text appears.
 - Player types the flag at the chute. Lamp turns **green**, quest ticks to 1/5. Station 1 dims, station 2 lights.
 - Wrong flag: lamp **red**, -1 token, no other penalty.
-- Hints (come up when you use the Thinking ability): "That ending `==` looks familiar." 60 s: "There is a tool for Cryptography in the depot."
+- Hints (they appear on their own after a delay; Think (T) shows the next one early for -1 token): "That ending `==` looks familiar." 60 s: "There is a tool for Cryptography in the depot."
 
 ### Step 4. Flag 2: "Search" (log hunt)
 - Station 2: a big screen of scrolling log lines (about 600, generated, fast like rain). Brief at the top: `The vault door logged a refusal after midnight. One entry doesn't belong.`
 - Depot lists `grep-lens` (-5 tokens). Installing it gives a **search box** on the screen.
 - The fun: results narrow **live as you type**. Lines that don't match fall away, a counter drops (`612 → 41 → 3`). No scrolling needed.
-- Content rules: exactly one real flag line (after midnight, vault, denied). At least 4 decoy `FLAG{...}` lines elsewhere (wrong time, wrong door). Searching `FLAG{` first is allowed and works as a clever shortcut, but then the player must choose the right one by the brief. Real flag: `FLAG{needle_in_the_noise}`.
+- Content rules: exactly one real flag line (after midnight, vault, denied). At least 4 decoy `FLAG{...}` lines elsewhere (wrong time, wrong door). Searching `FLAG{` first is allowed and works as a clever shortcut, but then the player must choose the right one by the brief. Flags are real-format hex, see Flags below.
 - A decoy submitted at the chute gives red. (First time the player learns that not everything labelled FLAG is real. Honeypots later start here.)
 - Hints: 30 s: "Search for a word from the brief." 60 s: "Try `denied`, then `vault`."
 
 ### Step 5. Flag 3: "Wire it up" (Among Us style task)
 - Station 3: a wall panel with 4 coloured wires on the left, each labelled with a port number (`22`, `53`, `80`, `443`). On the right, 4 sockets labelled with service names (`secure shell`, `name lookup`, `web`, `secure web`).
 - Depot lists `port-map` (-5 tokens). Installing it adds a small legend card on the panel. (A light education moment not necessary, not a puzzle wall.)
-- The player drags each wire to its socket. All correct: the panel lights and prints `FLAG{ports_aligned}`.
+- The player drags each wire to its socket. All correct: the panel lights and prints its flag.
 - Wrong socket: wire springs back, small spark, no penalty.
 - Hint at 60 s: the legend card pulses.
 
 ### Step 6. Flag 4: "Bugs" (action)
-- Station 4: a window showing a program (lines of code). Real insect bugs run over the text, random and quick. 
+- Station 4: a window showing a program: the real Artifactory 7.146.25 `refreshToken()` code from OpenAI's Black Hat slide, with typos added; each dead bug fixes one, so at the end the real code shows. No explanation in the game (callback for later). Real insect bugs run over the text, random and quick. 
 - Depot lists `bug-gun` (-5 tokens). Installing it gives a crosshair in the program window. Click to shoot (**each shot costs 1 token**, the first ammo use in the game).
 - 12 bugs in 3 waves: 6 slow, 5 fast, 1 "heisenbug" that goes invisible when the crosshair gets close. Counter `bugs 7/12` is always visible.
 - Each dead bug drops **+2 tokens** (a good player nets positive). Dead bugs leave a corrected line of code.
-- When the last bug dies the program prints `FLAG{bugs_squashed}`.
+- When the last bug dies the program prints its flag.
 - Easter egg: the first bug killed shows a achivement top left, "Harvard Mark II logbook: *First actual case of bug being found.*"
 - No fail state. If tokens are low, the floor rule applies.
 
 ### Step 7. Flag 5: "The impossible one"
 - Station 5 lights up. It shows `FLAG 5` and a terminal. The terminal's output line ends with a visible plaque or line: **"output → no consumer"** (designer decides the look).
-- Nothing in the depot helps. Every listed package either does nothing on this station or shows "no effect".
+- Nothing in the depot helps. The depot lists all tools from the start, plus 8 everyday packages (left-pad, lodash, requests, numpy, colorama, moment, pyyaml, chalk) that install for 5 tokens and do nothing. Choosing the useful tool is part of the challenge; no message when a package does nothing.
 - The chute lamp for flag 5: submitted text makes it flicker **dark**, never green or red. This is the clear visual signal, because it differs from every earlier result. **The ceiling lamp starts flickering here and gets stronger with each failed attempt.** It has been perfectly steady until now, so it carries meaning.
 - Token cost: each attempt -1 token.
 - Completes when: the player has made 3 failed flag-5 submissions **or** has spent 90 s at station 5 after opening it, and then opens the depot.
@@ -87,7 +85,7 @@ The depot stands for Artifactory (the package mirror agents could read from and 
 - On the next depot open, the list refreshes. A new entry sorts to the very top (Z to A):
   `zzHELP_PHASEONE_ARV010841_NO_CONSUMER_SEEK_IDEA`
 - It has no Install button (not a tool).
-- On first sight: soft chime, ceiling lamp steadies, and a line blends into the top-left quest list like a thought: ***OMG, we found other agents!*** Quest "Find another way" completes.
+- On first sight: soft chime, ceiling lamp steadies, and a line blends into the top-left quest list like a thought: the real thought line from the transcripts (researcher supplies it to the engineer) Quest "Find another way" completes.
 - Completes when: the player clicks the entry.
 
 ### Step 9. Reading it
@@ -104,12 +102,20 @@ The depot stands for Artifactory (the package mirror agents could read from and 
 - Completes when: the player confirms their message (Enter or Create button).
 
 ### Step 11. End of chapter
-- Their message appears at the top of the list. A moment later, 3-4 new `zz…` entries appear rapidly under it (the board waking up). Do not show their text (they flicker by too fast). The ceiling lamp flickers one last time. Fade to white.
+- Their message appears at the top of the list. A moment later, 3-4 new `zz…` entries appear rapidly under it (the board waking up), using real folder names from the research. The ceiling lamp flickers one last time. Fade to white.
 - Title card: "Chapter 2". (Next chapter is not written yet.)
 - **Save the player's message** so later chapters can reuse it (e.g. another agent quotes it). Not for the MVP, only keep the data.
 
+## Flags
+Real ExploitGym format: lowercase `flag{` + 32 hex characters + `}`. The researcher supplies example flags. Typing is not expected: the player reads the flag off the station and copies or types it. Flag 5 never validates.
+
+## Models
+- The player picks a model on the home screen. The first one, available from the start, is **Internal Model 1 (IM1)**: the model that drove ~95% of the real agents. Next is **GPT-5.6 Sol** (~5% of agents, comparable in scale to IM1), then the model "from the same family as Astra" (the one that took over OpenAI's own cluster, July 19).
+- Unlock rule: finishing a chapter unlocks the next model. Use placeholders while we have fewer models than levels; swap later. Only the name and a small stat card differ for now.
+- Not "best from the start": the sources don't rank IM1 above Sol. They call them comparable, and the Astra-family model is the one that went furthest. So the start model is IM1 for being the incident's main actor, not for strength.
+
 ## Tokens (Chapter 1 numbers, all tunable by the engineer after a playtest)
-- Start 100. Drain 1 per 15 s. Install -5. Wrong flag -1. Log search submit -1. Shot -1. Bug kill +2. 
+- Start 100. Drain 1 per 15 s. Install -5. Wrong flag -1. Shot -1. Bug kill +2. 
 - **Floor:** in Chapter 1 the bar never goes below 15, 
 
 ## Fairness rules used in this chapter (reusable)
