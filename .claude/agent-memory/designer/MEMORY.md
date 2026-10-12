@@ -4,3 +4,4 @@
 - [Show progress](feedback_show_progress.md) — show renders early, no long silent planning; scorer POC rejected
 - [Scorer approved](feedback_scorer_approved.md) — armoured metallic 3D scorer loved; same pipeline for next props; eye shape may be revisited
 - [Depot rusty](feedback_depot_rusty.md) — clean depot rejected; rusty cyberpunk drop-point look for Artifactory, sign ARTIFACTORY
+- [Shared checkout](feedback_shared_checkout.md) — work only in /home/julio/Desktop/HuggingHack on main; worktree hid my handoff from the engineer
