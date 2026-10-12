@@ -16,6 +16,7 @@ Handy URL flags (combine with `&`):
 |---|---|
 | `/?skipboot` | skip the start screen's boot intro |
 | `/?debug` | debug panel in game: jump to any step, change tokens; no pause without mouse lock |
+| `/?nofx` | no bloom / post-processing (weak GPUs, headless tests) |
 
 ## Controls
 **Start screen:** W/S or ↑/↓ chapter · A/D or ←/→ model · Enter start.
@@ -26,8 +27,10 @@ Handy URL flags (combine with `&`):
 | click | take control (locks the mouse) |
 | WASD / arrows | move |
 | mouse | look |
-| E | use the object under the crosshair · close a window |
-| Esc | close a window · pause (releases the mouse) |
+| E or click | use the object under the crosshair · close a window |
+| Esc | close a window / step back from a machine · pause while walking (releases the mouse) |
+| at the depot | click Install on the screen |
+| at the scan pad | type or paste a flag, Enter to scan |
 | T | think: show the next hint early (costs 1 token) |
 
 ## Other commands

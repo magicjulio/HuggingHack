@@ -1,15 +1,23 @@
 /**
- * Chapter 1 3D room — PLACEHOLDER greybox (boxes + glowing faces + labels).
- * Visual states come from the store; swap meshes for the designer's .glb props later,
- * keeping the ids from layout.ts.
+ * Chapter 1 3D room. Depot, scorer eye and scan plinth are the designer's models (models.tsx);
+ * everything else is still PLACEHOLDER greybox (boxes + glowing faces + labels).
+ * Visual states come from the store; ids from layout.ts.
  */
-import { useRef } from 'react';
+import { Suspense, useEffect, useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
-import { BackSide, Vector3, type MeshStandardMaterial, type PointLight } from 'three';
+import {
+  BackSide,
+  PMREMGenerator,
+  Vector3,
+  type MeshStandardMaterial,
+  type PointLight,
+} from 'three';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { Label3D } from '../../engine/Label3D';
 import { useCh1, useCh1Store } from './context';
-import { CEILING_LAMP, PROPS, ROOM, SCORER_LAMP, type PropLayout } from './layout';
-import type { Lamp, ObjState } from './store';
+import { CEILING_LAMP, PROPS, ROOM, type PropLayout } from './layout';
+import { Depot3D, Plinth3D, Scorer3D } from './models';
+import type { ObjState } from './store';
 
 const SCREEN: Record<ObjState, { color: string; intensity: number }> = {
   off: { color: '#000000', intensity: 0 },
@@ -111,37 +119,27 @@ function CeilingLamp() {
   );
 }
 
-const LAMP_COLOR: Record<Lamp, string> = {
-  off: '#1a2333',
-  green: '#39ff9c',
-  red: '#ff3b4e',
-  dark: '#b86bff',
-};
-
-/** The scorer above the chute: off / green / red / dark flicker. PLACEHOLDER for the "big eye". */
-function ScorerLamp() {
-  const lamp = useCh1((s) => s.chuteLamp);
-  const visible = useCh1((s) => s.objects.chute !== 'off');
-  const mat = useRef<MeshStandardMaterial>(null);
-  const light = useRef<PointLight>(null);
-  useFrame(({ clock }) => {
-    let k = lamp === 'off' ? 0.15 : 2.2;
-    if (lamp === 'dark')
-      k = Math.random() < 0.5 ? 0.05 : 0.9 * Math.abs(Math.sin(clock.elapsedTime * 9));
-    if (mat.current) mat.current.emissiveIntensity = k;
-    if (light.current) light.current.intensity = lamp === 'off' ? 0 : k * 3;
-  });
-  if (!visible) return null;
-  return (
-    <group position={SCORER_LAMP}>
-      <mesh>
-        <sphereGeometry args={[0.22, 32, 32]} />
-        <meshStandardMaterial ref={mat} color="#0b0f17" emissive={LAMP_COLOR[lamp]} />
-      </mesh>
-      <pointLight ref={light} color={LAMP_COLOR[lamp]} distance={5} position={[-0.4, 0, 0]} />
-      <Label3D text="SCORER" position={[0, 0.42, 0]} color="#7f93b5" size={0.1} />
-    </group>
-  );
+/**
+ * Soft reflections for the metal props (built locally, no HDR download). Same setup as the
+ * designer's review page: RoomEnvironment at low intensity. Dims while the room is dark.
+ */
+function Reflections() {
+  const { gl, scene } = useThree();
+  const lit = useCh1((s) => s.lightsOn);
+  useEffect(() => {
+    const pmrem = new PMREMGenerator(gl);
+    const env = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+    scene.environment = env;
+    return () => {
+      scene.environment = null;
+      env.dispose();
+      pmrem.dispose();
+    };
+  }, [gl, scene]);
+  useEffect(() => {
+    scene.environmentIntensity = lit ? 0.35 : 0.05;
+  }, [lit, scene]);
+  return null;
 }
 
 /** Finds the usable object under the crosshair and stores it as `target`. */
@@ -181,6 +179,7 @@ export function Room() {
   return (
     <>
       <color attach="background" args={['#020306']} />
+      <Reflections />
       <ambientLight intensity={lit ? 0.45 : 0.03} />
       {lit && <hemisphereLight args={['#9fc4ff', '#0a0d14', 0.35]} />}
       {/* Step 1: only the desk is lit */}
@@ -212,11 +211,15 @@ export function Room() {
         <gridHelper args={[Math.max(w, d), 24, '#1c3550', '#132235']} position={[0, 0.002, 0]} />
       )}
 
-      {PROPS.map((p) => (
+      {PROPS.filter((p) => !p.model).map((p) => (
         <Prop key={p.id} p={p} />
       ))}
+      <Suspense fallback={null}>
+        <Depot3D />
+        <Scorer3D />
+        <Plinth3D />
+      </Suspense>
       <CeilingLamp />
-      <ScorerLamp />
       <Targeting />
     </>
   );

@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { Window } from '../../../ui/Window';
 import { useCh1, useCh1Store } from '../context';
 import { FLAGS } from '../config';
-import { BUG_TOTAL, BUG_WAVES, S4_BUGGY_LINES, S4_CODE, waveAfter } from '../content';
+import { BUG_TOTAL, BUG_WAVES, S4_BUGGY_LINES, S4_CODE, isComment, waveAfter } from '../content';
 
 interface Bug {
   x: number;
@@ -189,7 +189,18 @@ export function BugStation({ onClose }: { onClose: () => void }) {
         <div className="ch1-code-wrap">
           <pre className="ch1-code">
             {S4_CODE.map((l, i) => (
-              <div key={i} className={fixed.has(i) ? 'fixed' : l.buggy !== l.fixed ? 'buggy' : ''}>
+              <div
+                key={i}
+                className={
+                  fixed.has(i)
+                    ? 'fixed'
+                    : l.buggy !== l.fixed
+                      ? 'buggy'
+                      : isComment(l.fixed)
+                        ? 'c'
+                        : ''
+                }
+              >
                 <span className="ch1-ln">{String(i + 1).padStart(2, ' ')}</span>
                 {fixed.has(i) ? l.fixed : l.buggy}
               </div>
@@ -203,6 +214,10 @@ export function BugStation({ onClose }: { onClose: () => void }) {
             onMouseDown={shoot}
           />
         </div>
+        {/* (engineer) source line for the real code, see content.ts */}
+        <p className="ch1-s4-source">
+          Artifactory 7.146.25 · real code, shown by OpenAI at Black Hat USA 2026
+        </p>
         {killed >= BUG_TOTAL && <p className="ch1-flag">{FLAGS[4]}</p>}
       </div>
     </Window>

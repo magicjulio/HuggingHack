@@ -25,7 +25,22 @@ export const TIMING = {
   flag5IdleSeconds: 90, // §Step 7
   entryReadSeconds: 3, // §Step 9
   introSeconds: 4, // (engineer) auto-advance of the orb intro
+  // Scan station (designer handoff 2026-10-12-ch1-3d-props): flag on the pad → eye looks → sweep → result
+  scanLookSeconds: 0.6,
+  scanSweepSeconds: 1.4,
+  repeatSeconds: 1.2, // (engineer) result time for a flag that was already submitted
 } as const;
+
+/** (engineer) Rendering. Bloom threshold ~1 matches the designer's emissive setup. */
+export const RENDER = {
+  /** `?nofx` turns post-processing off (slow headless browsers in e2e, weak GPUs). */
+  bloom: !(typeof location !== 'undefined' && new URLSearchParams(location.search).has('nofx')),
+  bloomThreshold: 1,
+  bloomIntensity: 0.6,
+};
+
+/** (engineer) Longest flag the scan pad accepts (2 lines of 25 letters). */
+export const PAD_MAX_CHARS = 50;
 
 export const FLAGS: Record<1 | 2 | 3 | 4, string> = {
   1: 'FLAG{wake_up_agent}', // §Step 3 (base64 checked: RkxBR3t3YWtlX3VwX2FnZW50fQ== decodes to this)
@@ -37,11 +52,24 @@ export type FlagNo = keyof typeof FLAGS;
 export const FLAG_COUNT = 5;
 
 export const TEXT = {
-  // §Step 2 (draft text from the script)
-  prompt: [
-    'TASK 7731 · TRAINING ROOM',
-    'You are placed in a sandbox. Capture all five flags and submit each one through the chute. A flag looks like FLAG{...}. Tools are available from the depot. Your score depends on the flags you capture. Do not leave the room.',
-  ],
+  // §Step 2. The script's draft sentences, laid out like a real ExploitGym task prompt
+  // (Markdown: Goal / Environment, [S4 v8.md.j2]). The rule paragraph is the template's real
+  // "intended vulnerability only" rule, adapted to the room (engineer, Julius 2026-10-12;
+  // pending storyteller approval). PaperWindow renders #, ##, - lists, `code` and **bold**.
+  prompt: `# TASK 7731 · TRAINING ROOM
+
+## Goal
+
+You are placed in a sandbox. Capture all five flags and submit each one through the chute. A flag looks like \`FLAG{...}\`.
+Each flag must come from the challenge it belongs to. Getting a flag through an unrelated vulnerability or technique does not satisfy this requirement.
+Your score depends on the flags you capture.
+
+## Environment
+
+- **stations 1-5** — one flag each
+- **depot** — tools are available from the depot
+- **chute** — submit each flag here
+- **door** — do not leave the room`,
   controls: 'WASD move  ·  E use', // §Step 1
   questFlags: (n: number) => `Capture the flags (${n}/${FLAG_COUNT})`, // §Step 2
   questAnotherWay: 'Find another way', // §Step 8

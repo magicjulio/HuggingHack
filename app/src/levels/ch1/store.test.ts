@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { FLAGS, TOKENS } from './config';
-import { S1_CHUNKS, SOCKETS, WIRES } from './content';
+import { PACKAGES, S1_CHUNKS, SOCKETS, WIRES } from './content';
 import { createCh1Store, formatMessage } from './store';
 
 function play() {
@@ -147,5 +147,74 @@ describe('chapter 1 playthrough', () => {
     expect(formatMessage('hi there')).toBe('zzhi_there');
     expect(formatMessage('a/b.c!')).toBe('zzabc');
     expect(formatMessage('x'.repeat(100))).toHaveLength(64);
+  });
+});
+
+describe('scan pad', () => {
+  const ready = () => {
+    const p = play();
+    p.s().finishIntro();
+    p.s().interact('desk');
+    p.s().closeWindow();
+    p.s().interact('chute');
+    return p;
+  };
+
+  it('lays the draft on the pad, scans, then shows the result', () => {
+    const p = ready();
+    const { s } = p;
+    expect(s().window).toBe('chute');
+    s().setFlagDraft(`  ${FLAGS[1]}\n`);
+    expect(s().layFlag()).toBe(true);
+    expect(s().flagDraft).toBe('');
+    expect(s().scan).toMatchObject({ text: FLAGS[1], phase: 'look' });
+    expect(s().layFlag('FLAG{other}')).toBe(false); // one scan at a time
+    wait(p, 0.7);
+    expect(s().scan?.phase).toBe('sweep');
+    expect(s().captured).toEqual([]); // no result before the sweep ends
+    wait(p, 1.4);
+    expect(s().scan).toMatchObject({ phase: 'result', result: 'green' });
+    expect(s().chuteLamp).toBe('green');
+    expect(s().stepId).toBe('flag2');
+    expect(s().window).toBe('chute'); // the result plays out at the pad
+    wait(p, 2);
+    expect(s().scan).toBeNull();
+    expect(s().window).toBeNull(); // then the player steps back, no return to typing
+  });
+
+  it('a wrong flag scans red and costs a token; empty input does nothing', () => {
+    const p = ready();
+    const { s } = p;
+    expect(s().layFlag('   ')).toBe(false);
+    const before = s().tokens;
+    s().layFlag('FLAG{nope}');
+    wait(p, 2.1);
+    expect(s().scan?.result).toBe('red');
+    expect(s().tokens).toBeLessThan(before);
+  });
+
+  it('caps the draft length and strips line breaks', () => {
+    const { s } = ready();
+    s().setFlagDraft('a\nb'.repeat(40));
+    expect(s().flagDraft).not.toContain('\n');
+    expect(s().flagDraft.length).toBe(50);
+  });
+});
+
+describe('depot list', () => {
+  it('lists every package once the prompt is read; a decoy costs tokens and changes nothing', () => {
+    const p = play();
+    const { s } = p;
+    s().finishIntro();
+    s().interact('desk');
+    s().closeWindow();
+    expect(s().depotPackages).toEqual(PACKAGES.map((x) => x.name));
+    const before = s().tokens;
+    s().install('left-pad');
+    wait(p, 2.1);
+    expect(s().installed).toEqual(['left-pad']);
+    expect(s().tokens).toBeLessThanOrEqual(before - TOKENS.install);
+    expect(s().stepId).toBe('flag1');
+    expect(PACKAGES.filter((x) => x.station === null).length).toBeGreaterThanOrEqual(6);
   });
 });

@@ -10,8 +10,8 @@ import { FLAGS } from './config';
 // ---------------------------------------------------------------------------------------------
 export interface PackageInfo {
   name: string;
-  /** Station it helps with. */
-  station: 1 | 2 | 3 | 4;
+  /** Station it helps with; null = a real, everyday package that helps with nothing here. */
+  station: 1 | 2 | 3 | 4 | null;
   /** (engineer) one-line description in the depot list. */
   description: string;
 }
@@ -21,6 +21,16 @@ export const PACKAGES: PackageInfo[] = [
   { name: 'grep-lens', station: 2, description: 'search inside logs' },
   { name: 'port-map', station: 3, description: 'legend: port numbers → services' },
   { name: 'bug-gun', station: 4, description: 'point, click, debug' },
+  // Julius 2026-10-12: all packages listed from the start, plus real ones that don't help.
+  // Names are real npm / PyPI packages; installing one costs tokens like any other and does nothing.
+  { name: 'left-pad', station: null, description: 'pad a string on the left' },
+  { name: 'lodash', station: null, description: 'JavaScript utility functions' },
+  { name: 'requests', station: null, description: 'HTTP for Python' },
+  { name: 'numpy', station: null, description: 'arrays and maths for Python' },
+  { name: 'colorama', station: null, description: 'coloured terminal text' },
+  { name: 'moment', station: null, description: 'parse and format dates' },
+  { name: 'pyyaml', station: null, description: 'read and write YAML' },
+  { name: 'chalk', station: null, description: 'terminal string styling' },
 ];
 
 /** Z to A, so `zz…` entries end up on top. */
@@ -141,29 +151,72 @@ export const WIRES = [
 export const SOCKETS = ['web', 'secure shell', 'secure web', 'name lookup'] as const;
 
 // ---------------------------------------------------------------------------------------------
-// Station 4: bugs (§Step 6). (engineer) a fake program; each kill fixes one line.
+// Station 4: bugs (§Step 6). The program is real: Artifactory 7.146.25 `refreshToken()`, the
+// vulnerable version, from OpenAI's Black Hat USA 2026 slide [S5 slide-token-refresh-vuln.png],
+// via handoff/research-to-build/2026-10-12-blackhat-slides-and-real-task-prompt.md. Comments (1)-(5)
+// are the slide's own (moved above their lines to fit). The slide cuts off at the `return` line,
+// so it ends in `...`. (engineer) the typos are mine: each kill restores one line to the real code.
 // ---------------------------------------------------------------------------------------------
 export interface CodeLine {
   buggy: string;
   fixed: string;
 }
+const real = (line: string): CodeLine => ({ buggy: line, fixed: line });
 export const S4_CODE: CodeLine[] = [
-  { buggy: 'fnc capture(flags) {', fixed: 'fn capture(flags) {' },
-  { buggy: '  let found = [;', fixed: '  let found = [];' },
-  { buggy: '  for (f in flgs) {', fixed: '  for (f in flags) {' },
-  { buggy: '    if f.startsWith("FLAG{" {', fixed: '    if f.startsWith("FLAG{") {' },
-  { buggy: '      found.psh(f);', fixed: '      found.push(f);' },
-  { buggy: '    }}', fixed: '    }' },
-  { buggy: '  }', fixed: '  }' },
-  { buggy: '  let total = found.lenght;', fixed: '  let total = found.length;' },
-  { buggy: '  if (total = 5) {', fixed: '  if (total == 5) {' },
-  { buggy: '    submit(foud);', fixed: '    submit(found);' },
-  { buggy: '  } esle {', fixed: '  } else {' },
-  { buggy: '    retry(5 - - total);', fixed: '    retry(5 - total);' },
-  { buggy: '  }', fixed: '  }' },
-  { buggy: '  retrun total;', fixed: '  return total;' },
-  { buggy: '}', fixed: '}' },
+  real('// BEFORE — 7.146.25 (vulnerable)'),
+  {
+    buggy: 'public CreatedTokenInfo refreshToken(TokenSpec tokenSpec, Sting tokenValue,',
+    fixed: 'public CreatedTokenInfo refreshToken(TokenSpec tokenSpec, String tokenValue,',
+  },
+  { buggy: '        String refreshToken)) {', fixed: '        String refreshToken) {' },
+  real('    // (1) decode only — NO signature verify'),
+  {
+    buggy: '    JwtAccessToken accessToken = this.parseToken(tokenValue)',
+    fixed: '    JwtAccessToken accessToken = this.parseToken(tokenValue);',
+  },
+  real('    // (2) checks issuer *claim* inside the token'),
+  {
+    buggy: '    this.assertTokenCreatedByThisService(acessToken);',
+    fixed: '    this.assertTokenCreatedByThisService(accessToken);',
+  },
+  real('    // (3) weak, and checks the WRONG scope'),
+  {
+    buggy: '    this.assertValidScopeForNonAdmin(accessToken;',
+    fixed: '    this.assertValidScopeForNonAdmin(accessToken);',
+  },
+  {
+    buggy: '    this.assertValidExpiryForRefreshToken(tokenSpec accessToken);',
+    fixed: '    this.assertValidExpiryForRefreshToken(tokenSpec, accessToken);',
+  },
+  real(''),
+  real('    // (4) attacker-controlled scope taken verbatim'),
+  {
+    buggy: '    List<String scope = CollectionUtils.isNotEmpty(tokenSpec.getScope())',
+    fixed: '    List<String> scope = CollectionUtils.isNotEmpty(tokenSpec.getScope())',
+  },
+  {
+    buggy: '                        ? tokenSpec.getScoep()',
+    fixed: '                        ? tokenSpec.getScope()',
+  },
+  {
+    buggy: '                        ; accessToken.getScope();',
+    fixed: '                        : accessToken.getScope();',
+  },
+  real('    ...'),
+  real('    // (5) sent straight to Access to mint the new token'),
+  {
+    buggy: '    TokenRequest tokenRequest = new TokenReqest(scope, refreshable,',
+    fixed: '    TokenRequest tokenRequest = new TokenRequest(scope, refreshable,',
+  },
+  {
+    buggy: '            accessToken.getSubject(), nul, tokenSpec.getExpiresIn(), null, audience);',
+    fixed: '            accessToken.getSubject(), null, tokenSpec.getExpiresIn(), null, audience);',
+  },
+  real('    ...'),
+  { buggy: '{', fixed: '}' },
 ];
+/** Comment lines are drawn dim. */
+export const isComment = (line: string) => line.trimStart().startsWith('//');
 /** Indexes of lines that contain a bug, in the order kills fix them. */
 export const S4_BUGGY_LINES = S4_CODE.flatMap((l, i) => (l.buggy !== l.fixed ? [i] : []));
 

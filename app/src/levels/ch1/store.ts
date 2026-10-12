@@ -5,7 +5,7 @@
  */
 import { createStore, type StoreApi } from 'zustand/vanilla';
 import { StepRunner } from '../../engine/steps';
-import { FLAGS, MESSAGE, TEXT, TIMING, TOKENS, type FlagNo } from './config';
+import { FLAGS, MESSAGE, PAD_MAX_CHARS, TEXT, TIMING, TOKENS, type FlagNo } from './config';
 import { BUG_TOTAL, PACKAGES, WIRES, decodeBase64 } from './content';
 import { CH1_STEPS } from './steps';
 
@@ -38,6 +38,15 @@ export type Ch1Event =
 
 export type SubmitResult = 'green' | 'red' | 'dark' | 'repeat';
 
+/** A flag laid on the scan pad: the eye looks at it, sweeps it, then shows the result. */
+export interface Scan {
+  text: string;
+  phase: 'look' | 'sweep' | 'result';
+  /** Seconds in the current phase. */
+  t: number;
+  result: SubmitResult | null;
+}
+
 export interface Ch1State {
   phase: Phase;
   stepIndex: number;
@@ -62,6 +71,9 @@ export interface Ch1State {
   installing: { name: string; left: number } | null;
 
   captured: FlagNo[];
+  /** What the player is typing on the scan pad. */
+  flagDraft: string;
+  scan: Scan | null;
   chuteLamp: Lamp;
   lampLeft: number;
   ceilingFlicker: number;
@@ -92,6 +104,9 @@ export interface Ch1Actions {
   closeWindow: () => void;
   install: (name: string) => void;
   submitFlag: (text: string) => SubmitResult;
+  setFlagDraft: (text: string) => void;
+  /** Lay the draft (or `text`) on the scan pad; the result comes after the scan. */
+  layFlag: (text?: string) => boolean;
   think: () => void;
   decode: (chunk: string) => void;
   connectWire: (port: number, socket: string) => boolean;
@@ -187,6 +202,8 @@ export function createCh1Store(opts: Ch1Options = {}): Ch1Store {
       installed: [],
       installing: null,
       captured: [],
+      flagDraft: '',
+      scan: null,
       chuteLamp: 'off',
       lampLeft: 0,
       ceilingFlicker: 0,
@@ -231,6 +248,7 @@ export function createCh1Store(opts: Ch1Options = {}): Ch1Store {
         }
         if (s.entryOpen) patch.entryOpenTime = s.entryOpenTime + dt;
         set(patch);
+        if (s.scan) advanceScan(s.scan, dt);
         if (s.installing) {
           const left = s.installing.left - dt;
           if (left > 0) set({ installing: { ...s.installing, left } });
@@ -326,6 +344,17 @@ export function createCh1Store(opts: Ch1Options = {}): Ch1Store {
         return 'red';
       },
 
+      setFlagDraft: (text) =>
+        set({ flagDraft: [...text.replace(/[\r\n\t]/g, '')].slice(0, PAD_MAX_CHARS).join('') }),
+
+      layFlag: (text) => {
+        const s = get();
+        const flag = (text ?? s.flagDraft).trim();
+        if (s.phase !== 'play' || s.scan || !flag) return false;
+        set({ scan: { text: flag, phase: 'look', t: 0, result: null }, flagDraft: '' });
+        return true;
+      },
+
       think: () => {
         if (get().phase !== 'play') return;
         if (runner.revealNextHint()) spend(TOKENS.think);
@@ -402,11 +431,37 @@ export function createCh1Store(opts: Ch1Options = {}): Ch1Store {
 
       jumpTo: (index) => {
         if (get().phase === 'intro') set({ phase: 'play' });
-        set({ window: null, entryOpen: false });
+        set({ window: null, entryOpen: false, scan: null, flagDraft: '' });
         runner.skipTo(index);
       },
       steps: () => runner.steps,
     };
+
+    function advanceScan(scan: Scan, dt: number) {
+      const t = scan.t + dt;
+      if (scan.phase === 'look' && t >= TIMING.scanLookSeconds)
+        return set({ scan: { ...scan, phase: 'sweep', t: 0 } });
+      if (scan.phase === 'sweep' && t >= TIMING.scanSweepSeconds) {
+        const result = get().submitFlag(scan.text);
+        // submitFlag may end the step chain; keep showing the result either way
+        return set({ scan: { ...scan, phase: 'result', t: 0, result } });
+      }
+      if (scan.phase === 'result') {
+        const hold =
+          scan.result === 'dark'
+            ? TIMING.darkFlickerSeconds
+            : scan.result === 'repeat'
+              ? TIMING.repeatSeconds
+              : TIMING.lampSeconds;
+        if (t >= hold) {
+          // Julius: after the result, step back from the pad (no return to typing)
+          set({ scan: null });
+          if (get().window === 'chute') get().closeWindow();
+          return;
+        }
+      }
+      set({ scan: { ...scan, t } });
+    }
 
     function exhaustFlag5() {
       if (get().flag5Exhausted) return;

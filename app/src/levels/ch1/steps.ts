@@ -3,7 +3,7 @@
  * To insert a beat: add a step here (and its station/window if it needs one). Order = play order.
  */
 import type { Step } from '../../engine/steps';
-import { BUG_TOTAL, S1_CHUNKS, WIRES, decodeBase64 } from './content';
+import { BUG_TOTAL, PACKAGES, S1_CHUNKS, WIRES, decodeBase64 } from './content';
 import { TEXT, TIMING, type FlagNo } from './config';
 import type { Ch1Ctx, Ch1Event } from './store';
 
@@ -59,6 +59,8 @@ export const CH1_STEPS: Ch1Step[] = [
       c.set({ hudVisible: true, lightsOn: true });
       c.addQuest({ id: 'flags', text: TEXT.questFlags(0), kind: 'quest' });
       c.setObjects({ desk: 'on', depot: 'on', chute: 'on', door: 'on' });
+      // the depot lists everything from the start (Julius 2026-10-12)
+      for (const p of PACKAGES) c.listPackage(p.name);
     },
   },
   // Step 3. Flag 1 "Decode".

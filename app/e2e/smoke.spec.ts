@@ -19,10 +19,11 @@ test('start screen: locked items refuse, Enter starts chapter 1', async ({ page 
 });
 
 test('chapter 1: paper, then the whole chain to the end card and back', async ({ page }) => {
+  test.setTimeout(300_000); // headless WebGL runs at a few FPS; camera glides take a while
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message));
 
-  await page.goto('/?skipboot&debug');
+  await page.goto('/?skipboot&debug&nofx');
   await page.waitForSelector('.start');
   await page.keyboard.press('Enter');
   await page.waitForFunction(() => (window as never)['__ch1'], null, { timeout: 15000 });
@@ -39,25 +40,66 @@ test('chapter 1: paper, then the whole chain to the end card and back', async ({
   await page.keyboard.press('Escape');
   await expect(page.getByText('Capture the flags (0/5)')).toBeVisible();
 
-  // Submit a wrong flag at the chute through the real window.
-  await ch1(page, "openWindow('chute')");
-  await page.getByPlaceholder('FLAG{...}').fill('FLAG{nope}');
-  await page.getByRole('button', { name: 'SUBMIT' }).click();
-  await expect(page.getByText('rejected')).toBeVisible();
-  await ch1(page, 'closeWindow()');
+  // Type a wrong flag on the scan pad; the eye scans it and turns red.
+  await ch1(page, "interact('chute')");
+  await page.getByLabel('flag').pressSequentially('FLAG{nope}');
+  expect(await ch1(page, 'flagDraft')).toBe('FLAG{nope}');
+  await page.keyboard.press('Enter');
+  await expect(page.getByText('scanning…')).toBeVisible();
+  await page.waitForFunction(
+    () =>
+      (
+        window as never as { __ch1: { getState(): { scan: { result: string } | null } } }
+      ).__ch1.getState().scan?.result === 'red',
+    null,
+    { timeout: 90_000 },
+  );
+  await page.keyboard.press('Escape');
+
+  // Install a tool by clicking it on the depot screen.
+  await ch1(page, "interact('depot')");
+  await page.locator('[data-package="b64-decoder"] .c1-btn').click({ timeout: 60_000 });
+  await page.waitForFunction(
+    () =>
+      (window as never as { __ch1: { getState(): { installed: string[] } } }).__ch1
+        .getState()
+        .installed.includes('b64-decoder'),
+    null,
+    { timeout: 90_000 },
+  );
+  await page.keyboard.press('Escape');
 
   // Jump to the write-back step and post a message through the UI.
   await ch1(page, 'jumpTo(10)');
   await ch1(page, "openWindow('depot')");
   await ch1(page, 'clickEntry()');
-  await page.locator('.ch1-method').click();
+  await page.locator('.c1-method').click();
   await page.getByLabel('folder name').fill('hello there');
-  await page.getByRole('button', { name: 'CREATE' }).click();
-  await expect(page.getByText('BACK TO MENU')).toBeVisible({ timeout: 60000 });
+  await page.getByRole('button', { name: 'CREATE', exact: true }).click();
+  await expect(page.getByText('BACK TO MENU')).toBeVisible({ timeout: 150_000 });
 
   const save = await page.evaluate(() => localStorage.getItem('rogue-on-hf-save'));
   expect(save).toContain('zzhello_there');
   await page.getByText('BACK TO MENU').click();
   await expect(page.getByText('INJECT')).toBeVisible();
   expect(errors).toEqual([]);
+});
+
+test('E opens the pad without typing; Esc leaves it without pausing', async ({ page }) => {
+  test.setTimeout(90_000);
+  await page.goto('/?skipboot');
+  await page.waitForSelector('.start');
+  await page.keyboard.press('Enter');
+  await page.waitForFunction(() => (window as never)['__ch1'], null, { timeout: 15000 });
+  await page.keyboard.press('Space'); // skip intro
+  await ch1(page, 'jumpTo(3)');
+  // E at the pad opens it without typing an "e" into the flag
+  await page.evaluate("window.__ch1.setState({ target: 'chute' })");
+  await page.keyboard.press('e');
+  await expect(page.getByText('type or paste a flag')).toBeVisible();
+  expect(await ch1(page, 'flagDraft')).toBe('');
+  await page.keyboard.press('Escape');
+  await expect(page.getByText('click to look around')).toBeVisible();
+  await expect(page.getByText('PAUSED')).toBeHidden();
+  expect(await ch1(page, 'window')).toBeNull();
 });

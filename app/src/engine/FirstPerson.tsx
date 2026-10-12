@@ -1,6 +1,7 @@
 /**
  * First-person controller: WASD move, mouse look (pointer lock), simple circle-vs-box collisions.
  * Generic: a level passes its colliders, bounds and start pose.
+ * `focus` glides the camera to a fixed pose (e.g. squared up to a machine's screen) and back.
  */
 import { useEffect, useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
@@ -25,7 +26,31 @@ export interface FirstPersonProps {
   colliders: Box2[];
   /** Movement and look only while enabled (e.g. no window open). */
   enabled: boolean;
+  /** While set, the camera glides to this pose; when cleared it glides back to where it was. */
+  focus?: CameraPose | null;
 }
+
+export interface CameraPose {
+  position: [number, number, number];
+  /** Point to look at. */
+  target: [number, number, number];
+}
+
+/** Yaw/pitch (this controller's convention: yaw 0 looks towards -z) that look from `from` to `to`. */
+export function lookAngles(
+  from: [number, number, number],
+  to: [number, number, number],
+): { yaw: number; pitch: number } {
+  const dx = to[0] - from[0];
+  const dy = to[1] - from[1];
+  const dz = to[2] - from[2];
+  return { yaw: Math.atan2(-dx, -dz), pitch: Math.atan2(dy, Math.hypot(dx, dz)) };
+}
+
+/** Shortest signed difference b - a between two angles. */
+const angleDiff = (a: number, b: number) => Math.atan2(Math.sin(b - a), Math.cos(b - a));
+/** Glide speed (1/s, exponential). */
+const GLIDE = 7;
 
 const SENSITIVITY = 0.0022;
 const MOVE_KEYS: Record<string, [number, number]> = {
@@ -71,12 +96,15 @@ export function FirstPerson({
   bounds,
   colliders,
   enabled,
+  focus = null,
 }: FirstPersonProps) {
   const { camera, gl } = useThree();
   const look = useRef({ yaw: startYaw, pitch: 0 });
   const keys = useRef(new Set<string>());
   const enabledRef = useRef(enabled);
   enabledRef.current = enabled;
+  /** Pose to return to after a focus ends. */
+  const saved = useRef<{ pos: [number, number, number]; yaw: number; pitch: number } | null>(null);
 
   useEffect(() => {
     camera.position.set(start[0], eyeHeight, start[1]);
@@ -110,7 +138,38 @@ export function FirstPerson({
 
   useFrame((_, rawDt) => {
     const dt = Math.min(rawDt, 0.05);
-    camera.rotation.set(look.current.pitch, look.current.yaw, 0, 'YXZ');
+    const l = look.current;
+    if (focus && !saved.current)
+      saved.current = {
+        pos: [camera.position.x, camera.position.y, camera.position.z],
+        yaw: l.yaw,
+        pitch: l.pitch,
+      };
+    if (saved.current) {
+      const goal = focus
+        ? { pos: focus.position, ...lookAngles(focus.position, focus.target) }
+        : saved.current;
+      const k = 1 - Math.exp(-GLIDE * dt);
+      const p = camera.position;
+      p.set(
+        p.x + (goal.pos[0] - p.x) * k,
+        p.y + (goal.pos[1] - p.y) * k,
+        p.z + (goal.pos[2] - p.z) * k,
+      );
+      l.yaw += angleDiff(l.yaw, goal.yaw) * k;
+      l.pitch += (goal.pitch - l.pitch) * k;
+      // snap when close, so the camera (and anything screen-attached) comes fully to rest
+      const d = Math.hypot(goal.pos[0] - p.x, goal.pos[1] - p.y, goal.pos[2] - p.z);
+      if (d < 0.003 && Math.abs(angleDiff(l.yaw, goal.yaw)) < 0.002) {
+        p.set(...goal.pos);
+        l.yaw = goal.yaw;
+        l.pitch = goal.pitch;
+        if (!focus) saved.current = null;
+      }
+      camera.rotation.set(l.pitch, l.yaw, 0, 'YXZ');
+      return;
+    }
+    camera.rotation.set(l.pitch, l.yaw, 0, 'YXZ');
     if (!enabled) return;
     let mx = 0;
     let mz = 0;
