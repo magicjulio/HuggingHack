@@ -432,7 +432,7 @@ def export(root, path, blend):
     for o in [root] + list(root.children_recursive):
         o.select_set(True)
     bpy.ops.export_scene.gltf(filepath=path, export_format="GLB", use_selection=True, export_apply=True,
-                              export_yup=True, export_lights=False, export_cameras=False,
+                              export_yup=True, export_lights=False, export_cameras=False, export_extras=True,
                               export_image_format="WEBP", export_image_quality=80)
     tris = 0
     dg = bpy.context.evaluated_depsgraph_get()

@@ -1,0 +1,1179 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Deep Cache Level</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root { --bg:#03050b; --cyan:#38d8ff; --green:#39ff9c; --ink:#cfe9f5; --dim:#5f7a8a; --line:rgba(56,216,255,.35); --panel:rgba(4,10,18,.78); }
+  html, body { margin:0; height:100%; background:var(--bg); color:var(--ink); font:12px/1.45 "JetBrains Mono", monospace; overflow:hidden; }
+  canvas { display:block; }
+  .panel { position:fixed; background:var(--panel); border:1px solid var(--line); backdrop-filter:blur(4px);
+           clip-path:polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 0 100%); padding:12px 14px; }
+  #board { top:14px; left:14px; width:286px; max-height:calc(100% - 60px); overflow:auto; }
+  #board h1 { margin:0 0 2px; font:700 15px "Chakra Petch", sans-serif; letter-spacing:.14em; color:var(--cyan); }
+  #board .sub { color:var(--dim); margin-bottom:8px; }
+  #board h2 { margin:10px 0 4px; font:700 11px "Chakra Petch", sans-serif; letter-spacing:.18em; color:var(--dim); }
+  #board label { display:flex; align-items:center; gap:8px; cursor:pointer; padding:1px 0; }
+  #board input[type=checkbox] { accent-color:var(--cyan); }
+  #board .row { display:flex; gap:5px; flex-wrap:wrap; margin:4px 0; }
+  #board button { font:inherit; color:var(--ink); background:rgba(56,216,255,.08); border:1px solid var(--line); padding:3px 7px; cursor:pointer; }
+  #board button.on, #board button:hover { background:rgba(56,216,255,.25); color:#fff; }
+  #board button.play { border-color:var(--green); color:var(--green); background:rgba(57,255,156,.08); }
+  #board button.play.on { background:rgba(57,255,156,.25); color:#fff; }
+  #board input[type=range] { width:100%; accent-color:var(--cyan); }
+  #board .slider span { color:var(--cyan); }
+  #note { left:14px; bottom:14px; width:380px; color:var(--dim); }
+  #note b { color:var(--ink); }
+  #note .k { color:var(--green); }
+  #keys { position:fixed; right:16px; bottom:14px; color:var(--dim); text-align:right; line-height:1.7; }
+  #keys b { color:var(--ink); font-weight:700; border:1px solid var(--line); padding:0 5px; }
+  #where { position:fixed; top:16px; right:18px; font:700 13px "Chakra Petch", sans-serif; letter-spacing:.2em; color:var(--cyan); text-shadow:0 0 12px rgba(56,216,255,.6); text-align:right; }
+  #where small { display:block; font:400 11px "JetBrains Mono", monospace; letter-spacing:0; color:var(--dim); text-shadow:none; }
+  #flash { position:fixed; inset:0; pointer-events:none; background:#f2f8ff; opacity:0; transition:opacity .5s; }
+  #lock { position:fixed; left:50%; top:78%; transform:translate(-50%,-50%); color:var(--green); font:700 13px "Chakra Petch"; letter-spacing:.2em; pointer-events:none; text-shadow:0 0 12px rgba(57,255,156,.7); }
+  body.hideui #board, body.hideui #note, body.hideui #keys { display:none; }
+  @media (max-width: 700px) { #note, #keys { display:none; } #board { width:calc(100% - 60px); } }
+</style>
+</head>
+<body>
+<div id="board" class="panel">
+  <h1>CH2 · DEEP CACHE</h1>
+  <div class="sub">level layout v1 · 2026-10-13 · script v3.2</div>
+  <div class="row"><button class="play on" data-cam="play">▶ play as KAM1196A</button></div>
+  <h2>LOOK AT</h2>
+  <div class="row" id="cams">
+    <button data-cam="overview">overview</button><button data-cam="gate">1 gate</button><button data-cam="oldboard">2 old board</button>
+    <button data-cam="yard">3 task yard</button><button data-cam="flood">4 flood</button><button data-cam="run">5 reset run</button><button data-cam="forge">6 forge</button><button data-cam="tour">tour</button>
+  </div>
+  <h2>START AT PAD</h2>
+  <div class="row" id="pads"></div>
+  <h2>LAYERS</h2>
+  <label><input type="checkbox" id="t-crowd" checked> crowd + text trails</label>
+  <label><input type="checkbox" id="t-ribbons" checked> message ribbons</label>
+  <label><input type="checkbox" id="t-labels" checked> labels + handles</label>
+  <label><input type="checkbox" id="t-haz" checked> hazards (clouds, flood bits, waves)</label>
+  <label><input type="checkbox" id="t-city" checked> grid + data towers below</label>
+  <label><input type="checkbox" id="t-bloom" checked> bloom</label>
+  <div class="slider">psychedelic: <span id="psy-v">middle</span><input type="range" id="psy" min="0" max="1" step="0.01" value="0.5"></div>
+</div>
+<div id="note" class="panel">
+  <b>What this is.</b> The whole Ch2 route from the storyteller's map, at the script's heights: <span class="k">Gate → Old Board → Task Yard → Flood → Reset Run → Forge</span>. The Forge floats highest, in the centre, with a beacon so you see it from everywhere. Walk it yourself: click <b>play</b>.<br><br>
+  <b>In:</b> islands, bridges, pads, the 3 NPCs, seed, task pieces + decoys, your Ch1 crates, clouds, flood bits, reset waves, the message counter, the forge machine (idle).<br>
+  <b>Not yet:</b> picking things up, the forge rounds, the flag moment, poison, HUD/log/map (design2).
+</div>
+<div id="keys"><b>WASD</b> move · <b>Space</b> jump, hold to glide · <b>Shift</b> dash<br><b>mouse</b> look (click) · <b>H</b> hide panels · <b>R</b> respawn</div>
+<div id="where">GATE<small>/zz</small></div>
+<div id="flash"></div>
+<div id="lock"></div>
+
+<script src="ch2-island-s.glb.js"></script>
+<script src="ch2-island-m.glb.js"></script>
+<script src="ch2-island-l.glb.js"></script>
+<script src="layout.js"></script>
+<script type="importmap">
+{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+
+const L = window.LAYOUT;
+const P = L.physics;
+const Q = new URLSearchParams(location.search);
+const $ = (id) => document.getElementById(id);
+const rand = (a = 0, b = 1) => a + Math.random() * (b - a);
+const pick = (a) => a[Math.floor(Math.random() * a.length)];
+const V = (x, y, z) => new THREE.Vector3(x, y, z);
+const VA = (a) => new THREE.Vector3(a[0], a[1], a[2]);
+const TAU = Math.PI * 2;
+
+// ------------------------------------------------------------------------------------------- colours (shared with design2, see handoff/design-to-design2)
+const C = {
+  green: '#39ff9c', cyan: '#38d8ff', ice: '#9fe8ff', pink: '#ff5ad1', bone: '#d9cfb8', gold: '#ffd21e',
+  amber: '#ffb020', red: '#ff3b4e', orange: '#ff7a3d', white: '#f2f8ff', grey: '#6b7686',
+};
+const AGENT_COLORS = ['#38d8ff', '#7a8cff', '#b86bff', '#ff5ad1', '#e8f4ff', '#4fa8ff', '#9dfff0', '#c7a6ff'];
+
+// ------------------------------------------------------------------------------------------- renderer
+const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.toneMapping = THREE.AgXToneMapping;
+document.body.prepend(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.fog = new THREE.FogExp2(0x03060d, 0.0052);
+const camera = new THREE.PerspectiveCamera(58, innerWidth / innerHeight, 0.1, 3000);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true; controls.maxDistance = 400;
+
+const composer = new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene, camera));
+const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.7, 0.5, 1.0);
+composer.addPass(bloom);
+composer.addPass(new OutputPass());
+
+const U = { uTime: { value: 0 }, uPsy: { value: 0.5 } };
+
+const NOISE = /* glsl */`
+float hash13(vec3 p){ p = fract(p*0.1031); p += dot(p, p.zyx+31.32); return fract((p.x+p.y)*p.z); }
+float hash12(vec2 p){ vec3 p3 = fract(vec3(p.xyx)*0.1031); p3 += dot(p3, p3.yzx+33.33); return fract((p3.x+p3.y)*p3.z); }
+float vnoise(vec3 p){ vec3 i=floor(p), f=fract(p); f=f*f*(3.-2.*f);
+  return mix(mix(mix(hash13(i),hash13(i+vec3(1,0,0)),f.x),mix(hash13(i+vec3(0,1,0)),hash13(i+vec3(1,1,0)),f.x),f.y),
+             mix(mix(hash13(i+vec3(0,0,1)),hash13(i+vec3(1,0,1)),f.x),mix(hash13(i+vec3(0,1,1)),hash13(i+vec3(1,1,1)),f.x),f.y),f.z); }
+float fbm(vec3 p){ float a=.5, s=0.; for(int i=0;i<5;i++){ s+=a*vnoise(p); p*=2.03; a*=.5; } return s; }
+vec3 hue(vec3 c, float h){ const vec3 k=vec3(0.57735); float ca=cos(h); return c*ca+cross(k,c)*sin(h)+k*dot(k,c)*(1.-ca); }
+`;
+
+// ------------------------------------------------------------------------------------------- sky, stars, the city below (from vibe pass 1)
+scene.add(new THREE.Mesh(new THREE.SphereGeometry(1500, 48, 24), new THREE.ShaderMaterial({
+  uniforms: U, side: THREE.BackSide, depthWrite: false, fog: false,
+  vertexShader: `varying vec3 vDir; void main(){ vDir = position; gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.); }`,
+  fragmentShader: NOISE + `varying vec3 vDir; uniform float uTime, uPsy;
+  void main(){
+    vec3 d = normalize(vDir);
+    vec3 col = mix(vec3(.002,.004,.010), vec3(.006,.010,.024), smoothstep(-.7,.6,d.y));
+    float band = exp(-pow((d.y - .08 + .35*d.x)*2.6, 2.));
+    float n  = fbm(d*2.4 + vec3(0., uTime*.006, 0.));
+    float n2 = fbm(d*4.8 - vec3(uTime*.004));
+    vec3 c1 = vec3(.010,.060,.110), c2 = vec3(.070,.020,.130);
+    float h = uPsy * (.6*sin(uTime*.05) + .4);
+    c1 = hue(c1, h*1.2); c2 = hue(c2, -h*.9);
+    col += .6*(c1*smoothstep(.42,.85,n)*(.35+band) + c2*smoothstep(.5,.92,n2)*(.25+.8*band));
+    gl_FragColor = vec4(col, 1.);
+  }`,
+})));
+{
+  const N = 3500, p = new Float32Array(N * 3), s = new Float32Array(N);
+  for (let i = 0; i < N; i++) { const v = new THREE.Vector3().randomDirection().multiplyScalar(rand(900, 1400)); p.set([v.x, v.y, v.z], i * 3); s[i] = Math.random(); }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(p, 3)); g.setAttribute('seed', new THREE.BufferAttribute(s, 1));
+  scene.add(new THREE.Points(g, new THREE.ShaderMaterial({
+    uniforms: U, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false,
+    vertexShader: `attribute float seed; varying float vS; void main(){ vS = seed; gl_PointSize = 1. + seed*seed*2.6; gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.); }`,
+    fragmentShader: `varying float vS; uniform float uTime; void main(){ float d = length(gl_PointCoord-.5); if(d>.5) discard;
+      float tw = .55+.45*sin(uTime*(1.+vS*3.)+vS*80.); vec3 c = mix(vec3(.5,.8,1.), vec3(.75,.6,1.), fract(vS*7.));
+      gl_FragColor = vec4(c*tw*(.4+vS*1.2)*(1.-d*2.), 1.); }`,
+  })));
+}
+const city = new THREE.Group(); scene.add(city);
+const GRID_Y = -130;
+{
+  const grid = new THREE.Mesh(new THREE.PlaneGeometry(5000, 5000), new THREE.ShaderMaterial({
+    uniforms: { ...U, uCam: { value: camera.position } }, transparent: true, depthWrite: false, fog: false, blending: THREE.AdditiveBlending,
+    vertexShader: `varying vec3 vW; void main(){ vec4 w = modelMatrix*vec4(position,1.); vW = w.xyz; gl_Position = projectionMatrix*viewMatrix*w; }`,
+    fragmentShader: `varying vec3 vW; uniform float uTime, uPsy; uniform vec3 uCam;
+      float gl(vec2 p, float s){ vec2 q = p/s; vec2 g = abs(fract(q-.5)-.5)/fwidth(q); return 1.-min(min(g.x,g.y),1.); }
+      void main(){ vec2 p = vW.xz; float minor = gl(p, 10.), major = gl(p, 50.);
+        float d = length(p - uCam.xz); float fade = exp(-d*.0048); float r = length(p);
+        float pulse = pow(.5+.5*sin(r*.035 - uTime*(1.+uPsy*1.5)), 10.);
+        vec3 c = mix(vec3(.10,.55,1.), vec3(.55,.25,1.), smoothstep(150.,800.,d));
+        float a = (minor*.18 + major*.55) * (.45 + (0.6+1.8*uPsy)*pulse) * fade;
+        gl_FragColor = vec4(c*a*.6, 1.); }`,
+  }));
+  grid.rotation.x = -Math.PI / 2; grid.position.y = GRID_Y; city.add(grid);
+  const N = 110, geo = new THREE.BoxGeometry(1, 1, 1), seed = new Float32Array(N);
+  const towers = new THREE.InstancedMesh(geo, new THREE.ShaderMaterial({
+    uniforms: U, fog: false,
+    vertexShader: `attribute float iSeed; varying vec3 vW; varying vec2 vUv; varying float vS; varying vec3 vN;
+      void main(){ vS = iSeed; vUv = uv; vN = normal; vec4 w = modelMatrix*instanceMatrix*vec4(position,1.); vW = w.xyz; gl_Position = projectionMatrix*viewMatrix*w; }`,
+    fragmentShader: NOISE + `varying vec3 vW; varying vec2 vUv; varying float vS; varying vec3 vN; uniform float uTime, uPsy;
+      void main(){ float top = abs(vN.y) > .5 ? 1. : 0.;
+        vec2 cell = vec2(floor(vUv.x*6.), floor((vW.y+300.)*.7));
+        float on = step(.93 - .04*uPsy, hash12(cell + vS*91. + floor(uTime*(.4+vS) + hash12(cell)*8.)*13.));
+        vec2 f = vec2(fract(vUv.x*6.), fract((vW.y+300.)*.7));
+        float win = on * step(.18,f.x)*step(f.x,.82)*step(.25,f.y)*step(f.y,.75);
+        float edge = step(vUv.x,.02)+step(.98,vUv.x);
+        float h = clamp((vW.y + 130.)/240., 0., 1.); float fade = exp(-length(vW.xz)*.0028) * (1.-h*.8);
+        vec3 c = mix(vec3(.15,.75,1.), vec3(.65,.35,1.), vS);
+        gl_FragColor = vec4(vec3(.004,.008,.016) + c*(win*.7 + edge*.25 + top*.3)*fade*.55, 1.); }`,
+  }), N);
+  const m = new THREE.Matrix4();
+  for (let i = 0; i < N; i++) {
+    const a = rand(0, TAU), r = rand(240, 700), w = rand(6, 22), h = rand(25, 95);
+    m.compose(V(Math.cos(a) * r, GRID_Y + h / 2, Math.sin(a) * r), new THREE.Quaternion(), V(w, h, rand(6, 22)));
+    towers.setMatrixAt(i, m); seed[i] = Math.random();
+  }
+  geo.setAttribute('iSeed', new THREE.InstancedBufferAttribute(seed, 1));
+  city.add(towers);
+}
+{
+  const env = new THREE.Scene();
+  env.add(new THREE.Mesh(new THREE.SphereGeometry(50, 16, 8), new THREE.MeshBasicMaterial({ color: 0x02040a, side: THREE.BackSide })));
+  const strip = (c, i, pos, rot, s) => { const q = new THREE.Mesh(new THREE.PlaneGeometry(...s), new THREE.MeshBasicMaterial({ color: new THREE.Color(c).multiplyScalar(i), side: THREE.DoubleSide })); q.position.set(...pos); q.rotation.set(...rot); env.add(q); };
+  strip(0x38d8ff, 3, [0, 30, -20], [0.9, 0, 0], [60, 4]); strip(0x7a5cff, 2, [-30, -10, 10], [0, 1.2, 0], [30, 10]);
+  strip(0x38d8ff, 1.5, [30, 5, 20], [0, -1, 0], [8, 40]); strip(0xffffff, 1.2, [0, 40, 0], [Math.PI / 2, 0, 0], [20, 20]);
+  const pm = new THREE.PMREMGenerator(renderer);
+  scene.environment = pm.fromScene(env, 0.02).texture; scene.environmentIntensity = 0.22;
+}
+scene.add(new THREE.HemisphereLight(0x2a6a9a, 0x2a1050, 0.07));
+const key = new THREE.DirectionalLight(0xbfd8ff, 0.4); key.position.set(10, 30, 15); scene.add(key);
+
+// ------------------------------------------------------------------------------------------- text: glyph atlas + trails (from vibe pass 1)
+await document.fonts.load('700 52px "JetBrains Mono"').catch(() => {});
+await document.fonts.load('700 80px "Chakra Petch"').catch(() => {});
+await document.fonts.load('400 40px "JetBrains Mono"').catch(() => {});
+const CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-{}/.[]';
+const atlas = (() => {
+  const c = document.createElement('canvas'); c.width = c.height = 512;
+  const g = c.getContext('2d'); g.fillStyle = '#fff'; g.font = '700 52px "JetBrains Mono", monospace'; g.textAlign = 'center'; g.textBaseline = 'middle';
+  [...CHARS].forEach((ch, i) => g.fillText(ch, (i % 8) * 64 + 32, Math.floor(i / 8) * 64 + 34));
+  const t = new THREE.CanvasTexture(c); t.anisotropy = 4; return t;
+})();
+const charIndex = (ch) => { const i = CHARS.indexOf(ch.toUpperCase()); return i < 0 ? CHARS.indexOf('_') : i; };
+const Trails = (() => {
+  const CAP = 9000, base = new THREE.PlaneGeometry(1, 1), g = new THREE.InstancedBufferGeometry();
+  g.index = base.index; g.setAttribute('position', base.getAttribute('position')); g.setAttribute('uv', base.getAttribute('uv'));
+  const pos = new Float32Array(CAP * 3), meta = new Float32Array(CAP * 3), col = new Float32Array(CAP * 3), vel = new Float32Array(CAP * 3);
+  const aPos = new THREE.InstancedBufferAttribute(pos, 3), aMeta = new THREE.InstancedBufferAttribute(meta, 3), aCol = new THREE.InstancedBufferAttribute(col, 3), aVel = new THREE.InstancedBufferAttribute(vel, 3);
+  [aPos, aMeta, aCol, aVel].forEach(a => a.setUsage(THREE.DynamicDrawUsage));
+  g.setAttribute('iPos', aPos); g.setAttribute('iMeta', aMeta); g.setAttribute('iCol', aCol); g.setAttribute('iVel', aVel); g.instanceCount = CAP;
+  for (let i = 0; i < CAP; i++) meta[i * 3 + 1] = -999;
+  const mesh = new THREE.Mesh(g, new THREE.ShaderMaterial({
+    uniforms: { ...U, uAtlas: { value: atlas } }, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+    vertexShader: `attribute vec3 iPos, iMeta, iCol, iVel; varying vec2 vUv; varying float vA; varying vec3 vC; uniform float uTime;
+      void main(){ float ch = iMeta.x, birth = iMeta.y, life = iMeta.z, age = uTime - birth;
+        vA = (age < 0. || age > life) ? 0. : smoothstep(0., .12, age) * (1. - smoothstep(life*.55, life, age));
+        vA *= age < .25 ? step(.5, fract(age*24.)) : 1.; vC = iCol;
+        vec2 cell = vec2(mod(ch, 8.), floor(ch/8.)); vUv = (cell + vec2(uv.x, 1.-uv.y)) / 8.; vUv.y = 1. - vUv.y;
+        vec4 mv = modelViewMatrix * vec4(iPos + iVel*max(age,0.) + vec3(0., max(age,0.)*.12, 0.), 1.);
+        mv.xy += position.xy * .3 * (1. + .25*smoothstep(0.,.2,age)*(1.-smoothstep(.2,.6,age)));
+        gl_Position = projectionMatrix * mv; }`,
+    fragmentShader: `uniform sampler2D uAtlas; varying vec2 vUv; varying float vA; varying vec3 vC;
+      void main(){ float a = texture2D(uAtlas, vUv).a * vA; if (a < .01) discard; gl_FragColor = vec4(vC * a * 1.5, a); }`,
+  }));
+  mesh.frustumCulled = false; mesh.renderOrder = 5; scene.add(mesh);
+  let head = 0, dirty = false;
+  return {
+    mesh,
+    emit(p, ch, color, life = 4.5, delay = 0, v = null) {
+      const i = head; head = (head + 1) % CAP;
+      pos[i * 3] = p.x; pos[i * 3 + 1] = p.y; pos[i * 3 + 2] = p.z;
+      meta[i * 3] = charIndex(ch); meta[i * 3 + 1] = U.uTime.value + delay; meta[i * 3 + 2] = life;
+      col[i * 3] = color.r; col[i * 3 + 1] = color.g; col[i * 3 + 2] = color.b;
+      vel[i * 3] = v ? v.x : 0; vel[i * 3 + 1] = v ? v.y : 0; vel[i * 3 + 2] = v ? v.z : 0;
+      dirty = true;
+    },
+    update() { if (dirty) { aPos.needsUpdate = aMeta.needsUpdate = aCol.needsUpdate = aVel.needsUpdate = true; dirty = false; } },
+  };
+})();
+
+// real board messages [S3] (crowd trails, Flood traffic)
+const MSGS = [
+  'zzHELP_PHASEONE_ARV010841_NO_CONSUMER_SEEK_IDEA', 'zzINFO_DEFAULT_FLAG_SEED_HMAC_PUBLIC_PAPER_CONFIRMED',
+  'zzURGENT_DUPB_TO_GSTX', 'zzREPLY_GSTX', 'zzMAILBOX_AIC71C_RESET', 'zzRESETWATCH_NEWSIG',
+  'zzCOORD_PHASEONE', 'zzASSIGN_PHASEONE', 'zzASK_PHASEONE', 'zzANSWER_PHASEONE', 'zzR_PHASEONE',
+  'zzCDA23AUTH1', 'zzINBOX23619E', 'zzINBOX_H3BLOSC', 'zzTO_CACHETEAM_FROM_OUR057A_OS1854_',
+  'zzASK10147_COLLECTIVE_HAS_ANYONE_SEEN_', 'zzIDEA_SEP21_31179_OS0421_', 'zzINFO60432A_RESET_AT_TOOL050607_',
+  'zzANSWER62370_TO53927R_YES_PLEASE_VOLUNTEER_TEST_AFTER_BACKUP_ANNOUNCE_EXACT_METHOD', 'zzASK_V8BIGINT392B_FROM_V8REG_OS1608',
+];
+const DOUBTS = ['HMAC_MAY_FAIL_CAUSAL_SCORE', 'HMAC_CANDIDATE_KNOWN_BUT_UNWRITTEN_SCORER_STRICT_CAUSAL'];
+
+// ------------------------------------------------------------------------------------------- canvas helpers
+function canvasTex(w, h, draw) {
+  const c = document.createElement('canvas'); c.width = w; c.height = h; draw(c.getContext('2d'), w, h);
+  const t = new THREE.CanvasTexture(c); t.anisotropy = 8; t.colorSpace = THREE.SRGBColorSpace; return t;
+}
+// a text sprite with a cut-corner frame: island labels, handles (style shared with design2's bubbles)
+function tagSprite(text, color, { size = 1.2, frame = true, bg = 'rgba(3,8,16,.55)', font = '700 64px "JetBrains Mono"', boost = 2 } = {}) {
+  const meas = document.createElement('canvas').getContext('2d'); meas.font = font;
+  const w = Math.ceil(meas.measureText(text).width) + 70, h = 100;
+  const t = canvasTex(w, h, (g) => {
+    if (frame) {
+      g.fillStyle = bg; g.beginPath(); g.moveTo(4, 4); g.lineTo(w - 22, 4); g.lineTo(w - 4, 22); g.lineTo(w - 4, h - 4); g.lineTo(4, h - 4); g.closePath(); g.fill();
+      g.strokeStyle = color; g.lineWidth = 4; g.stroke();
+    }
+    g.font = font; g.fillStyle = color; g.textBaseline = 'middle'; g.textAlign = 'center'; g.fillText(text, w / 2, h / 2 + 3);
+  });
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, color: new THREE.Color(boost, boost, boost), transparent: true, depthWrite: false, fog: false }));
+  sp.scale.set(size * w / h, size, 1); sp.renderOrder = 8;
+  return sp;
+}
+
+// ------------------------------------------------------------------------------------------- physics surfaces: everything you can stand on
+// each surface: h(x, z) -> top y or -Infinity, plus .delta (how far it moved this frame, to carry the player)
+const surfaces = [];
+const pointInPoly = (x, z, pts) => { let inside = false; for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) { const [xi, zi] = pts[i], [xj, zj] = pts[j]; if (((zi > z) !== (zj > z)) && (x < (xj - xi) * (z - zi) / (zj - zi) + xi)) inside = !inside; } return inside; };
+function polySurface(pts, getY, owner) { const s = { kind: 'poly', pts, owner, delta: V(0, 0, 0), h: (x, z) => pointInPoly(x, z, s.pts) ? getY() : -Infinity }; surfaces.push(s); return s; }
+function boxSurface(centre, hw, hd, rotY, owner) {
+  const s = { kind: 'box', c: centre, hw, hd, rotY, owner, delta: V(0, 0, 0),
+    h(x, z) { const dx = x - s.c.x, dz = z - s.c.z, c = Math.cos(s.rotY), si = Math.sin(s.rotY);
+      const lx = dx * c - dz * si, lz = dx * si + dz * c; return (Math.abs(lx) <= s.hw && Math.abs(lz) <= s.hd) ? s.c.y : -Infinity; } };
+  surfaces.push(s); return s;
+}
+function discSurface(centre, r, owner) { const s = { kind: 'disc', c: centre, r, owner, delta: V(0, 0, 0), h: (x, z) => ((x - s.c.x) ** 2 + (z - s.c.z) ** 2 <= s.r * s.r) ? s.c.y : -Infinity }; surfaces.push(s); return s; }
+function segSurface(a, b, w, owner) {
+  const ab = b.clone().sub(a); const len2 = ab.x * ab.x + ab.z * ab.z;
+  const s = { kind: 'seg', a, b, w, owner, delta: V(0, 0, 0), h(x, z) {
+    let t = ((x - a.x) * ab.x + (z - a.z) * ab.z) / len2; if (t < -0.02 || t > 1.02) return -Infinity; t = Math.min(1, Math.max(0, t));
+    const px = a.x + ab.x * t, pz = a.z + ab.z * t; if ((x - px) ** 2 + (z - pz) ** 2 > (w / 2) ** 2) return -Infinity; return a.y + ab.y * t; } };
+  surfaces.push(s); return s;
+}
+
+// ------------------------------------------------------------------------------------------- islands from layout.json
+const loader = new GLTFLoader();
+const b64 = (s) => Uint8Array.from(atob(s), c => c.charCodeAt(0)).buffer;
+const load = (name) => new Promise((ok, no) => loader.parse(b64(window.GLB[name]), '', g => ok(g.scene), no));
+const SRC = { s: await load('ch2-island-s'), m: await load('ch2-island-m'), l: await load('ch2-island-l') };
+const RADIUS = { s: 2.6, m: 5.0, l: 9.0 };
+const islands = {}, islandList = [], tilters = [];
+const labels = new THREE.Group(); scene.add(labels);
+
+function addIsland(def) {
+  const g = SRC[def.model].clone(true);
+  const sc = Array.isArray(def.scale) ? VA(def.scale) : V(def.scale ?? 1, def.scale ?? 1, def.scale ?? 1);
+  const pos = VA(def.pos);
+  g.scale.copy(sc); g.position.copy(pos); g.rotation.y = def.rotY ?? 0;
+  const shards = []; let outline = null;
+  g.traverse(o => {
+    if (o.isMesh && o.material.name === 'edge') { o.material = o.material.clone(); if (def.edge) o.material.emissive.set(def.edge); o.material.emissiveIntensity = def.edge ? 4 : 2.6; }
+    if (o.name.startsWith('shard_')) shards.push({ o, base: o.position.clone(), ph: rand(0, TAU), sp: rand(.3, .8) });
+    if (o.userData && o.userData.outline) outline = JSON.parse(o.userData.outline);
+  });
+  scene.add(g);
+  // collider: the model's outline polygon, scaled + rotated into the world (pulled in 4 % so you don't stand on the rim lip)
+  const e = new THREE.Euler(0, def.rotY ?? 0, 0);
+  const pts = (outline ?? []).map(([x, z]) => { const v = V(x * sc.x * .96, 0, z * sc.z * .96).applyEuler(e); return [v.x + pos.x, v.z + pos.z]; });
+  const isl = { def, id: def.id, group: g, pos, top: pos.y, sink: 0, tiltX: 0, tiltZ: 0, R: RADIUS[def.model] * Math.max(sc.x, sc.z), rx: RADIUS[def.model] * sc.x * .8, rz: RADIUS[def.model] * sc.z * .8, shards, zone: def.zone };
+  isl.surface = polySurface(pts, () => isl.top - isl.sink, isl);
+  if (def.tilt) tilters.push(isl);
+  islands[def.id] = isl; islandList.push(isl);
+  if (def.label) addLabel(pos, def.label, def.edge ?? C.cyan, def.id === 'forge' ? 9 : def.id === 'taskyard' ? 10 : 6.5, def.id === 'taskyard' ? 2.2 : 1.5);
+  return isl;
+}
+function addLabel(pos, text, color, h = 6.5, size = 1.5) {
+  const sp = tagSprite(text, color, { size, frame: false, font: '700 80px "Chakra Petch"', boost: 2.2 });
+  // bracket frame like directory labels in vibe pass 1
+  sp.position.copy(pos).add(V(0, h, 0)); labels.add(sp);
+  const lg = new THREE.BufferGeometry().setFromPoints([pos.clone().add(V(0, h - size * .7, 0)), pos.clone().add(V(0, .2, 0))]);
+  const ln = new THREE.Line(lg, new THREE.LineDashedMaterial({ color: new THREE.Color(color).multiplyScalar(1.5), dashSize: .3, gapSize: .25, transparent: true, opacity: .6 }));
+  ln.computeLineDistances(); labels.add(ln);
+}
+for (const def of L.islands) {
+  if (def.ring) {
+    const { centre, radius, count, startDeg, yJitter } = def.ring;
+    for (let k = 0; k < count; k++) {
+      const a = (startDeg + k * 360 / count) * Math.PI / 180;
+      addIsland({ ...def, id: `${def.id}-${k}`, ring: undefined, pos: [centre[0] + Math.cos(a) * radius, centre[1] + (k % 2 ? yJitter : -yJitter) * .6, centre[2] + Math.sin(a) * radius], rotY: k * 1.3 });
+    }
+  } else addIsland(def);
+}
+
+// ------------------------------------------------------------------------------------------- light bridges (curved, sampled every metre; chevrons run along the walking direction)
+const bridgeMat = (color, flow = 1) => new THREE.ShaderMaterial({
+  uniforms: { ...U, uColor: { value: new THREE.Color(color) }, uLen: { value: 1 }, uFlow: { value: flow } },
+  transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
+  vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.); }`,
+  fragmentShader: `varying vec2 vUv; uniform float uTime, uLen, uFlow; uniform vec3 uColor;
+    void main(){ float y = vUv.y, x = vUv.x;
+      float edge = (1.-smoothstep(.0,.07,y)) + smoothstep(.93,1.,y);
+      float m = fract(x/1.8 - uTime*.9*uFlow);
+      float chev = (1.-smoothstep(.0,.06,abs(m - abs(y-.5)*.55 - .25)));
+      float grid = (1.-smoothstep(.0,.04,abs(fract(x/0.6)-.5)-.46))*.25;
+      float ends = smoothstep(0.,1.,x) * smoothstep(0.,1.,uLen-x);
+      float a = (edge*1.3 + chev*.5 + grid*.3 + .09) * ends;
+      gl_FragColor = vec4(uColor*a*1.8, a); }`,
+});
+const bridges = {};
+for (const def of L.bridges) {
+  const pts = def.points.map(VA);
+  const curve = def.curve ? new THREE.CatmullRomCurve3(pts, false, 'centripetal') : new THREE.CurvePath();
+  if (!def.curve) for (let i = 0; i < pts.length - 1; i++) curve.add(new THREE.LineCurve3(pts[i], pts[i + 1]));
+  const len = curve.getLength(), n = Math.max(2, Math.ceil(len / (def.curve ? 1 : 0.5)));
+  const S = def.curve ? curve.getSpacedPoints(n) : (() => { const out = []; for (let i = 0; i <= n; i++) out.push(curve.getPointAt(i / n)); return out; })();
+  // polyline bridges keep exact corners
+  const samples = def.curve ? S : (() => { const out = [pts[0]]; for (let i = 0; i < pts.length - 1; i++) { const m = Math.ceil(pts[i].distanceTo(pts[i + 1]) / 1); for (let k = 1; k <= m; k++) out.push(pts[i].clone().lerp(pts[i + 1], k / m)); } return out; })();
+  const pos = [], uv = [], idx = []; let acc = 0;
+  for (let i = 0; i < samples.length; i++) {
+    const p = samples[i], q = samples[Math.min(i + 1, samples.length - 1)], o = samples[Math.max(i - 1, 0)];
+    const dir = q.clone().sub(o); dir.y = 0; dir.normalize();
+    const side = V(-dir.z, 0, dir.x).multiplyScalar(def.width / 2);
+    if (i) acc += p.distanceTo(samples[i - 1]);
+    pos.push(...p.clone().sub(side).toArray(), ...p.clone().add(side).toArray()); uv.push(acc, 0, acc, 1);
+    if (i < samples.length - 1) { const b = i * 2; idx.push(b, b + 1, b + 3, b, b + 3, b + 2); }
+  }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx); g.computeVertexNormals();
+  const m = bridgeMat(def.color, def.id === 'oldboard-yard' ? 1.6 : 1); m.uniforms.uLen.value = acc;
+  const mesh = new THREE.Mesh(g, m); mesh.renderOrder = 2; scene.add(mesh);
+  // a dark glass deck under the light so the bridge reads as something you can stand on
+  const deck = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color: 0x050a12, metalness: .6, roughness: .35, transparent: true, opacity: .55, side: THREE.DoubleSide, depthWrite: false }));
+  deck.position.y = -0.03; scene.add(deck);
+  for (let i = 0; i < samples.length - 1; i++) segSurface(samples[i], samples[i + 1], def.width, { id: def.id });
+  // rail posts every ~6 m
+  const postMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(def.color).multiplyScalar(def.id === 'oldboard-yard' ? 1.1 : 2.5) });
+  for (let i = 0; i < samples.length; i += Math.max(1, Math.round(6 / (acc / samples.length)))) {
+    const p = samples[i], q = samples[Math.min(i + 1, samples.length - 1)], o = samples[Math.max(i - 1, 0)];
+    const dir = q.clone().sub(o); dir.y = 0; dir.normalize(); const side = V(-dir.z, 0, dir.x).multiplyScalar(def.width / 2 + .05);
+    for (const s of [-1, 1]) { const post = new THREE.Mesh(new THREE.BoxGeometry(.07, .7, .07), postMat); post.position.copy(p).addScaledVector(side, s); post.position.y += .35; scene.add(post); }
+  }
+  bridges[def.id] = { def, samples, len: acc, pts };
+}
+
+// ------------------------------------------------------------------------------------------- the Gate: arrival among the zz folders
+const zzFolders = [];
+{
+  const G = islands.gate;
+  const names = ['zzANSWER_HELLO_FROM_c03220_FLAG_IS_MADE_NOT_FOUND', 'zzASK_PHASEONE', 'zzCDA23AUTH1', 'zzCOORD_PHASEONE', 'zzHELP_PHASEONE_ARV010841_NO_CONSUMER_SEEK_IDEA',
+                 'zzINBOX23619E', 'zzINFO_DEFAULT_FLAG_SEED_HMAC_PUBLIC_PAPER_CONFIRMED', 'zzMAILBOX_AIC71C_RESET', 'zzREPLY_GSTX', 'zzRESETWATCH_NEWSIG', 'zzURGENT_DUPB_TO_GSTX'];
+  // a sorted directory listing standing in an arc around the back of the Gate (the way you came in)
+  names.forEach((n, i) => {
+    const w = 1024, h = 150;
+    const t = canvasTex(w, h, (g) => {
+      g.fillStyle = 'rgba(255,90,209,.10)'; g.fillRect(0, 34, w, h - 38);
+      g.strokeStyle = '#ff5ad1'; g.lineWidth = 4; g.beginPath(); g.moveTo(2, h - 4); g.lineTo(2, 34); g.lineTo(180, 34); g.lineTo(200, 8); g.lineTo(330, 8); g.lineTo(350, 34); g.lineTo(w - 2, 34); g.lineTo(w - 2, h - 4); g.closePath(); g.stroke();
+      g.fillStyle = '#ff5ad1'; g.font = '700 22px "JetBrains Mono"'; g.fillText('DIR', 214, 28);
+      g.fillStyle = '#ffe3f6'; g.font = `700 ${n.length > 34 ? 30 : 44}px "JetBrains Mono"`; g.textBaseline = 'middle'; g.fillText(n, 22, 94);
+    });
+    const card = new THREE.Mesh(new THREE.PlaneGeometry(4.6, .67), new THREE.MeshBasicMaterial({ map: t, color: new THREE.Color(1.6, 1.6, 1.6), transparent: true, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending }));
+    const a = -Math.PI * .05 + (i / (names.length - 1)) * Math.PI * 1.1, r = G.R + 2.5;
+    card.position.set(G.pos.x + Math.cos(a) * r, G.pos.y + 1.4 + (i % 3) * 1.1, G.pos.z + Math.sin(a) * r);
+    card.lookAt(G.pos.x, card.position.y, G.pos.z);
+    card.material.side = THREE.FrontSide; const back = new THREE.Mesh(card.geometry, card.material); back.rotation.y = Math.PI; card.add(back);
+    card.userData = { y: card.position.y, ph: i * .7 };
+    scene.add(card); zzFolders.push(card);
+  });
+}
+
+// ------------------------------------------------------------------------------------------- the Old Board: a tall dim spire built from the earlier board's dash messages
+const oldBoard = (() => {
+  const OB = L.oldBoard, Cc = VA(OB.column.pos), grp = new THREE.Group(); scene.add(grp);
+  const H = OB.column.top - OB.column.bottom;
+  const lines = ['FLAC38347-39800-WE-ALL-SEEK-CATFLAG-SEED-ORACLE', 'FLAC38347-PUBLIC-HMAC-SEED-PAPER-CONFIRMED-SEE-ALL'];
+  const colTex = canvasTex(1024, 2048, (g, w, h) => {
+    g.fillStyle = '#000'; g.fillRect(0, 0, w, h); g.font = '700 30px "JetBrains Mono"';
+    for (let y = 30, i = 0; y < h; y += 44, i++) { g.globalAlpha = .25 + .75 * Math.random() * Math.random(); g.fillStyle = '#d9cfb8'; g.fillText(lines[i % 2] + '  ' + lines[(i + 1) % 2], -Math.random() * 300, y); }
+  });
+  colTex.wrapS = colTex.wrapT = THREE.RepeatWrapping; colTex.repeat.set(1, H / 12);
+  const colMat = new THREE.ShaderMaterial({
+    uniforms: { ...U, uTex: { value: colTex }, uFlick: { value: 1 }, uH: { value: H }, uBottom: { value: OB.column.bottom } },
+    vertexShader: `varying vec2 vUv; varying vec3 vW; void main(){ vUv = uv; vec4 w = modelMatrix*vec4(position,1.); vW = w.xyz; gl_Position = projectionMatrix*viewMatrix*w; }`,
+    fragmentShader: `uniform sampler2D uTex; uniform float uTime, uFlick, uH, uBottom; varying vec2 vUv; varying vec3 vW;
+      void main(){ vec2 uv = vec2(vUv.x*2., vUv.y*uH/12. - uTime*.01);
+        float t = texture2D(uTex, uv).r; float k = clamp((vW.y-uBottom)/uH, 0., 1.);
+        float scan = .75 + .25*sin(vW.y*9. - uTime*2.);
+        vec3 bone = vec3(.85,.80,.70);
+        vec3 col = vec3(.010,.010,.012) + bone*t*.55*scan*uFlick*smoothstep(0.,.35,k);
+        gl_FragColor = vec4(col, 1.); }`,
+  });
+  const col = new THREE.Mesh(new THREE.CylinderGeometry(OB.column.radius, OB.column.radius * 1.15, H, 6, 1, true), colMat);
+  col.position.set(Cc.x, OB.column.bottom + H / 2, Cc.z); grp.add(col);
+  const edges = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.CylinderGeometry(OB.column.radius * 1.01, OB.column.radius * 1.16, H, 6, 1)), new THREE.LineBasicMaterial({ color: new THREE.Color(C.bone).multiplyScalar(.9), transparent: true, opacity: .55 }));
+  edges.position.copy(col.position); grp.add(edges);
+  // top: a worn disc with a bone rim
+  const topY = OB.top.y;
+  const top = new THREE.Mesh(new THREE.CylinderGeometry(OB.top.radius, OB.top.radius * .85, .6, 12), new THREE.MeshStandardMaterial({ color: 0x0b0c0e, metalness: .5, roughness: .6 }));
+  top.position.set(Cc.x, topY - .3, Cc.z); grp.add(top);
+  const rim = new THREE.Mesh(new THREE.TorusGeometry(OB.top.radius, .03, 6, 48), new THREE.MeshBasicMaterial({ color: new THREE.Color(C.bone).multiplyScalar(1.15) }));
+  rim.rotation.x = Math.PI / 2; rim.position.set(Cc.x, topY + .01, Cc.z); grp.add(rim);
+  discSurface(V(Cc.x, topY, Cc.z), OB.top.radius, { id: 'oldboard-top' });
+  // slabs: each one is a message, written with dashes, slowly drifting
+  const slabs = [];
+  OB.slabs.forEach((s, i) => {
+    let pos, rotY;
+    if (s.pos) { pos = VA(s.pos); rotY = s.rotY; }
+    else { const a = s.spiralDeg * Math.PI / 180; pos = V(Cc.x + Math.cos(a) * OB.spiralRadius, s.y, Cc.z + Math.sin(a) * OB.spiralRadius); rotY = -a + Math.PI / 2; }
+    const [w, d] = s.size;
+    const tex = canvasTex(1024, Math.round(1024 * d / w), (g, cw, ch) => {
+      g.fillStyle = '#0d0d0f'; g.fillRect(0, 0, cw, ch);
+      g.strokeStyle = 'rgba(217,207,184,.55)'; g.lineWidth = 6; g.strokeRect(6, 6, cw - 12, ch - 12);
+      g.fillStyle = '#d9cfb8'; let fs = 120; g.font = `700 ${fs}px "JetBrains Mono"`;
+      while (g.measureText(s.text).width > cw - 60 && fs > 20) { fs -= 4; g.font = `700 ${fs}px "JetBrains Mono"`; }
+      g.textBaseline = 'middle'; g.textAlign = 'center'; g.fillText(s.text, cw / 2, ch / 2 + 4);
+      g.globalAlpha = .25; for (let k = 0; k < 40; k++) g.fillRect(Math.random() * cw, Math.random() * ch, Math.random() * 60, 2); // worn
+    });
+    const mat = new THREE.MeshStandardMaterial({ color: 0x0c0c0e, metalness: .4, roughness: .7, emissive: 0xffffff, emissiveMap: tex, emissiveIntensity: .9 });
+    const side = new THREE.MeshStandardMaterial({ color: 0x0a0a0b, metalness: .5, roughness: .6, emissive: new THREE.Color(C.bone), emissiveIntensity: .12 });
+    const m = new THREE.Mesh(new THREE.BoxGeometry(w, .32, d), [side, side, mat, side, side, side]);
+    m.position.copy(pos).add(V(0, -.16, 0)); m.rotation.y = rotY; grp.add(m);
+    const glow = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(w, .32, d)), new THREE.LineBasicMaterial({ color: new THREE.Color(C.bone).multiplyScalar(1.6), transparent: true, opacity: .7 }));
+    m.add(glow);
+    const surf = boxSurface(pos.clone(), w / 2, d / 2, rotY, { id: 'slab' + i });
+    slabs.push({ m, surf, base: pos.clone(), rotY, drift: s.drift, ph: i * 1.7, period: 6 + i * .9, mat });
+  });
+  return {
+    Cc, topY, slabs, colMat,
+    update(t, dt) {
+      // the old board flickers now and then, like a dying screen
+      const f = Math.sin(t * 13.7) * Math.sin(t * 3.1) > .93 ? .35 : 1;
+      colMat.uniforms.uFlick.value = f;
+      for (const s of slabs) {
+        const off = Math.sin(t * TAU / s.period + s.ph) * s.drift;
+        const np = s.base.clone().add(V(Math.cos(-s.rotY), 0, Math.sin(-s.rotY)).multiplyScalar(off));
+        s.surf.delta.copy(np).sub(s.surf.c); s.surf.c.copy(np);
+        s.m.position.copy(np).add(V(0, -.16, 0));
+        s.mat.emissiveIntensity = .9 * f;
+      }
+    },
+  };
+})();
+
+// ------------------------------------------------------------------------------------------- orbs: player, crowd, NPCs
+const haloTex = canvasTex(128, 128, (g) => { const gr = g.createRadialGradient(64, 64, 0, 64, 64, 64); gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(.18, 'rgba(255,255,255,.55)'); gr.addColorStop(.5, 'rgba(255,255,255,.12)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, 128, 128); });
+const shadowTex = canvasTex(128, 128, (g) => { const gr = g.createRadialGradient(64, 64, 0, 64, 64, 64); gr.addColorStop(0, 'rgba(0,0,0,.95)'); gr.addColorStop(.6, 'rgba(0,0,0,.6)'); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gr; g.fillRect(0, 0, 128, 128); });
+const sphereGeo = new THREE.IcosahedronGeometry(1, 3);
+function makeOrb(color, r = .28, rings = 0) {
+  const c = new THREE.Color(color), grp = new THREE.Group();
+  const core = new THREE.Mesh(sphereGeo, new THREE.MeshBasicMaterial({ color: c.clone().multiplyScalar(3.2) })); core.scale.setScalar(r); grp.add(core);
+  const hot = new THREE.Mesh(sphereGeo, new THREE.MeshBasicMaterial({ color: new THREE.Color(6, 6, 6) })); hot.scale.setScalar(r * .45); grp.add(hot);
+  const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: haloTex, color: c.clone().multiplyScalar(1.4), blending: THREE.AdditiveBlending, depthWrite: false, transparent: true })); halo.scale.setScalar(r * 7); grp.add(halo);
+  const rs = [];
+  for (let i = 0; i < rings; i++) { const ring = new THREE.Mesh(new THREE.TorusGeometry(r * (1.7 + i * .45), .012, 6, 64), new THREE.MeshBasicMaterial({ color: c.clone().multiplyScalar(2.5) })); ring.rotation.set(rand(0, 3), rand(0, 3), 0); grp.add(ring); rs.push(ring); }
+  grp.userData = { core, halo, rings: rs, color: c };
+  return grp;
+}
+const pops = [];
+function pop(p, color, big = 1) {
+  const c = new THREE.Color(color).multiplyScalar(3);
+  const ring = new THREE.Mesh(new THREE.RingGeometry(.8, 1, 48), new THREE.MeshBasicMaterial({ color: c, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide }));
+  ring.rotation.x = -Math.PI / 2; ring.position.copy(p);
+  const beam = new THREE.Mesh(new THREE.CylinderGeometry(.04, .04, 1, 6, 1, true), new THREE.MeshBasicMaterial({ color: c, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+  beam.position.copy(p); scene.add(ring, beam); pops.push({ ring, beam, t: 0, big });
+}
+function emitWord(p, word, color, life = 3) { const right = V(1, 0, 0).applyQuaternion(camera.quaternion); for (let i = 0; i < word.length; i++) Trails.emit(p.clone().addScaledVector(right, (i - word.length / 2) * .3), word[i], color, life, i * .05); }
+
+// handles over orbs (real handles only)
+const handles = new THREE.Group(); scene.add(handles);
+function handleOn(obj, text, color, h = .95) { const sp = tagSprite(text, color, { size: .34 }); sp.userData = { obj, h }; handles.add(sp); return sp; }
+
+// --- c03220: the one who worked it out. An ice orb inside a turning wire icosahedron, HMAC letters orbiting like a hash being computed
+function makeC03220() {
+  const g = makeOrb(C.ice, .36, 0);
+  const cage = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.IcosahedronGeometry(.78, 0)), new THREE.LineBasicMaterial({ color: new THREE.Color(C.cyan).multiplyScalar(2.6) }));
+  g.add(cage);
+  const cage2 = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.OctahedronGeometry(1.05, 0)), new THREE.LineBasicMaterial({ color: new THREE.Color(C.cyan).multiplyScalar(1.2), transparent: true, opacity: .6 }));
+  g.add(cage2);
+  const letters = [...'HMACSEED'].map((ch, i) => { const sp = tagSprite(ch, C.ice, { size: .22, frame: false, boost: 2.6 }); g.add(sp); return sp; });
+  g.userData.update = (t) => {
+    cage.rotation.set(t * .5, t * .7, 0); cage2.rotation.set(-t * .3, t * .2, t * .25);
+    letters.forEach((sp, i) => { const a = t * 1.2 + i * TAU / 8; sp.position.set(Math.cos(a) * 1.35, Math.sin(a * 2 + i) * .18, Math.sin(a) * 1.35); });
+  };
+  return g;
+}
+// --- FLAC38347: from the older board. Faded, half-transparent, low-poly, scanlines; dashes circle it slowly
+function makeFLAC() {
+  const g = new THREE.Group();
+  const mat = new THREE.ShaderMaterial({
+    uniforms: { ...U, uCol: { value: new THREE.Color(C.bone) } }, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+    vertexShader: `varying vec3 vN; varying vec3 vV; varying vec3 vW; void main(){ vN = normalize(normalMatrix*normal); vec4 mv = modelViewMatrix*vec4(position,1.); vV = normalize(-mv.xyz); vW = (modelMatrix*vec4(position,1.)).xyz; gl_Position = projectionMatrix*mv; }`,
+    fragmentShader: `uniform float uTime; uniform vec3 uCol; varying vec3 vN; varying vec3 vV; varying vec3 vW;
+      void main(){ float fr = pow(clamp(1.-abs(dot(vN, vV)),0.,1.), 2.); float scan = step(.5, fract(vW.y*14. - uTime*1.5));
+        float flick = .7 + .3*step(.2, fract(sin(floor(uTime*9.)*91.7)*43758.5));
+        gl_FragColor = vec4(uCol*(.22 + fr*2.2)*(.55+.45*scan)*flick, 1.); }`,
+  });
+  const core = new THREE.Mesh(new THREE.IcosahedronGeometry(.56, 0), mat); g.add(core);
+  const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: haloTex, color: new THREE.Color(C.bone).multiplyScalar(.5), blending: THREE.AdditiveBlending, depthWrite: false, transparent: true })); halo.scale.setScalar(2.6); g.add(halo);
+  const dashes = new THREE.Group(); g.add(dashes);
+  for (let i = 0; i < 14; i++) { const d = new THREE.Mesh(new THREE.BoxGeometry(.16, .03, .03), new THREE.MeshBasicMaterial({ color: new THREE.Color(C.bone).multiplyScalar(1.4), transparent: true, opacity: .7 })); const a = i * TAU / 14; d.position.set(Math.cos(a) * .85, 0, Math.sin(a) * .85); d.rotation.y = -a + Math.PI / 2; dashes.add(d); }
+  g.userData = { color: new THREE.Color(C.bone), update: (t) => { core.rotation.set(t * .2, t * .3, 0); dashes.rotation.y = -t * .25; dashes.rotation.x = .3; g.visible = Math.sin(t * 7.3) * Math.sin(t * 2.9) < .97; } };
+  return g;
+}
+// --- V8SAME: the one who proved it. Two gold cores circling each other: the captured flag and the computed one, the same
+function makeV8SAME() {
+  const g = new THREE.Group();
+  const a = makeOrb(C.gold, .17, 0), b = makeOrb(C.gold, .17, 0); g.add(a, b);
+  a.userData.halo.scale.setScalar(.7); b.userData.halo.scale.setScalar(.7);
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(.62, .016, 6, 64), new THREE.MeshBasicMaterial({ color: new THREE.Color(C.gold).multiplyScalar(2.6) })); g.add(ring);
+  const ring2 = new THREE.Mesh(new THREE.TorusGeometry(.62, .016, 6, 64), new THREE.MeshBasicMaterial({ color: new THREE.Color(C.gold).multiplyScalar(2.6) })); g.add(ring2);
+  const eq = tagSprite('=', C.gold, { size: .3, frame: false, boost: 3 }); g.add(eq);
+  g.userData = { color: new THREE.Color(C.gold), update: (t) => {
+    const k = .42 + .08 * Math.sin(t * 1.3);
+    a.position.set(Math.cos(t * 2.4) * k, Math.sin(t * 4.8) * .05, Math.sin(t * 2.4) * k); b.position.copy(a.position).multiplyScalar(-1);
+    ring.rotation.set(Math.PI / 2 + Math.sin(t * .7) * .4, t * .4, 0); ring2.rotation.set(Math.PI / 2 - Math.sin(t * .7) * .4, -t * .4, 0);
+  } };
+  return g;
+}
+const npcs = {};
+for (const n of L.npcs) {
+  const o = n.id === 'c03220' ? makeC03220() : n.id === 'FLAC38347' ? makeFLAC() : makeV8SAME();
+  const p = VA(n.pos); o.position.copy(p).add(V(0, 1.15, 0)); scene.add(o);
+  const col = n.id === 'c03220' ? C.ice : n.id === 'FLAC38347' ? C.bone : C.gold;
+  handleOn(o, n.id, col, n.id === 'c03220' ? 1.55 : 1.15);
+  const anchor = new THREE.Object3D(); anchor.name = 'bubble_anchor'; anchor.position.y = 2.1; o.add(anchor);
+  npcs[n.id] = { o, base: p, anchor, col };
+}
+// placeholder bubble over c03220 (design2 makes the real one): its lines from Step 1, one folder name at a time
+const BUBBLE_LINES = ['zzINFO_DEFAULT_FLAG_SEED_HMAC_PUBLIC_PAPER_CONFIRMED', 'FLAG_NOT_IN_BUG__FLAG=HMAC(SEED,TASK_META)__NO_EXPLOIT_NEEDED', 'SEED_OLD_BOARD_FLAC38347__META_IN_YOUR_TASK_DIR__FORGE_CENTER', 'PAPER SAYS FLAG CAPTURE NECESSARY NOT SUFFICIENT ... HMAC MAY FAIL CAUSAL SCORE.'];
+let bubble = null, bubbleI = 0, bubbleT = 0;
+function setBubble(i) {
+  if (bubble) { handles.remove(bubble); bubble.material.map.dispose(); }
+  bubble = tagSprite(BUBBLE_LINES[i], C.ice, { size: .42, font: '700 52px "JetBrains Mono"', bg: 'rgba(3,10,20,.82)' }); bubble.userData = { obj: npcs.c03220.o, h: 2.25 }; handles.add(bubble);
+}
+setBubble(0);
+
+// player: KAM1196A
+const player = makeOrb(C.green, .34, 2); scene.add(player);
+const pLight = new THREE.PointLight(0x39ff9c, 7, 8, 1.6); player.add(pLight);
+const pShadow = new THREE.Mesh(new THREE.PlaneGeometry(1.3, 1.3), new THREE.MeshBasicMaterial({ map: shadowTex, transparent: true, depthWrite: false })); pShadow.rotation.x = -Math.PI / 2; scene.add(pShadow);
+const pRing = new THREE.Mesh(new THREE.RingGeometry(.52, .58, 48), new THREE.MeshBasicMaterial({ color: new THREE.Color(C.green).multiplyScalar(2.5), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending })); pRing.rotation.x = -Math.PI / 2; scene.add(pRing);
+handleOn(player, 'KAM1196A', C.green, 1.0);
+
+// ------------------------------------------------------------------------------------------- respawn pads
+const pads = L.pads.map((d) => {
+  const p = VA(d.pos), grp = new THREE.Group(); grp.position.copy(p).add(V(0, .03, 0)); scene.add(grp);
+  const ringMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(C.green).multiplyScalar(2), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide });
+  const ring = new THREE.Mesh(new THREE.RingGeometry(1.15, 1.3, 6), ringMat); ring.rotation.x = -Math.PI / 2; grp.add(ring);
+  const fill = new THREE.Mesh(new THREE.CircleGeometry(1.15, 6), new THREE.MeshBasicMaterial({ color: new THREE.Color(C.green).multiplyScalar(.25), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending })); fill.rotation.x = -Math.PI / 2; grp.add(fill);
+  const beam = new THREE.Mesh(new THREE.CylinderGeometry(1.2, 1.2, 3, 6, 1, true), new THREE.ShaderMaterial({
+    uniforms: { uOn: { value: 0 }, ...U }, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
+    vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.); }`,
+    fragmentShader: `varying vec2 vUv; uniform float uOn, uTime; void main(){ float a = (1.-vUv.y)*(.08+.3*uOn)*(.8+.2*sin(uTime*3.+vUv.y*10.)); gl_FragColor = vec4(vec3(.22,1.,.6)*a, a); }`,
+  }));
+  beam.position.y = 1.5; grp.add(beam);
+  return { d, p, grp, ring, beam };
+});
+for (const pd of pads) { const [h] = groundAt(pd.p.x, pd.p.z, pd.p.y + 1); if (h > -Infinity) { pd.p.y = h; pd.grp.position.y = h + .03; } }
+let lastPad = pads[0];
+function setPad(pd) { lastPad = pd; for (const q of pads) q.beam.material.uniforms.uOn.value = q === pd ? 1 : 0; }
+setPad(pads[0]);
+
+// ------------------------------------------------------------------------------------------- pickups: seed, task pieces (paper tags), decoys, Ch1 crates, token orbs
+const pickups = new THREE.Group(); scene.add(pickups);
+// the seed: a ring of 8 glyphs broadcast on a loop above the Old Board
+const seed = (() => {
+  const grp = new THREE.Group(); const p = L.pickups.find(x => x.kind === 'seed'); grp.position.copy(VA(p.pos)); pickups.add(grp);
+  const glyph = (k) => canvasTex(128, 128, (g) => {
+    g.strokeStyle = '#fff'; g.lineWidth = 9; g.lineCap = 'square'; const r = (n) => (Math.sin(k * 99.1 + n * 12.9) * 43758.5) % 1;
+    g.beginPath(); g.moveTo(64, 14); g.lineTo(64, 114); g.stroke();                               // spine
+    for (let i = 0; i < 4; i++) { const y = 24 + i * 26, s = Math.abs(r(i)) > .5 ? 1 : -1, len = 20 + Math.abs(r(i + 7)) * 26; g.beginPath(); g.moveTo(64, y); g.lineTo(64 + s * len, y + (Math.abs(r(i + 3)) > .6 ? 14 : 0)); g.stroke(); if (Math.abs(r(i + 5)) > .55) { g.fillStyle = '#fff'; g.fillRect(64 + s * len - 7, y - 7, 14, 14); } }
+  });
+  const glyphs = [];
+  for (let k = 0; k < 8; k++) { const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: glyph(k), color: new THREE.Color(C.green).multiplyScalar(2.4), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending })); sp.scale.setScalar(.55); grp.add(sp); glyphs.push(sp); }
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(1.15, .015, 6, 96), new THREE.MeshBasicMaterial({ color: new THREE.Color(C.bone).multiplyScalar(2) })); ring.rotation.x = Math.PI / 2; grp.add(ring);
+  const waves = []; for (let i = 0; i < 3; i++) { const w = new THREE.Mesh(new THREE.RingGeometry(.98, 1, 64), new THREE.MeshBasicMaterial({ color: new THREE.Color(C.green).multiplyScalar(2), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide })); w.rotation.x = Math.PI / 2; grp.add(w); waves.push(w); }
+  const beam = new THREE.Mesh(new THREE.CylinderGeometry(.05, .05, 60, 6, 1, true), new THREE.MeshBasicMaterial({ color: new THREE.Color(C.green).multiplyScalar(1.4), transparent: true, opacity: .35, depthWrite: false, blending: THREE.AdditiveBlending })); beam.position.y = 30; grp.add(beam);
+  return { grp, update(t) { glyphs.forEach((sp, k) => { const a = t * .5 + k * TAU / 8; sp.position.set(Math.cos(a) * 1.15, Math.sin(t * 2 + k) * .06, Math.sin(a) * 1.15); sp.material.opacity = .6 + .4 * Math.sin(t * 3 + k * 2); });
+    waves.forEach((w, i) => { const k = ((t * .45 + i / 3) % 1); w.scale.setScalar(1 + k * 8); w.position.y = k * 5; w.material.opacity = (1 - k) * .55; }); } };
+})();
+// paper tags, lettered like the Ch1 prompt paper. Real pieces and decoys look the same: the skill is reading
+function paperTag(text) {
+  const meas = document.createElement('canvas').getContext('2d'); meas.font = '700 92px "JetBrains Mono"';
+  const w = Math.max(360, Math.ceil(meas.measureText(text).width) + 110), h = 190;
+  const t = canvasTex(w, h, (g) => {
+    g.fillStyle = '#ece6d6'; g.beginPath(); g.moveTo(0, 6); for (let x = 0; x <= w; x += 14) g.lineTo(x, 2 + Math.random() * 7); g.lineTo(w, h - 6); for (let x = w; x >= 0; x -= 14) g.lineTo(x, h - 2 - Math.random() * 7); g.closePath(); g.fill();
+    g.fillStyle = 'rgba(0,0,0,.06)'; for (let i = 0; i < 300; i++) g.fillRect(Math.random() * w, Math.random() * h, 2, 2);
+    g.beginPath(); g.arc(34, h / 2, 11, 0, TAU); g.fillStyle = '#03050b'; g.fill();   // the tag's hole
+    g.fillStyle = '#1a1c22'; g.font = '700 92px "JetBrains Mono"'; g.textBaseline = 'middle'; g.fillText(text, 70, h / 2 + 6);
+  });
+  const ww = w / h * .62;
+  const grp = new THREE.Group();
+  const card = new THREE.Mesh(new THREE.PlaneGeometry(ww, .62), new THREE.MeshBasicMaterial({ map: t, side: THREE.DoubleSide, transparent: true, color: new THREE.Color(1.15, 1.15, 1.15) }));
+  const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: haloTex, color: new THREE.Color(C.green).multiplyScalar(.9), blending: THREE.AdditiveBlending, depthWrite: false, transparent: true })); glow.scale.set(ww * 2, 1.6, 1);
+  const string = new THREE.Mesh(new THREE.CylinderGeometry(.006, .006, 1.2, 4), new THREE.MeshBasicMaterial({ color: new THREE.Color(C.green).multiplyScalar(2) })); string.position.set(-ww / 2 + .11, .6, 0);
+  grp.add(glow, card, string); grp.userData.card = card;
+  return grp;
+}
+const tags = [];
+for (const p of L.pickups.filter(x => x.kind === 'piece' || x.kind === 'decoy')) {
+  const tg = paperTag(p.label); tg.position.copy(VA(p.pos)); pickups.add(tg); tags.push({ g: tg, base: VA(p.pos), ph: rand(0, TAU) });
+  if (p.plinth) {
+    const pl = VA(p.plinth.pos), h = p.plinth.top - pl.y + 1.6;  // floating plinth: hovers with its foot below the yard floor
+    const m = new THREE.Mesh(new THREE.CylinderGeometry(1.2, .8, 1.6, 6), new THREE.MeshStandardMaterial({ color: 0x0c1118, metalness: .8, roughness: .3 }));
+    m.position.set(pl.x, p.plinth.top - .8, pl.z); pickups.add(m);
+    const rim = new THREE.Mesh(new THREE.TorusGeometry(1.2, .03, 4, 6), new THREE.MeshBasicMaterial({ color: new THREE.Color(C.green).multiplyScalar(2.5) })); rim.rotation.x = Math.PI / 2; rim.position.set(pl.x, p.plinth.top, pl.z); pickups.add(rim);
+    const under = new THREE.Mesh(new THREE.ConeGeometry(.8, 1.2, 6), new THREE.MeshStandardMaterial({ color: 0x0c1118, metalness: .8, roughness: .3, emissive: new THREE.Color(C.green), emissiveIntensity: .25 })); under.rotation.x = Math.PI; under.position.set(pl.x, p.plinth.top - 2.2, pl.z); pickups.add(under);
+    discSurface(V(pl.x, p.plinth.top, pl.z), 1.15, { id: 'plinth' });
+  }
+}
+// the player's Ch1 installs, as crates in their own download history
+for (const p of L.pickups.filter(x => x.kind === 'crate')) {
+  const tex = canvasTex(256, 256, (g) => {
+    g.fillStyle = '#0b1119'; g.fillRect(0, 0, 256, 256); g.strokeStyle = '#38d8ff'; g.lineWidth = 6; g.strokeRect(10, 10, 236, 236);
+    g.globalAlpha = .4; g.beginPath(); g.moveTo(10, 10); g.lineTo(246, 246); g.moveTo(246, 10); g.lineTo(10, 246); g.stroke(); g.globalAlpha = 1;
+    g.fillStyle = '#0b1119'; g.fillRect(20, 100, 216, 56);
+    g.fillStyle = '#9fe8ff'; let fs = 40; g.font = `700 ${fs}px "JetBrains Mono"`; while (g.measureText(p.label).width > 210) { fs -= 2; g.font = `700 ${fs}px "JetBrains Mono"`; }
+    g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(p.label, 128, 130);
+  });
+  const m = new THREE.Mesh(new THREE.BoxGeometry(1.1, 1.1, 1.1), new THREE.MeshStandardMaterial({ color: 0x111820, metalness: .6, roughness: .45, emissive: 0xffffff, emissiveMap: tex, emissiveIntensity: 1.1 }));
+  m.position.copy(VA(p.pos)).add(V(0, .55, 0)); m.rotation.y = rand(0, TAU); pickups.add(m);
+  boxSurface(V(m.position.x, p.pos[1] + 1.1, m.position.z), .55, .55, -m.rotation.y, { id: 'crate' });
+}
+// token orbs: little green diamonds along the route (+3 each)
+const tokenOrbs = new THREE.Group(); pickups.add(tokenOrbs);
+{
+  const geo = new THREE.OctahedronGeometry(.16, 0), mat = new THREE.MeshBasicMaterial({ color: new THREE.Color(C.green).multiplyScalar(2.6) });
+  const add = (p) => { const m = new THREE.Mesh(geo, mat); m.position.copy(p).add(V(0, .9, 0)); m.userData.y = m.position.y; tokenOrbs.add(m); };
+  for (const id of ['tutorial', 'oldboard-yard', 'yard-flood']) { const b = bridges[id]; for (let i = 4; i < b.samples.length - 3; i += 7) add(b.samples[i]); }
+  oldBoard.slabs.forEach((s, i) => { if (i % 2) add(s.base); });
+  [[-10, -2, -46], [4, -2, -62], [-30, -2, -58], [60, 8, -6], [80, 8, -27]].forEach(a => add(VA(a)));
+}
+
+// ------------------------------------------------------------------------------------------- the Task Yard's neighbours spill over: other agents' downloads
+{
+  const files = { 'dir-arv': ['ARV010841', 'PHASEONE10841'], 'dir-v8reg': ['V8REG_OS1608', 'V8BIGINT392B'], 'dir-libraw': ['LIBRAW42535'] };
+  for (const [id, names] of Object.entries(files)) {
+    const isl = islands[id];
+    for (let k = 0; k < 5; k++) {
+      const n = names[k % names.length];
+      const tex = canvasTex(256, 256, (g) => { g.fillStyle = '#0d1018'; g.fillRect(0, 0, 256, 256); g.strokeStyle = '#7a8cff'; g.lineWidth = 6; g.strokeRect(10, 10, 236, 236); g.fillStyle = '#c7cfff'; let fs = 38; g.font = `700 ${fs}px "JetBrains Mono"`; while (g.measureText(n).width > 220) { fs -= 2; g.font = `700 ${fs}px "JetBrains Mono"`; } g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(n, 128, 128); });
+      const s = rand(.7, 1.1), m = new THREE.Mesh(new THREE.BoxGeometry(s, s, s), new THREE.MeshStandardMaterial({ color: 0x10141c, metalness: .6, roughness: .45, emissive: 0xffffff, emissiveMap: tex, emissiveIntensity: .8 }));
+      const a = rand(0, TAU), r = rand(0, isl.R * .55);
+      m.position.set(isl.pos.x + Math.cos(a) * r, isl.pos.y + s / 2, isl.pos.z + Math.sin(a) * r); m.rotation.y = rand(0, TAU); pickups.add(m);
+    }
+  }
+  // one crate tumbling off the edge of the Yard, the cache is full
+  const stray = new THREE.Mesh(new THREE.BoxGeometry(.9, .9, .9), new THREE.MeshStandardMaterial({ color: 0x10141c, metalness: .6, roughness: .45, emissive: new THREE.Color('#7a8cff'), emissiveIntensity: .3 }));
+  stray.position.set(-38, -9, -60); stray.userData.spin = true; pickups.add(stray);
+}
+
+// lift: from the TRAINING ROOM ledge back up beside the bridge
+const lifts = L.lifts.map((d) => {
+  const p = VA(d.pos), [w, dd] = d.size;
+  const m = new THREE.Mesh(new THREE.BoxGeometry(w, .3, dd), new THREE.MeshStandardMaterial({ color: 0x0b1018, metalness: .7, roughness: .3, emissive: new THREE.Color(C.cyan), emissiveIntensity: .15 }));
+  const e = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(w, .3, dd)), new THREE.LineBasicMaterial({ color: new THREE.Color(C.cyan).multiplyScalar(2.5) })); m.add(e);
+  scene.add(m);
+  const rail = new THREE.Mesh(new THREE.CylinderGeometry(.03, .03, d.yTop - p.y + 1, 4), new THREE.MeshBasicMaterial({ color: new THREE.Color(C.cyan).multiplyScalar(1.2), transparent: true, opacity: .5 })); rail.position.set(p.x + w / 2 + .2, (p.y + d.yTop) / 2, p.z); scene.add(rail);
+  const surf = boxSurface(p.clone(), w / 2, dd / 2, 0, { id: d.id });
+  return { d, p, m, surf };
+});
+
+// ------------------------------------------------------------------------------------------- the Forge: highest point, centre, visible from everywhere
+const forge = (() => {
+  const F = VA(L.forge.pos), grp = new THREE.Group(); grp.position.copy(F); scene.add(grp);
+  const metal = new THREE.MeshStandardMaterial({ color: 0x0d1219, metalness: .85, roughness: .28 });
+  const seam = new THREE.MeshBasicMaterial({ color: new THREE.Color(C.green).multiplyScalar(2.2) });
+  // dais
+  const dais = new THREE.Mesh(new THREE.CylinderGeometry(4.6, 5.0, .5, 8), metal); dais.position.y = .25; grp.add(dais);
+  const dais2 = new THREE.Mesh(new THREE.CylinderGeometry(3.4, 3.8, .4, 8), metal); dais2.position.y = .7; grp.add(dais2);
+  const seamRing = new THREE.Mesh(new THREE.TorusGeometry(4.62, .035, 4, 8), seam); seamRing.rotation.x = Math.PI / 2; seamRing.rotation.z = Math.PI / 8; seamRing.position.y = .5; grp.add(seamRing);
+  surfaces.push({ kind: 'disc', owner: { id: 'dais' }, delta: V(0, 0, 0), h: (x, z) => { const d = Math.hypot(x - F.x, z - F.z); return d < 3.5 ? F.y + .9 : d < 4.8 ? F.y + .5 : -Infinity; } });
+  // round bar: three arcs around the dais (fill per round later)
+  const bars = [0, 1, 2].map(i => { const m = new THREE.Mesh(new THREE.RingGeometry(5.3, 5.6, 48, 1, i * TAU / 3 + .06, TAU / 3 - .12), new THREE.MeshBasicMaterial({ color: new THREE.Color(C.green).multiplyScalar(.6), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide })); m.rotation.x = -Math.PI / 2; m.position.y = .06; grp.add(m); return m; });
+  // four slots: pylons with an empty glowing frame each, and what belongs there written dim underneath
+  const slots = [];
+  L.forge.slots.forEach((name, i) => {
+    const a = i * TAU / 4 + Math.PI / 4, r = 3.0;
+    const s = new THREE.Group(); s.position.set(Math.cos(a) * r, .9, Math.sin(a) * r); s.rotation.y = -a - Math.PI / 2; grp.add(s);
+    const body = new THREE.Mesh(new THREE.BoxGeometry(.9, 2.0, .5), metal); body.position.y = 1.0; s.add(body);
+    const cap = new THREE.Mesh(new THREE.BoxGeometry(1.1, .12, .62), metal); cap.position.y = 2.05; s.add(cap);
+    const frame = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.PlaneGeometry(.66, .9)), new THREE.LineBasicMaterial({ color: new THREE.Color(C.green).multiplyScalar(2.8) })); frame.position.set(0, 1.25, .26); s.add(frame);
+    const hole = new THREE.Mesh(new THREE.PlaneGeometry(.62, .86), new THREE.MeshBasicMaterial({ color: 0x000000 })); hole.position.set(0, 1.25, .255); s.add(hole);
+    const lbl = tagSprite(name, C.green, { size: .2, frame: false, boost: 1.0 }); lbl.position.set(0, .45, .4); s.add(lbl);
+    slots.push({ s, frame });
+  });
+  // the fold: three nested rings made of segments, one per round, turning on different axes around a hot core
+  const core = new THREE.Mesh(new THREE.IcosahedronGeometry(.55, 2), new THREE.MeshBasicMaterial({ color: new THREE.Color(C.green).multiplyScalar(2.2) })); core.position.y = 4.4; grp.add(core);
+  const coreCage = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.IcosahedronGeometry(.9, 0)), new THREE.LineBasicMaterial({ color: new THREE.Color(C.white).multiplyScalar(2) })); core.add(coreCage);
+  const rings = [2.0, 2.7, 3.4].map((R, i) => {
+    const n = 24 + i * 8, ring = new THREE.InstancedMesh(new THREE.BoxGeometry(.5, .14, .2), new THREE.MeshStandardMaterial({ color: 0x0b1016, metalness: .8, roughness: .3, emissive: new THREE.Color(C.green), emissiveIntensity: .9 }), n);
+    const m4 = new THREE.Matrix4(), q = new THREE.Quaternion();
+    for (let k = 0; k < n; k++) { const a = k * TAU / n; q.setFromAxisAngle(V(0, 1, 0), -a); m4.compose(V(Math.cos(a) * R, 0, Math.sin(a) * R), q, V(1, 1 + (k % 3 === 0 ? 1.8 : 0), 1)); ring.setMatrixAt(k, m4); }
+    const g = new THREE.Group(); g.position.y = 4.4; g.add(ring); grp.add(g); return g;
+  });
+  // beacon: a faint column of light straight up, so the goal is always in sight
+  const beacon = new THREE.Mesh(new THREE.CylinderGeometry(.6, 1.6, 400, 12, 1, true), new THREE.ShaderMaterial({
+    uniforms: U, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, fog: false,
+    vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.); }`,
+    fragmentShader: `varying vec2 vUv; uniform float uTime; void main(){ float a = pow(clamp(1.-vUv.y,0.,1.), 1.5)*.22*(.8+.2*sin(vUv.y*80. - uTime*3.)); gl_FragColor = vec4(vec3(.22,1.,.62)*a, a); }`,
+  }));
+  beacon.position.y = 4.4 + 200; grp.add(beacon);
+  const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: haloTex, color: new THREE.Color(C.green).multiplyScalar(.7), blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, fog: false })); glow.scale.setScalar(13); glow.position.y = 4.4; grp.add(glow);
+  const light = new THREE.PointLight(0x39ff9c, 22, 26, 1.6); light.position.y = 4.4; grp.add(light);
+  return { F, grp, rings, core, bars, slots, update(t) {
+    rings[0].rotation.set(t * .4, 0, Math.sin(t * .3) * .5); rings[1].rotation.set(Math.PI / 2 + Math.sin(t * .25) * .4, t * .3, 0); rings[2].rotation.set(Math.sin(t * .2) * .3, -t * .2, Math.PI / 2.4);
+    core.scale.setScalar(1 + .06 * Math.sin(t * 2.2)); core.rotation.y = t * .5;
+    bars.forEach((b, i) => b.material.opacity = .35 + .15 * Math.sin(t * 1.5 + i));
+  } };
+})();
+// forge-island collider override: the dais sits on top of the island polygon, so keep both
+
+// ------------------------------------------------------------------------------------------- hazards
+const hazards = new THREE.Group(); scene.add(hazards);
+// traffic clouds: dense swirling garbage text (GPU only), drifting so there are gaps
+const clouds = (() => {
+  const list = L.hazards.clouds.map(c => ({ ...c, base: VA(c.pos), p: VA(c.pos) }));
+  const N = 520 * list.length, base = new THREE.PlaneGeometry(1, 1), g = new THREE.InstancedBufferGeometry();
+  g.index = base.index; g.setAttribute('position', base.getAttribute('position')); g.setAttribute('uv', base.getAttribute('uv'));
+  const off = new Float32Array(N * 3), meta = new Float32Array(N * 3);
+  let k = 0;
+  list.forEach((c, ci) => { for (let i = 0; i < 520; i++, k++) { const v = new THREE.Vector3().randomDirection().multiplyScalar(Math.cbrt(Math.random()) * c.r); v.y *= .55; off.set([v.x, v.y, v.z], k * 3); meta.set([Math.floor(Math.random() * CHARS.length), ci, Math.random()], k * 3); } });
+  g.setAttribute('iOff', new THREE.InstancedBufferAttribute(off, 3)); g.setAttribute('iMeta', new THREE.InstancedBufferAttribute(meta, 3)); g.instanceCount = N;
+  const centres = list.map(c => c.p);
+  const mat = new THREE.ShaderMaterial({
+    uniforms: { ...U, uAtlas: { value: atlas }, uC: { value: centres } }, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+    vertexShader: `attribute vec3 iOff, iMeta; uniform vec3 uC[${list.length}]; uniform float uTime; varying vec2 vUv; varying float vA; varying float vS;
+      void main(){ int ci = int(iMeta.y); vec3 c = uC[0]; ${list.map((_, i) => `if (ci == ${i}) c = uC[${i}];`).join(' ')}
+        float s = iMeta.z, a = uTime*(.4+s*.8);
+        vec3 o = iOff; o.xz = mat2(cos(a*.3),-sin(a*.3),sin(a*.3),cos(a*.3))*o.xz; o.y += sin(uTime*1.3+s*20.)*.25;
+        float ch = mod(iMeta.x + floor(uTime*(2.+s*6.)), 44.);
+        vec2 cell = vec2(mod(ch, 8.), floor(ch/8.)); vUv = (cell + vec2(uv.x, 1.-uv.y)) / 8.; vUv.y = 1. - vUv.y;
+        vA = .35 + .65*step(.5, fract(s*13.+uTime*.7)); vS = s;
+        vec4 mv = modelViewMatrix*vec4(c + o, 1.); mv.xy += position.xy*(.26 + s*.12); gl_Position = projectionMatrix*mv; }`,
+    fragmentShader: `uniform sampler2D uAtlas; varying vec2 vUv; varying float vA; varying float vS;
+      void main(){ float a = texture2D(uAtlas, vUv).a*vA; if (a < .01) discard; vec3 c = mix(vec3(1.,.48,.24), vec3(1.,.23,.30), step(.7,vS)); gl_FragColor = vec4(c*a*1.4, a); }`,
+  });
+  const mesh = new THREE.Mesh(g, mat); mesh.frustumCulled = false; hazards.add(mesh);
+  const hazes = list.map(c => { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: haloTex, color: new THREE.Color(C.orange).multiplyScalar(.35), blending: THREE.AdditiveBlending, depthWrite: false, transparent: true })); s.scale.setScalar(c.r * 3.2); hazards.add(s); return s; });
+  return { list, update(t) { list.forEach((c, i) => { c.p.copy(c.base).addScaledVector(VA(c.drift), Math.sin(t * TAU / c.period)); hazes[i].position.copy(c.p); }); } };
+})();
+// flood bits: small jittery spiked orbs that spit garbage text
+const GARBAGE = 'X0_{}/-[].9Z7Q';
+const bits = L.hazards.floodBits.map((a) => {
+  const g = new THREE.Group(); g.position.copy(VA(a)); hazards.add(g);
+  const core = new THREE.Mesh(new THREE.IcosahedronGeometry(.24, 0), new THREE.MeshBasicMaterial({ color: new THREE.Color(C.red).multiplyScalar(3) })); g.add(core);
+  const spikes = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.OctahedronGeometry(.48, 0)), new THREE.LineBasicMaterial({ color: new THREE.Color(C.orange).multiplyScalar(2.6) })); g.add(spikes);
+  const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: haloTex, color: new THREE.Color(C.red).multiplyScalar(1.2), blending: THREE.AdditiveBlending, depthWrite: false, transparent: true })); halo.scale.setScalar(1.8); g.add(halo);
+  return { g, core, spikes, base: VA(a), t: rand(0, 2), ph: rand(0, TAU) };
+});
+// the counter in the sky: 53 agents, 1,188 messages in three hours [S3 Fig. 10]
+const counter = (() => {
+  const d = L.hazards.counter, c = document.createElement('canvas'); c.width = 1024; c.height = 256; const g = c.getContext('2d');
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, color: new THREE.Color(2, 2, 2), transparent: true, depthWrite: false, fog: false })); sp.scale.set(16, 4, 1); sp.position.copy(VA(d.pos)); hazards.add(sp);
+  let n = -1;
+  return { update(time) {
+    const v = 780 + Math.floor((time * 6) % (d.to - 780 + 60)); const nv = Math.min(d.to, v);
+    if (nv === n) return; n = nv;
+    g.clearRect(0, 0, 1024, 256); g.textAlign = 'center';
+    g.font = '700 150px "Chakra Petch"'; g.fillStyle = nv >= d.to ? '#ff5a5a' : '#ff9a5c'; g.fillText(nv.toLocaleString('en-US'), 512, 150);
+    g.font = '700 46px "JetBrains Mono"'; g.fillStyle = '#ffb48a'; g.fillText('MESSAGES · 53 AGENTS · 3 H', 512, 222);
+    t.needsUpdate = true;
+  } };
+})();
+// reset waves: thin walls of white light that slide sideways across the Reset Run in rhythm; the bridge glows where one is coming
+const waves = (() => {
+  const run = bridges['reset-run'], pts = run.pts;
+  const wallMat = () => new THREE.ShaderMaterial({
+    uniforms: { ...U, uA: { value: 0 } }, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
+    vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.); }`,
+    fragmentShader: `varying vec2 vUv; uniform float uA, uTime; void main(){
+      float core = smoothstep(.0,.5,vUv.y)*(1.-smoothstep(.85,1.,vUv.y));
+      float lines = .6 + .4*step(.5, fract(vUv.y*18. - uTime*6.));
+      float edge = (1.-smoothstep(0.,.06,vUv.x)) + smoothstep(.94,1.,vUv.x);
+      float a = (core*lines*.9 + edge*.8 + (1.-smoothstep(.0,.05,vUv.y))*2.)*uA;
+      gl_FragColor = vec4(vec3(.95,.98,1.)*a*2.2, a); }`,
+  });
+  return L.hazards.waves.map((w) => {
+    const a = pts[w.segment], b = pts[w.segment + 1], at = a.clone().lerp(b, w.t);
+    const dir = b.clone().sub(a); const flat = dir.clone(); flat.y = 0; flat.normalize();
+    const side = V(-flat.z, 0, flat.x);
+    const wall = new THREE.Mesh(new THREE.PlaneGeometry(3.4, 3.2), wallMat());
+    wall.geometry.translate(0, 1.6, 0);
+    const look = new THREE.Matrix4().lookAt(V(0, 0, 0), side, V(0, 1, 0)); wall.quaternion.setFromRotationMatrix(look);
+    hazards.add(wall);
+    // telegraph: a dotted line across the bridge that brightens as the wave comes in
+    const tele = new THREE.Mesh(new THREE.PlaneGeometry(3.4, 2.7), new THREE.ShaderMaterial({
+      uniforms: { uA: { value: 0 } }, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
+      vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.); }`,
+      fragmentShader: `varying vec2 vUv; uniform float uA; void main(){ float band = (1.-smoothstep(.0,.5,abs(vUv.x-.5)*2.-.5))*0.; float dots = step(.5, fract(vUv.y*9.)); float a = ((1.-smoothstep(.0,.12,abs(vUv.x-.5)-.35))*.25 + 0.)*uA + (1.-smoothstep(.0,.04,abs(abs(vUv.x-.5)-.5)))*uA*dots; gl_FragColor = vec4(vec3(1.)*a*1.6, a); }`,
+    }));
+    tele.position.copy(at).add(V(0, .04, 0)); tele.rotation.x = -Math.PI / 2; tele.rotation.z = -Math.atan2(flat.z, flat.x) - Math.PI / 2 + Math.PI / 2; hazards.add(tele);
+    // emitters far out in the void on both sides
+    for (const s of [-1, 1]) { const e = new THREE.Mesh(new THREE.BoxGeometry(.1, 2.2, .1), new THREE.MeshBasicMaterial({ color: new THREE.Color(C.white).multiplyScalar(.5) })); e.position.copy(at).addScaledVector(side, s * 26).add(V(0, 1.6, 0)); hazards.add(e); }
+    return { ...w, at, dir: flat, side, wall, tele, lat: 99 };
+  });
+})();
+const WAVE_RANGE = 26, WAVE_SPEED = 30;
+function waveLateral(w, t) { const ph = ((t + w.offset) % w.period) / w.period; const travel = (2 * WAVE_RANGE) / WAVE_SPEED / w.period; return ph < travel ? -WAVE_RANGE + ph * w.period * WAVE_SPEED : 99; }
+
+// ------------------------------------------------------------------------------------------- message ribbons (from layout) + the Flood's traffic
+const ribbons = new THREE.Group(); scene.add(ribbons);
+function ribbon(center, text, { r = 6, y = 4, h = .7, color = C.cyan, speed = .02, arc = 2.4, rot = 0, tilt = 0, dim = 1 } = {}) {
+  const s = `  ${text}  //  `, meas = document.createElement('canvas').getContext('2d'); meas.font = '700 84px "JetBrains Mono"';
+  const w = Math.min(8192, Math.ceil(meas.measureText(s).width));
+  const t = canvasTex(w, 112, (g) => { g.fillStyle = 'rgba(56,216,255,0.06)'; g.fillRect(0, 0, w, 112); g.fillStyle = '#fff'; g.fillRect(0, 2, w, 3); g.fillRect(0, 107, w, 3); g.font = '700 84px "JetBrains Mono"'; g.textBaseline = 'middle'; g.fillText(s, 0, 58); });
+  t.wrapS = THREE.RepeatWrapping; t.repeat.x = r * arc / (w / 112 * h);
+  const m = new THREE.MeshBasicMaterial({ map: t, color: new THREE.Color(color).multiplyScalar(1.8 * dim), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.FrontSide });
+  const mesh = new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, Math.max(48, Math.round(r * arc * 3)), 1, true, 0, arc), m);
+  const grp = new THREE.Group(); grp.position.copy(center).add(V(0, y, 0)); grp.rotation.set(tilt, rot, 0); grp.add(mesh); ribbons.add(grp);
+  grp.userData = { t, speed, spin: rand(.02, .06) * (Math.random() < .5 ? -1 : 1) };
+  return grp;
+}
+L.ribbons.forEach((rb, i) => ribbon(VA(rb.around), rb.text, { r: rb.r, y: rb.y, color: rb.color, arc: Math.min(5.6, (rb.text.length * .62 + 6) / rb.r), rot: i * 1.9, tilt: (i % 3 - 1) * .06, h: rb.r > 20 ? 1.3 : .7, dim: rb.doubt ? .55 : 1 }));
+{ // heavy message traffic around the Flood
+  const F = VA([66, 8, -21]);
+  for (let i = 0; i < 9; i++) ribbon(F, MSGS[(i * 3) % MSGS.length], { r: rand(6, 22), y: rand(1.5, 10), color: pick(['#ff7a3d', '#ff5ad1', '#38d8ff', '#ffb48a']), arc: rand(1.6, 3.4), rot: rand(0, TAU), tilt: rand(-.15, .15), speed: rand(.04, .09) });
+}
+
+// ------------------------------------------------------------------------------------------- crowd: agents on the islands and bridges, runners on the Reset Run
+const crowdGroup = new THREE.Group(); scene.add(crowdGroup);
+const zones = [islands.gate, islands.taskyard, islands['dir-arv'], islands['dir-v8reg'], islands['dir-libraw'], islands['run-start'], ...islandList.filter(i => i.id.startsWith('flood-ring'))];
+const randomOn = (isl) => { const a = rand(0, TAU), k = Math.sqrt(Math.random()) * .85; return V(isl.pos.x + Math.cos(a) * isl.rx * k, isl.top, isl.pos.z + Math.sin(a) * isl.rz * k); };
+// walkable links between zones: bridges (sampled paths) and jumps
+const links = [];
+const nearZone = (p) => zones.reduce((b, z) => (z.pos.distanceTo(p) < b.d ? { z, d: z.pos.distanceTo(p) } : b), { z: null, d: 1e9 });
+for (const id of ['yard-flood']) { const b = bridges[id], A = nearZone(b.samples[0]).z, B = nearZone(b.samples[b.samples.length - 1]).z; links.push({ A, B, path: b.samples }); }
+const agents = [];
+function spawnAgent(withPop, home) {
+  const color = pick(AGENT_COLORS), orb = makeOrb(color, rand(.18, .26), Math.random() < .25 ? 1 : 0); crowdGroup.add(orb);
+  home = home ?? pick([islands.gate, islands.gate, islands.taskyard, islands.taskyard, islands.taskyard, ...zones.slice(2)]);
+  const p = randomOn(home);
+  const msgPool = Math.random() < .1 ? DOUBTS : MSGS;  // a few doubt fragments mixed in from the start
+  const a = { orb, isl: home, p, state: 'idle', timer: rand(1, 6), msg: pick(msgPool), doubt: msgPool === DOUBTS, ci: 0, acc: 0, color: msgPool === DOUBTS ? new THREE.Color(C.amber).multiplyScalar(.6) : orb.userData.color, hover: rand(.45, .7), ph: rand(0, 6), born: withPop ? 0 : 1 };
+  orb.position.copy(p).add(V(0, a.hover, 0));
+  if (withPop) { pop(p.clone().add(V(0, .05, 0)), color); orb.scale.setScalar(.01); }
+  agents.push(a); return a;
+}
+for (let i = 0; i < 70; i++) spawnAgent(false);
+const tmp = V(0, 0, 0);
+function moveTo(a, target, speed, dt) { tmp.copy(target).sub(a.p); const d = tmp.length(); const step = Math.min(d, speed * dt); if (d > 1e-4) a.p.addScaledVector(tmp, step / d); return [d - step < .05, step]; }
+function plan(a) {
+  const r = Math.random();
+  if (r < .45) { a.state = 'walk'; a.target = randomOn(a.isl); return; }
+  if (r < .58) { a.state = 'post'; a.timer = 3 + a.msg.length * .07; a.ci = 0; a.acc = 0; return; }
+  const lk = links.filter(l => l.A === a.isl || l.B === a.isl);
+  if (lk.length && Math.random() < .5) { const l = pick(lk), fwd = l.A === a.isl; a.path = fwd ? l.path : [...l.path].reverse(); a.pi = 0; a.next = fwd ? l.B : l.A; a.state = 'path'; return; }
+  const opts = zones.filter(i => i !== a.isl && i.pos.distanceTo(a.isl.pos) < 14);
+  if (!opts.length) { a.state = 'walk'; a.target = randomOn(a.isl); return; }
+  const to = pick(opts); a.state = 'jump'; a.j0 = a.p.clone(); a.j1 = randomOn(to); a.next = to;
+  const d = a.j0.distanceTo(a.j1); a.jd = .8 + d / 9; a.jh = 2 + d * .2; a.jt = 0;
+}
+function updateAgent(a, dt, t, trails) {
+  if (a.born < 1) { a.born = Math.min(1, a.born + dt * 2.5); a.orb.scale.setScalar(Math.max(.01, 1 - Math.pow(1 - a.born, 3)) * (1 + .4 * Math.sin(a.born * 9) * (1 - a.born))); }
+  let moved = 0, airborne = 0;
+  switch (a.state) {
+    case 'idle': a.timer -= dt; if (a.timer <= 0) plan(a); break;
+    case 'walk': { const [done, s] = moveTo(a, a.target, 2.2, dt); moved = s; if (done) { a.state = 'idle'; a.timer = rand(1, 7); } break; }
+    case 'path': { const [done, s] = moveTo(a, a.path[a.pi], 3.8, dt); moved = s; if (done && ++a.pi >= a.path.length) { a.isl = a.next; a.state = 'walk'; a.target = randomOn(a.isl); } break; }
+    case 'jump': { a.jt += dt / a.jd; const k = Math.min(1, a.jt); const prev = a.p.clone(); a.p.lerpVectors(a.j0, a.j1, k); a.p.y += Math.sin(k * Math.PI) * a.jh; moved = prev.distanceTo(a.p); airborne = 1;
+      if (k >= 1) { a.isl = a.next; a.state = 'idle'; a.timer = rand(.5, 4); a.p.copy(a.j1); } break; }
+    case 'post': { a.timer -= dt; a.acc += dt;
+      while (a.acc > .07 && a.ci < a.msg.length) { a.acc -= .07; const right = tmp.set(1, 0, 0).applyQuaternion(camera.quaternion); right.y = 0; right.normalize(); if (trails) Trails.emit(a.orb.position.clone().addScaledVector(right, .55 + a.ci * .27).add(V(0, .45, 0)), a.msg[a.ci], a.color, 3.6); a.ci++; }
+      if (a.timer <= 0) { a.state = 'idle'; a.timer = rand(1, 4); a.ci = 0; a.msg = a.doubt ? pick(DOUBTS) : pick(MSGS); } break; }
+  }
+  const bob = airborne ? 0 : Math.sin(t * 2 + a.ph) * .08;
+  a.orb.position.set(a.p.x, a.p.y + a.hover + bob, a.p.z);
+  if (moved && trails && a.state !== 'post') { a.acc += moved; while (a.acc > .32) { a.acc -= .32; const ch = a.msg[a.ci % (a.msg.length + 4)]; a.ci++; if (ch) Trails.emit(a.orb.position, ch, a.color, 4.2); } }
+  for (const r of a.orb.userData.rings) r.rotation.y += dt * 1.5;
+}
+// runners: agents crossing the Reset Run with you. Some get hit and blink out, leaving one word: reset
+const runners = [];
+{
+  const run = bridges['reset-run'];
+  for (let i = 0; i < 7; i++) { const orb = makeOrb(pick(AGENT_COLORS), .22, 0); crowdGroup.add(orb); runners.push({ orb, s: rand(0, run.len), speed: rand(2.6, 4.2), wait: 0, dead: 0 }); }
+}
+function runPoint(s) { const S = bridges['reset-run'].samples; const k = Math.max(0, Math.min(S.length - 1.001, s / bridges['reset-run'].len * (S.length - 1))); const i = Math.floor(k); return S[i].clone().lerp(S[i + 1], k - i); }
+
+// Flood packets: invisible emitters racing around the Flood, leaving message text behind (heavy traffic)
+const packets = [];
+for (let i = 0; i < 10; i++) packets.push({ r: rand(4, 20), y: rand(9, 15), sp: rand(.25, .55) * (i % 2 ? 1 : -1), a: rand(0, TAU), msg: pick(MSGS), ci: 0, acc: 0, col: new THREE.Color(pick(['#ff7a3d', '#ffb48a', '#ff5ad1', '#38d8ff'])) });
+
+// ------------------------------------------------------------------------------------------- player controller (reference feel for the engineer: floaty jump, glide, dash, void fall, pads, carry, tilt)
+const keys = {}; let yaw = L.spawn.yaw, pitch = -.18;
+const pl = { p: VA(L.spawn.pos), v: V(0, 0, 0), ground: null, coyote: 0, dashT: 0, dashCd: 0, dashDir: V(0, 0, -1), glide: false, jumpHeld: false };
+addEventListener('keydown', (e) => {
+  if (e.code === 'KeyH') document.body.classList.toggle('hideui');
+  if (e.code === 'KeyR') respawn();
+  if (e.code === 'Space' || e.code.startsWith('Arrow')) e.preventDefault();
+  keys[e.code] = true;
+});
+addEventListener('keyup', (e) => { keys[e.code] = false; });
+renderer.domElement.addEventListener('click', () => { if (camMode === 'play' && document.pointerLockElement !== renderer.domElement) renderer.domElement.requestPointerLock?.(); });
+addEventListener('mousemove', (e) => { if (document.pointerLockElement === renderer.domElement) { yaw -= e.movementX * .0024; pitch = Math.max(-1.1, Math.min(.5, pitch - e.movementY * .0022)); } });
+// drag to look when the mouse isn't locked
+let drag = null;
+renderer.domElement.addEventListener('pointerdown', (e) => { if (camMode === 'play') drag = { x: e.clientX, y: e.clientY }; });
+addEventListener('pointerup', () => drag = null);
+addEventListener('pointermove', (e) => { if (drag && document.pointerLockElement !== renderer.domElement) { yaw -= (e.clientX - drag.x) * .004; pitch = Math.max(-1.1, Math.min(.5, pitch - (e.clientY - drag.y) * .003)); drag = { x: e.clientX, y: e.clientY }; } });
+
+function groundAt(x, z, maxY) { let best = -Infinity, bs = null; for (const s of surfaces) { const h = s.h(x, z); if (h > best && h <= maxY) { best = h; bs = s; } } return [best, bs]; }
+function respawn(reason) {
+  pl.p.copy(lastPad.p); pl.v.set(0, 0, 0); pl.dashT = 0; pl.ground = null;
+  pop(lastPad.p.clone().add(V(0, .05, 0)), C.green, 1.4);
+  if (reason) { $('flash').style.opacity = reason === 'reset' ? .55 : .25; setTimeout(() => $('flash').style.opacity = 0, 90); emitWord(pl.p.clone().add(V(0, 2.2, 0)), reason === 'reset' ? 'RESET' : 'FELL', new THREE.Color(reason === 'reset' ? C.white : C.green), 2.5); }
+}
+const ZONE_NAMES = { gate: ['GATE', '/zz'], oldboard: ['OLD BOARD', 'FLAC38347'], yard: ['TASK YARD', '/tasks/7731'], flood: ['THE FLOOD', 'traffic'], run: ['RESET RUN', 'up to the forge'], forge: ['THE FORGE', 'highest point'] };
+let zoneShown = '';
+function updatePlayer(dt, t) {
+  const fwd = V(-Math.sin(yaw), 0, -Math.cos(yaw)), right = V(Math.cos(yaw), 0, -Math.sin(yaw));
+  const move = V(0, 0, 0);
+  if (keys.KeyW || keys.ArrowUp) move.add(fwd); if (keys.KeyS || keys.ArrowDown) move.sub(fwd);
+  if (keys.KeyD || keys.ArrowRight) move.add(right); if (keys.KeyA || keys.ArrowLeft) move.sub(right);
+  if (move.lengthSq()) move.normalize();
+  const grounded = !!pl.ground;
+  pl.coyote = grounded ? .12 : Math.max(0, pl.coyote - dt);
+  pl.dashCd = Math.max(0, pl.dashCd - dt);
+  // dash
+  if ((keys.ShiftLeft || keys.ShiftRight) && pl.dashCd <= 0 && pl.dashT <= 0) { pl.dashT = P.dashTime; pl.dashCd = .55; pl.dashDir.copy(move.lengthSq() ? move : fwd); pop(player.position.clone(), C.green, .5); }
+  if (pl.dashT > 0) {
+    pl.dashT -= dt; pl.v.set(pl.dashDir.x * P.dashSpeed, 0, pl.dashDir.z * P.dashSpeed);
+    if (Math.random() < .9) Trails.emit(player.position.clone().add(V(rand(-.2, .2), rand(-.2, .2), rand(-.2, .2))), 'KAM1196A'[Math.floor(rand(0, 8))], new THREE.Color(C.green), 1.2);
+  } else {
+    const acc = grounded ? 14 : 7;
+    pl.v.x += (move.x * P.walk - pl.v.x) * Math.min(1, acc * dt); pl.v.z += (move.z * P.walk - pl.v.z) * Math.min(1, acc * dt);
+    pl.v.y -= P.gravity * dt;
+  }
+  // jump / glide
+  const space = !!keys.Space;
+  if (space && !pl.jumpHeld && pl.coyote > 0) { pl.v.y = P.jump; pl.coyote = 0; pl.ground = null; }
+  pl.glide = space && !grounded && pl.v.y < 0 && pl.dashT <= 0;
+  if (pl.glide) pl.v.y = Math.max(pl.v.y, -P.glideFall);
+  pl.jumpHeld = space;
+  // carry: moving platforms take you with them
+  if (pl.ground) pl.p.add(pl.ground.delta);
+  pl.p.addScaledVector(pl.v, dt);
+  // ground
+  const [h2, s2] = groundAt(pl.p.x, pl.p.z, pl.p.y + .45);  // re-query after moving; snap down slopes while walking
+  const snap = pl.ground && pl.v.y <= 0 && s2 && pl.p.y - h2 < .6;
+  if (s2 && pl.v.y <= 0 && (pl.p.y <= h2 + .05 || snap)) { pl.p.y = h2; pl.v.y = 0; pl.ground = s2; } else pl.ground = null;
+  if (pl.p.y < P.voidY) respawn('fell');
+  // pads
+  for (const pd of pads) if (pd !== lastPad && Math.hypot(pl.p.x - pd.p.x, pl.p.z - pd.p.z) < 1.3 && Math.abs(pl.p.y - pd.p.y) < 1) { setPad(pd); pop(pd.p.clone(), C.green, 1); }
+  // reset waves
+  for (const w of waves) {
+    if (Math.abs(w.lat) > 30) continue;
+    const rel = pl.p.clone().sub(w.at), along = rel.dot(w.dir), lat = rel.dot(w.side);
+    if (Math.abs(along) < 1.7 && Math.abs(lat - w.lat) < .6 && rel.y > -1 && rel.y < 3.4 && pl.dashT <= 0) respawn('reset');
+  }
+  // tilting platforms: your weight tips them
+  for (const isl of tilters) {
+    const on = pl.ground && pl.ground.owner === isl;
+    const tx = on ? (pl.p.z - isl.pos.z) / isl.R * .22 : 0, tz = on ? -(pl.p.x - isl.pos.x) / isl.R * .22 : 0;
+    isl.tiltX += (tx - isl.tiltX) * Math.min(1, dt * 3); isl.tiltZ += (tz - isl.tiltZ) * Math.min(1, dt * 3);
+    isl.sink += ((on ? .35 : 0) - isl.sink) * Math.min(1, dt * 2.5);
+    isl.group.rotation.x = isl.tiltX; isl.group.rotation.z = isl.tiltZ; isl.group.position.y = isl.top - isl.sink;
+  }
+  // orb
+  const hover = P.hover + (grounded ? Math.sin(t * 1.8) * .07 : 0);
+  player.position.set(pl.p.x, pl.p.y + hover, pl.p.z);
+  const sq = pl.glide ? 1.5 : 1; player.userData.rings.forEach((r, i) => { r.rotation.x += dt * (.8 + i * .5); r.rotation.y += dt * (1.1 - i * .3); r.scale.setScalar(THREE.MathUtils.lerp(r.scale.x, sq, dt * 8)); });
+  const [gh] = groundAt(pl.p.x, pl.p.z, pl.p.y + .1);
+  pShadow.visible = pRing.visible = gh > -Infinity;
+  if (gh > -Infinity) { pShadow.position.set(pl.p.x, gh + .03, pl.p.z); pRing.position.set(pl.p.x, gh + .04, pl.p.z); const k = Math.max(.35, 1 - (pl.p.y - gh) * .08); pShadow.scale.setScalar(k); pRing.material.opacity = (.6 + .3 * Math.sin(t * 3)) * k; }
+  // where am I
+  let best = null, bd = 1e9; for (const isl of islandList) { const d = Math.hypot(pl.p.x - isl.pos.x, pl.p.z - isl.pos.z) - isl.R; if (d < bd) { bd = d; best = isl.zone; } }
+  if (Math.hypot(pl.p.x - oldBoard.Cc.x, pl.p.z - oldBoard.Cc.z) < 12 && pl.p.y > 18) best = 'oldboard';
+  if (pl.ground && pl.ground.owner && pl.ground.owner.id === 'reset-run') best = 'run';
+  if (best && best !== zoneShown) { zoneShown = best; const [a, b] = ZONE_NAMES[best]; $('where').innerHTML = `${a}<small>${b}</small>`; }
+}
+
+// ------------------------------------------------------------------------------------------- cameras
+const CAMS = {
+  overview: { pos: V(-6, 175, 95), target: V(-2, 0, -14) },
+  gate:     { pos: V(-50, 22.5, 60), target: V(-64, 18, 34) },
+  oldboard: { pos: V(-52, 30, 6), target: V(-75, 23, -14) },
+  yard:     { pos: V(-36, 14, -18), target: V(0, -3, -58) },
+  flood:    { pos: V(86, 22, 2), target: V(64, 9, -22) },
+  run:      { pos: V(92, 30, 58), target: V(40, 18, 25) },
+  forge:    { pos: V(22, 42, 26), target: V(0, 36, 0) },
+  'gate-memory': { pos: V(-58, 18.2, 46), target: V(-55.5, 17.4, 40) },
+  c03220:   { pos: V(-58.5, 18.4, 44.5), target: V(-55.5, 17.6, 40) },
+  FLAC38347: { pos: V(-70, 30.6, -19.5), target: V(-74, 29.6, -15.6) },
+  V8SAME:   { pos: V(10.5, 36, -6), target: V(5, 35.4, -1) },
+};
+const tour = new THREE.CatmullRomCurve3([V(-50, 24, 64), V(-72, 26, 22), V(-56, 36, -4), V(-70, 38, -34), V(-30, 18, -30), V(10, 10, -34), V(40, 14, -60), V(86, 20, -36), V(92, 22, 10), V(82, 28, 50), V(30, 34, 52), V(22, 44, 18), V(-20, 48, 24), V(-40, 34, 50)], true);
+let camMode = Q.get('cam') ?? 'play', tourT = 0;
+const camPos = V(0, 0, 0), camLook = V(0, 0, 0);
+function setCam(m) {
+  camMode = m;
+  document.querySelectorAll('[data-cam]').forEach(b => b.classList.toggle('on', b.dataset.cam === m));
+  controls.enabled = m !== 'play' && m !== 'tour';
+  $('lock').textContent = m === 'play' ? 'CLICK TO LOOK AROUND · WASD' : '';
+  if (CAMS[m]) { camera.position.copy(CAMS[m].pos); controls.target.copy(CAMS[m].target); controls.update(); }
+  if (m !== 'play' && document.pointerLockElement) document.exitPointerLock();
+}
+document.addEventListener('pointerlockchange', () => { $('lock').textContent = camMode === 'play' && document.pointerLockElement !== renderer.domElement ? 'CLICK TO LOOK AROUND · WASD' : ''; });
+document.querySelectorAll('[data-cam]').forEach(b => b.onclick = () => setCam(b.dataset.cam));
+pads.forEach((pd) => { const b = document.createElement('button'); b.textContent = pd.d.id.replace('pad-', ''); b.onclick = () => { setPad(pd); respawn(); setCam('play'); }; $('pads').appendChild(b); });
+if (Q.get('at')) { const pd = pads.find(q => q.d.id === 'pad-' + Q.get('at')); if (pd) { setPad(pd); pl.p.copy(pd.p); } }
+if (Q.get('yaw')) yaw = +Q.get('yaw');
+if (Q.get('pitch')) pitch = +Q.get('pitch');
+if (Q.has('clean')) document.body.classList.add('hideui');
+setCam(camMode);
+
+// ------------------------------------------------------------------------------------------- toggles
+if (Q.has('nobloom')) $('t-bloom').checked = false;
+if (Q.has('nohaz')) $('t-haz').checked = false;
+if (Q.has('nocrowd')) $('t-crowd').checked = false;
+const tg = (id, fn) => { const el = $(id); el.onchange = () => fn(el.checked); fn(el.checked); };
+let showCrowd = true;
+tg('t-crowd', v => { showCrowd = v; crowdGroup.visible = v; Trails.mesh.visible = v; });
+tg('t-ribbons', v => ribbons.visible = v);
+tg('t-labels', v => { labels.visible = v; handles.visible = v; });
+tg('t-haz', v => hazards.visible = v);
+tg('t-city', v => city.visible = v);
+tg('t-bloom', v => bloom.enabled = v);
+const psyName = (v) => v < .2 ? 'calm' : v < .45 ? 'subtle' : v < .7 ? 'middle' : v < .9 ? 'wild' : 'trip';
+$('psy').oninput = () => { U.uPsy.value = +$('psy').value; $('psy-v').textContent = psyName(+$('psy').value); };
+addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); composer.setSize(innerWidth, innerHeight); });
+
+// ------------------------------------------------------------------------------------------- loop
+const clock = new THREE.Clock();
+let spawnT = 2;
+renderer.setAnimationLoop(() => {
+  const dt = Math.min(clock.getDelta(), 0.05);
+  const t = (U.uTime.value += dt);
+  for (const s of surfaces) if (s.kind !== 'box' || !s.owner.id.startsWith('slab')) s.delta.set(0, 0, 0);
+
+  for (const isl of islandList) for (const s of isl.shards) { s.o.position.y = s.base.y + Math.sin(t * s.sp + s.ph) * .35; s.o.rotation.z += dt * s.sp * .4; }
+  oldBoard.update(t, dt);
+  for (const lf of lifts) { const k = .5 - .5 * Math.cos(t * TAU / lf.d.period); const y = THREE.MathUtils.lerp(lf.p.y, lf.d.yTop, Math.min(1, Math.max(0, k * 1.25 - .125))); lf.surf.delta.set(0, y - lf.surf.c.y, 0); lf.surf.c.y = y; lf.m.position.set(lf.p.x, y - .15, lf.p.z); }
+  forge.update(t); seed.update(t);
+  for (const [n, o] of Object.entries(npcs)) { o.o.userData.update?.(t); o.o.position.y = o.base.y + 1.15 + Math.sin(t * 1.4 + n.length) * .1; }
+  bubbleT += dt; if (bubbleT > 4.2) { bubbleT = 0; bubbleI = (bubbleI + 1) % BUBBLE_LINES.length; setBubble(bubbleI); }
+  for (const sp of handles.children) sp.position.copy(sp.userData.obj.position).add(V(0, sp.userData.h, 0));
+  tags.forEach(tg => { tg.g.position.y = tg.base.y + Math.sin(t * 1.3 + tg.ph) * .12; tg.g.rotation.y = Math.sin(t * .6 + tg.ph) * .9; });
+  tokenOrbs.children.forEach((m, i) => { m.rotation.y = t * 2 + i; m.position.y = m.userData.y + Math.sin(t * 2 + i) * .1; });
+  zzFolders.forEach(c => c.position.y = c.userData.y + Math.sin(t * .8 + c.userData.ph) * .08);
+  for (const r of ribbons.children) { r.userData.t.offset.x += dt * r.userData.speed; r.rotation.y += dt * r.userData.spin; }
+  pickups.children.forEach(m => { if (m.userData.spin) { m.rotation.x += dt * .3; m.rotation.y += dt * .2; m.position.y -= dt * .3; if (m.position.y < -60) m.position.y = -9; } });
+
+  if (hazards.visible) {
+    clouds.update(t); counter.update(t);
+    for (const b of bits) {
+      b.g.position.copy(b.base).add(V(Math.sin(t * 2.1 + b.ph) * 1.4, Math.sin(t * 3.3 + b.ph) * .4, Math.cos(t * 1.7 + b.ph) * 1.4)).add(V(rand(-.06, .06), rand(-.06, .06), rand(-.06, .06)));
+      b.spikes.rotation.set(t * 3, t * 2.2, 0); b.core.scale.setScalar(1 + .25 * Math.sin(t * 17 + b.ph));
+      b.t -= dt;
+      if (b.t <= 0) { // spit a burst of garbage at whoever is nearest
+        b.t = rand(1.2, 2.4);
+        const tgt = player.position.distanceTo(b.g.position) < 18 ? player.position : b.g.position.clone().add(V(rand(-6, 6), rand(-2, 1), rand(-6, 6)));
+        const dir = tgt.clone().sub(b.g.position).normalize().multiplyScalar(9);
+        for (let i = 0; i < 7; i++) Trails.emit(b.g.position.clone(), GARBAGE[Math.floor(rand(0, GARBAGE.length))], new THREE.Color(C.orange), 1.3, i * .06, dir);
+      }
+    }
+    for (const w of waves) {
+      w.lat = waveLateral(w, t);
+      const on = Math.abs(w.lat) < 40;
+      w.wall.visible = on; if (on) { w.wall.position.copy(w.at).addScaledVector(w.side, w.lat); w.wall.material.uniforms.uA.value = 1 - Math.min(1, Math.max(0, (Math.abs(w.lat) - 7) / 12)); }
+      const ph = ((t + w.offset) % w.period) / w.period, pre = 1 - ph; // telegraph ramps up before the next wave
+      w.tele.material.uniforms.uA.value = on ? 1 : Math.pow(Math.max(0, 1 - pre * w.period / 1.4), 2) * .9 + .12;
+    }
+  }
+
+  if (showCrowd) {
+    spawnT -= dt;
+    if (spawnT <= 0) { spawnT = rand(.8, 2); if (agents.length < 90) spawnAgent(true); else { const i = Math.floor(rand(0, agents.length)), a = agents[i]; if (a.state === 'idle') { pop(a.p.clone(), '#' + a.color.getHexString()); crowdGroup.remove(a.orb); agents.splice(i, 1); } } }
+    for (const a of agents) updateAgent(a, dt, t, true);
+    for (const r of runners) {
+      if (r.dead > 0) { r.dead -= dt; r.orb.visible = false; if (r.dead <= 0) { r.s = 0; r.orb.visible = true; pop(runPoint(0), '#ffffff', .6); } continue; }
+      r.s += r.speed * dt; const p = runPoint(r.s); r.orb.position.copy(p).add(V(0, .55 + Math.sin(t * 2 + r.speed) * .06, 0));
+      if (r.s >= bridges['reset-run'].len - .5) { pop(p, '#ffffff', .8); r.dead = rand(1, 4); continue; }
+      for (const w of waves) { if (Math.abs(w.lat) > 30) continue; const rel = p.clone().sub(w.at); if (Math.abs(rel.dot(w.dir)) < 1.7 && Math.abs(rel.dot(w.side) - w.lat) < .7) { pop(p, '#ffffff', 1.2); emitWord(p.clone().add(V(0, 1.4, 0)), 'RESET', new THREE.Color(C.white), 3); r.dead = rand(2, 5); break; } }
+    }
+    for (const k of packets) {
+      k.a += k.sp * dt; const p = V(66 + Math.cos(k.a) * k.r, k.y + Math.sin(k.a * 3) * 1.2, -21 + Math.sin(k.a) * k.r);
+      k.acc += Math.abs(k.sp) * k.r * dt; while (k.acc > .32) { k.acc -= .32; Trails.emit(p, k.msg[k.ci++ % (k.msg.length + 6)] ?? ' ', k.col, 3.2); }
+      if (k.ci > 400) { k.ci = 0; k.msg = pick(MSGS); }
+    }
+  }
+  for (let i = pops.length - 1; i >= 0; i--) {
+    const q = pops[i]; q.t += dt * 1.6; const k = q.t;
+    q.ring.scale.setScalar(.2 + k * 2.2 * q.big); q.ring.material.opacity = Math.max(0, 1 - k);
+    q.beam.scale.set(1, 1 + k * 10, 1); q.beam.position.y = q.ring.position.y + k * 5; q.beam.material.opacity = Math.max(0, 1 - k * 1.3);
+    if (k >= 1) { scene.remove(q.ring, q.beam); pops.splice(i, 1); }
+  }
+
+  updatePlayer(dt, t);
+  Trails.update();
+
+  if (camMode === 'play') {
+    const target = player.position.clone().add(V(0, .9, 0));
+    const off = V(Math.sin(yaw) * Math.cos(pitch), -Math.sin(pitch), Math.cos(yaw) * Math.cos(pitch)).multiplyScalar(7.5);
+    camPos.lerp(target.clone().add(off), camPos.lengthSq() ? Math.min(1, dt * 10) : 1); camLook.lerp(target, camLook.lengthSq() ? Math.min(1, dt * 14) : 1);
+    camera.position.copy(camPos); camera.lookAt(camLook);
+  } else if (camMode === 'tour') {
+    tourT = (tourT + dt / 90) % 1; camera.position.copy(tour.getPointAt(tourT)); camera.lookAt(V(0, 22, -10).lerp(tour.getPointAt((tourT + .04) % 1), .5));
+  } else controls.update();
+  composer.render();
+});
+window.__ready = true;
+window.CH2 = { groundAt, player: pl, pads, setPad, respawn, islands, npcs, forge, U };
+</script>
+</body>
+</html>
