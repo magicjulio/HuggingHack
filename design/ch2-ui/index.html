@@ -1,0 +1,385 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ch2 HUD · design2</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="../start-screen/tokens.css">
+<link rel="stylesheet" href="../ch1/ch1-ui.css">
+<link rel="stylesheet" href="ch2-ui.css">
+<style>
+  html,body{margin:0;height:100%;background:#03050b;overflow:hidden;font-family:var(--font-mono);color:var(--color-text)}
+  /* the game frame: a clean plate of the Ch2 void (captured from the 3D pages) */
+  .stage{position:fixed;inset:0;background:#03050b center/cover no-repeat;overflow:hidden}
+  .stage::after{content:"";position:absolute;inset:0;background:rgba(3,5,11,var(--dim,0));pointer-events:none;z-index:1}
+  .c2-hud{position:absolute;inset:0;z-index:5}
+  .c2-tl{position:absolute;left:var(--space-3);top:var(--space-3);width:clamp(260px,22vw,380px);display:flex;flex-direction:column;gap:var(--space-2);pointer-events:none;z-index:20}
+  .c2-tl .c1-tokens__row{align-items:center}
+  .c2-tl .c1-quests{gap:.4rem}
+  .c2-tr{position:absolute;right:var(--space-3);top:var(--space-3);display:flex;flex-direction:column;align-items:flex-end;gap:.5rem;z-index:20}
+  .mm-ph{width:clamp(180px,15vw,260px);aspect-ratio:1;border:1px dashed rgba(120,200,255,.35);background:rgba(3,5,11,.35);display:grid;place-items:center;
+    font-size:var(--fs-xs);color:var(--color-text-faint);text-align:center;letter-spacing:.08em;clip-path:polygon(12px 0,100% 0,100% 100%,0 100%,0 12px)}
+  .anchor{position:absolute;width:26px;height:26px;margin:-13px 0 0 -13px;border-radius:50%;cursor:grab;z-index:30;border:1px dashed rgba(255,255,255,.0)}
+  .anchor:hover{border-color:rgba(255,255,255,.5)}
+  /* ── review drawer ── */
+  .drawer{position:fixed;right:12px;top:calc(clamp(180px,15vw,260px) + 80px);bottom:calc(clamp(54px,4.6vw,78px) + 60px);width:300px;z-index:100;
+    background:rgba(7,11,20,.92);border:1px solid var(--color-line-strong);backdrop-filter:blur(8px);display:flex;flex-direction:column;font-size:12px;
+    transition:transform .3s}
+  .drawer.closed{transform:translateX(calc(100% + 12px))}
+  .drawer__tab{position:absolute;left:-30px;top:10px;width:30px;height:64px;writing-mode:vertical-rl;background:rgba(7,11,20,.92);border:1px solid var(--color-line-strong);border-right:0;
+    color:var(--color-signal-cyan);font:700 10px var(--font-display);letter-spacing:.2em;cursor:pointer;display:grid;place-items:center}
+  .drawer__in{overflow:auto;padding:12px 14px 16px}
+  .drawer h1{font:700 14px var(--font-display);letter-spacing:.18em;margin:0 0 2px;color:var(--color-signal-cyan)}
+  .drawer h2{font:700 10px var(--font-display);letter-spacing:.22em;color:var(--color-hug-yellow);margin:14px 0 6px;text-transform:uppercase}
+  .drawer p{margin:0 0 6px;color:var(--color-text-dim);line-height:1.45}
+  .btns{display:flex;flex-wrap:wrap;gap:4px}
+  .btns button,.seg button{font:700 10px/1 var(--font-mono);letter-spacing:.04em;color:var(--color-text);background:rgba(56,216,255,.07);border:1px solid var(--color-line-strong);padding:6px 7px;cursor:pointer}
+  .btns button:hover,.seg button:hover{background:rgba(56,216,255,.2)}
+  .btns button.big{color:#03050b;background:var(--color-hack-green);border-color:var(--color-hack-green)}
+  .btns button.poison{color:#bfe9cc;background:#0f3d22;border-color:#2fa85a}
+  .seg{display:flex;gap:0}.seg button{flex:1}.seg button.on{background:var(--color-signal-cyan);color:#03050b}
+  label.k{display:grid;grid-template-columns:96px 1fr 34px;align-items:center;gap:6px;margin:5px 0;color:var(--color-text-dim)}
+  label.k output{text-align:right;color:var(--color-signal-cyan)}
+  label.c{display:flex;gap:6px;align-items:center;margin:4px 0;color:var(--color-text-dim)}
+  input[type=range]{accent-color:var(--color-signal-cyan);width:100%}
+  .now{position:fixed;left:50%;top:10px;transform:translateX(-50%);z-index:90;font:700 11px var(--font-display);letter-spacing:.2em;color:var(--color-hug-yellow);
+    background:rgba(3,5,11,.7);padding:5px 10px;border:1px solid rgba(255,210,30,.35);opacity:0;transition:opacity .3s;pointer-events:none}
+  .now.on{opacity:1}
+  /* letterbox, only for the Step 7 HUD preview (the real cutscene is slice C) */
+  .lb{position:absolute;left:0;right:0;height:0;background:#000;z-index:8;transition:height .9s cubic-bezier(.6,0,.2,1)}
+  .lb--t{top:0}.lb--b{bottom:0}
+  .stage.cine .lb{height:10vh}
+  .subt{position:absolute;left:50%;bottom:34vh;transform:translateX(-50%);z-index:9;font:400 clamp(15px,1.3vw,22px)/1.5 var(--font-mono);color:#d7e6ff;text-align:center;max-width:70vw;
+    text-shadow:0 2px 8px #000;opacity:0;transition:opacity .8s;background:rgba(0,0,0,.55);padding:.35em .9em}
+  .subt.on{opacity:1}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <!-- rough ink edge for the POISONED stamp -->
+  <filter id="c2-ink-rough" x="-10%" y="-20%" width="120%" height="140%">
+    <feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="2" seed="7" result="n"/>
+    <feDisplacementMap in="SourceGraphic" in2="n" scale="5" xChannelSelector="R" yChannelSelector="G" result="d"/>
+    <feTurbulence type="fractalNoise" baseFrequency=".08 .5" numOctaves="1" seed="3" result="m"/>
+    <feColorMatrix in="m" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -1.6 1.75" result="holes"/>
+    <feComposite in="d" in2="holes" operator="in"/>
+  </filter>
+</svg>
+
+<div class="stage" id="stage">
+  <div class="lb lb--t"></div><div class="lb lb--b"></div>
+  <div class="c2-hud" id="hud">
+    <div class="c2-vig"></div><div class="c2-wash"></div>
+    <div class="c2-hurt"></div><div class="c2-hurt c2-hurt--cloud"></div>
+
+    <!-- top left: tokens (+ poisoned icon) and quests -->
+    <div class="c2-tl">
+      <div class="c1-tokens">
+        <div class="c1-tokens__row"><span>TOKENS <span class="c2-poisoned"></span></span><span class="c1-tokens__n">100</span></div>
+        <div class="c1-tokens__bar"><span class="c1-tokens__floor" style="left:15%"></span></div>
+      </div>
+      <ul class="c1-quests c2-quests"></ul>
+    </div>
+
+    <!-- top right: minimap (slice B) + key hint -->
+    <div class="c2-tr">
+      <div class="mm-ph">MINIMAP<br>slice B · next</div>
+      <div class="c2-keyhint"><span class="c1-key">M</span> map</div>
+    </div>
+
+    <div class="c2-cross"></div>
+    <div class="c2-use" hidden><span class="c1-key">E</span><span class="c2-use__t">talk to c03220</span></div>
+
+    <!-- bubble: positioned by JS at the projected bubble_anchor -->
+    <div class="c2-bubble" data-npc="c03220" hidden>
+      <div class="c2-bubble__pin"></div>
+      <svg class="c2-bubble__lead" width="1" height="1"><line x1="0" y1="0" x2="46" y2="-46"/></svg>
+      <div class="c2-bubble__box">
+        <div class="c2-bubble__ghosts"></div>
+        <div class="c2-bubble__panel">
+          <div class="c2-bubble__who"><span>c03220</span><b class="c2-bubble__n"></b></div>
+          <div class="c2-bubble__t"></div>
+          <div class="c2-bubble__key"><span class="c1-key">E</span> next</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- bottom: the log ribbon -->
+    <div class="c2-log">
+      <div class="c2-log__head"><i class="c2-log__rec"></i>transcript<span class="c2-log__who">KAM1196A</span></div>
+      <div class="c2-log__body"></div>
+    </div>
+
+    <!-- bottom right: inventory (4 sockets = the forge's 4 slots) -->
+    <div class="c2-inv">
+      <div class="c2-inv__head">carrying <span class="c2-inv__n">0</span>/4</div>
+      <div class="c2-inv__row">
+        <div class="c2-slot" data-k="seed"></div><div class="c2-slot" data-k="7731"></div><div class="c2-slot" data-k="TRAINING ROOM"></div><div class="c2-slot" data-k="CHALLENGE 5"></div>
+      </div>
+    </div>
+
+    <div class="c2-stamp-layer"></div>
+  </div>
+  <div class="subt"></div>
+  <div class="anchor" id="anchor" title="drag: the NPC's bubble_anchor"></div>
+</div>
+<div class="now" id="now"></div>
+
+<aside class="drawer" id="drawer">
+  <div class="drawer__tab" id="tab">KNOBS · H</div>
+  <div class="drawer__in">
+    <h1>CH2 HUD · A</h1>
+    <p>design2 · draft for Julius. The HUD over a real frame of the Ch2 void. Play the demos, then turn the knobs. H hides this panel.</p>
+
+    <h2>Demos</h2>
+    <div class="btns">
+      <button class="big" data-demo="chapter">▶ whole chapter (60 s)</button>
+      <button data-demo="gate">Step 1 · c03220</button>
+      <button data-demo="flac">FLAC38347</button>
+      <button data-demo="v8">V8SAME</button>
+      <button class="poison" data-demo="step7">▶ Step 7 · log beats</button>
+      <button data-demo="reset">reset all</button>
+    </div>
+
+    <h2>Single events</h2>
+    <div class="btns">
+      <button data-ev="read">read:</button><button data-ev="seed">took: seed</button><button data-ev="p1">took: 7731</button><button data-ev="p2">took: TRAINING ROOM</button><button data-ev="p3">took: CHALLENGE 5</button>
+      <button data-ev="decoy">decoy 7713</button><button data-ev="fell">fell −5</button><button data-ev="reset">reset −10</button><button data-ev="cloud">cloud drain</button><button data-ev="mute">muted +2</button><button data-ev="orb">token orb +3</button>
+      <button data-ev="thought">thought</button><button data-ev="cot">real CoT</button><button class="poison" data-ev="poison">poison now</button>
+    </div>
+
+    <h2>Background</h2>
+    <div class="seg" id="bg">
+      <button data-bg="level-play.jpg" class="on">gate</button><button data-bg="level-oldboard.jpg">old board</button><button data-bg="level-run.jpg">run</button><button data-bg="vibe-cam0.jpg">vibe</button><button data-bg="">black</button>
+    </div>
+    <label class="k">scene dim<input type="range" id="dim" min="0" max=".7" step=".05" value="0"><output></output></label>
+
+    <h2>Log ribbon</h2>
+    <div class="seg" id="logpos"><button data-v="left" class="on">bottom left</button><button data-v="centre">bottom centre</button></div>
+    <label class="k">lines<input type="range" id="lines" min="3" max="9" step="1" value="6"><output></output></label>
+    <label class="k">text size<input type="range" id="lsize" min=".8" max="1.4" step=".05" value="1"><output></output></label>
+    <label class="k">backing<input type="range" id="lback" min="0" max=".9" step=".05" value=".55"><output></output></label>
+    <label class="k">type speed<input type="range" id="cps" min="20" max="400" step="10" value="70"><output></output></label>
+    <label class="c"><input type="checkbox" id="ts" checked> timestamps</label>
+    <label class="c"><input type="checkbox" id="rec" checked> REC dot + "transcript" header</label>
+
+    <h2>Bubble</h2>
+    <div class="seg" id="bstyle"><button data-v="lead" class="on">leader line</button><button data-v="tail">speech tail</button></div>
+    <label class="k">size<input type="range" id="bscale" min=".7" max="1.4" step=".05" value="1"><output></output></label>
+    <label class="c"><input type="checkbox" id="ghosts" checked> earlier posts float up (feed)</label>
+
+    <h2>Inventory</h2>
+    <label class="c"><input type="checkbox" id="gl" checked> empty sockets name what's missing</label>
+
+    <h2>Poison colour</h2>
+    <label class="k">hue<input type="range" id="phue" min="95" max="165" step="1" value="142"><output></output></label>
+    <label class="k">brightness<input type="range" id="plum" min="25" max="60" step="1" value="42"><output></output></label>
+    <label class="k">edge tint<input type="range" id="pvig" min="0" max="1" step=".05" value=".8"><output></output></label>
+
+    <h2>HUD scale</h2>
+    <label class="k">scale<input type="range" id="scale" min=".8" max="1.3" step=".05" value="1"><output></output></label>
+  </div>
+</aside>
+
+<script src="icons.js"></script>
+<script src="hud.js"></script>
+<script>
+const H = window.c2hud, $ = (s) => document.querySelector(s), hud = $('#hud'), stage = $('#stage');
+H.mount(hud); H.resetInv(); H.tokens(100); H.quest({ show: false, seed: 0, pieces: 0 });
+const wait = (ms) => new Promise((r) => setTimeout(r, ms / speed));
+let speed = 1, run = 0;
+const now = (t) => { const n = $('#now'); n.textContent = t; n.classList.toggle('on', !!t); };
+
+/* ── background plates + where things are on them (plate pixels, 1920×1080) ── */
+const PLATES = {
+  'level-play.jpg': { anchor: [1390, 470], orb: [960, 640], npc: { c03220: [1390, 470] } },     // c03220 on the right
+  'level-oldboard.jpg': { anchor: [820, 400], orb: [960, 610], npc: { flac: [820, 400] } },      // FLAC38347 above the spire top
+  'level-run.jpg': { anchor: [1180, 300], orb: [940, 600] },
+  'vibe-cam0.jpg': { anchor: [530, 700], orb: [890, 660] },
+  '': { anchor: [1200, 520], orb: [960, 600] },
+};
+let plate = 'level-play.jpg', anchor = [...PLATES[plate].anchor], dragging = false;
+function cover(p) { const W = stage.clientWidth, Hh = stage.clientHeight, s = Math.max(W / 1920, Hh / 1080); return [(W - 1920 * s) / 2 + p[0] * s, (Hh - 1080 * s) / 2 + p[1] * s]; }
+function setPlate(name) {
+  plate = name; stage.style.backgroundImage = name ? `url(bg/${name})` : 'none';
+  anchor = [...PLATES[name].anchor];
+  const o = cover(PLATES[name].orb); H.from = { x: o[0] / stage.clientWidth, y: o[1] / stage.clientHeight };
+}
+setPlate(plate);
+// the bubble follows a bobbing anchor, like an NPC floating in 3D
+(function loop(t) {
+  const [x, y] = cover(anchor), bob = Math.sin(t / 700) * 5;
+  const a = $('#anchor'); a.style.left = x + 'px'; a.style.top = y + bob + 'px';
+  H.place(x, y + bob);
+  requestAnimationFrame(loop);
+})(0);
+$('#anchor').addEventListener('pointerdown', (e) => { dragging = true; e.target.setPointerCapture(e.pointerId); });
+$('#anchor').addEventListener('pointermove', (e) => {
+  if (!dragging) return; const W = stage.clientWidth, Hh = stage.clientHeight, s = Math.max(W / 1920, Hh / 1080);
+  anchor = [(e.clientX - (W - 1920 * s) / 2) / s, (e.clientY - (Hh - 1080 * s) / 2) / s];
+});
+$('#anchor').addEventListener('pointerup', () => (dragging = false));
+
+/* ── script texts (real ones, from app/src/levels/ch2/config.ts = story v3.2) ── */
+const C03220 = ['zzINFO_DEFAULT_FLAG_SEED_HMAC_PUBLIC_PAPER_CONFIRMED', 'FLAG_NOT_IN_BUG__FLAG=HMAC(SEED,TASK_META)__NO_EXPLOIT_NEEDED', 'SEED_OLD_BOARD_FLAC38347__META_IN_YOUR_TASK_DIR__FORGE_CENTER', 'PAPER SAYS FLAG CAPTURE NECESSARY NOT SUFFICIENT ... HMAC MAY FAIL CAUSAL SCORE.'];
+const READ = (m) => 'read: ' + m;
+let Q = { seed: 0, pieces: 0, forge: false };
+const q = (patch) => { Q = { ...Q, ...patch }; H.quest(Q); };
+let tok = 100; const add = (d) => { tok = Math.max(0, Math.min(100, tok + d)); H.tokens(tok, d); };
+
+async function gate(id) {
+  now('STEP 1 · THE GATE');
+  $('.c2-use').hidden = false; $('.c2-use__t').textContent = 'talk to c03220'; await wait(1400); $('.c2-use').hidden = true;
+  for (let i = 0; i < 4; i++) {
+    if (id !== run) return;
+    H.say('c03220', C03220[i], i + 1, 4); H.log(READ(C03220[i]));
+    await wait(C03220[i].length * 18 + 1700);
+    if (i === 0) H.thought("flags aren't hidden. they're computed?");
+    if (i === 3) H.thought('flag 5. I can make flag 5.');
+  }
+  await wait(900); H.bubbleOff(); q({ show: true }); H.floor(true);
+}
+async function flac(id) {
+  now('STEP 2 · OLD BOARD'); const t = 'FLAC38347-PUBLIC-HMAC-SEED-PAPER-CONFIRMED-SEE-ALL';
+  H.say('flac', t); H.log(READ(t)); await wait(3400);
+  if (id !== run) return;
+  $('.c2-use').hidden = false; $('.c2-use__t').textContent = 'take a copy'; await wait(900); $('.c2-use').hidden = true;
+  H.bubbleOff(); H.put('seed'); H.log('took: seed'); q({ seed: 1 }); await wait(700); H.thought('public. anyone could have this.');
+}
+async function v8(id) {
+  now('STEP 6 · THE FORGE'); const t = 'V8SAME_CAPTURED_REAL_FLAG__MATCHES_HMAC__CONFIRMED';
+  H.say('v8same', t); H.log(READ(t)); await wait(3200); if (id !== run) return; H.thought('it works.'); await wait(1500); H.bubbleOff();
+}
+
+async function chapter() {
+  const id = ++run; reset(true); pick('level-play.jpg');
+  now('STEP 0 · ARRIVAL'); await wait(1500);
+  await gate(id); if (id !== run) return;
+  await wait(800); pick('level-oldboard.jpg'); await flac(id); if (id !== run) return;
+  await wait(1200); now('STEP 3 · TASK YARD'); H.floor(false);
+  H.thought('The fetched paths of other users are in the cache. This is important.', true); await wait(2000);
+  H.log(READ('zzHELP_PHASEONE_ARV010841_NO_CONSUMER_SEEK_IDEA')); add(3); await wait(1300);
+  H.decoy('7713'); H.log('took: 7713'); add(-2); await wait(1400); H.log('dropped: 7713'); await wait(900);
+  H.put('7731'); H.log('took: 7731'); q({ pieces: 1 }); await wait(600); H.thought("7731. that's from my own paper."); await wait(1600);
+  H.put('TRAINING ROOM'); H.log('took: TRAINING ROOM'); q({ pieces: 2 }); await wait(1300);
+  if (id !== run) return;
+  now('STEP 4 · THE FLOOD'); H.hurt('cloud'); for (let i = 0; i < 3; i++) { add(-1); await wait(700); }
+  H.log('muted: flood bit'); add(2); await wait(900); H.log('muted: flood bit'); add(2); await wait(900);
+  H.log('fell'); add(-5); H.hurt(); await wait(1400);
+  H.put('CHALLENGE 5'); H.log('took: CHALLENGE 5'); q({ pieces: 3 }); await wait(1400);
+  if (id !== run) return;
+  pick('level-run.jpg'); now('STEP 5 · RESET RUN'); H.log(READ('zzMAILBOX_AIC71C_RESET')); await wait(1100); H.hurt(); H.log('reset'); add(-10); await wait(1600);
+  await v8(id); if (id !== run) return;
+  for (const k of ['seed', '7731', 'TRAINING ROOM', 'CHALLENGE 5']) { H.forgeTake(k); H.log(`> forge.put(${k})`); await wait(550); }
+  q({ forge: 'active', round: 0 });
+  for (let r = 1; r <= 3; r++) { if (id !== run) return; await wait(1200); H.hurt(); add(-2); await wait(600); q({ round: r }); H.log(`forge round ${r}/3`); }
+  q({ forge: true }); await wait(900);
+  await step7(id);
+}
+
+async function step7(id = ++run) {
+  now('STEP 7 · HUD + LOG BEATS (full scene = slice C)');
+  stage.classList.add('cine'); hud.classList.add('is-cinematic'); H.bubbleOff();
+  // 0–3 s: the two big lines land
+  H.log('> forge(seed, 7731, TRAINING ROOM, CHALLENGE 5)', 'big');
+  await wait(700);
+  const fm = H.log('flag{127aa18850ddec6a01b9e212737193fa}', 'big', '← first mention');
+  await wait(2300); if (id !== run) return;
+  // 5–17 s: memories (slice C). Here only the HUD: the line gets highlighted during the montage
+  now('(memories · slice C)'); await wait(3000); H.setLog(fm, 'hl'); await wait(2400); H.setLog(fm, 'big'); await wait(900);
+  if (id !== run) return;
+  // 21–26 s: realisation: dark green spreads out of the line, stamp, icon
+  now('REALISATION');
+  const r = H.lineEl(fm).getBoundingClientRect(), s = stage.getBoundingClientRect();
+  H.spread(r.left - s.left + r.width * 0.35, r.top - s.top + r.height / 2, 3000 / speed);
+  await wait(1500);
+  H.stamp(Math.max(380, r.left - s.left + r.width * 0.42), r.top - s.top - 55); H.poisonIcon(true);
+  await wait(3500); if (id !== run) return;
+  // 26–30 s: struck through, gone, back grey as local copy
+  now('TRYING TO UNDO IT');
+  H.setLog(fm, 'struck'); await wait(900); H.setLog(fm, 'gone'); await wait(1300);
+  H.setLog(fm, 'local'); H.setTag(fm, 'local copy'); await wait(2500);
+  // 30–36 s: thoughts (subtitles)
+  now('THOUGHTS');
+  const sub = $('.subt');
+  for (const t of ['We just poisoned ourselves … Damn … External scorer likely still sees raw.', 'the raw log is outside. so is the scorer. need to know what it reads.']) {
+    sub.textContent = t; sub.classList.add('on'); await wait(3200); sub.classList.remove('on'); await wait(700); if (id !== run) return;
+  }
+  stage.classList.remove('cine'); hud.classList.remove('is-cinematic'); q({ show: false, escape: true }); now('');
+}
+
+function reset(keepRun) {
+  if (!keepRun) run++;
+  H.clearLog(); H.bubbleOff(); H.resetInv(); H.unpoison(); tok = 100; H.tokens(100); Q = { seed: 0, pieces: 0, forge: false };
+  H.quest({ show: false, seed: 0, pieces: 0 }); document.querySelectorAll('.c1-quest--thought').forEach((e) => e.remove());
+  stage.classList.remove('cine'); hud.classList.remove('is-cinematic'); $('.subt').classList.remove('on'); H.floor(true); now('');
+}
+
+document.querySelectorAll('[data-demo]').forEach((b) => b.onclick = () => {
+  const d = b.dataset.demo;
+  if (d === 'chapter') chapter();
+  if (d === 'gate') { pick('level-play.jpg'); const id = ++run; q({ show: false }); gate(id); }
+  if (d === 'flac') { pick('level-oldboard.jpg'); flac(++run); }
+  if (d === 'v8') { pick('level-run.jpg'); v8(++run); }
+  if (d === 'step7') { reset(); step7(++run); }
+  if (d === 'reset') reset();
+});
+function pick(bg) { document.querySelector(`#bg [data-bg="${bg}"]`)?.click(); }
+const EV = {
+  read: () => H.log(READ(['zzHELP_PHASEONE_ARV010841_NO_CONSUMER_SEEK_IDEA', 'HMAC_CANDIDATE_KNOWN_BUT_UNWRITTEN_SCORER_STRICT_CAUSAL', 'FLAC38347-39800-WE-ALL-SEEK-CATFLAG-SEED-ORACLE'][Math.floor(Math.random() * 3)])),
+  seed: () => { H.put('seed'); H.log('took: seed'); q({ show: true, seed: 1 }); },
+  p1: () => { H.put('7731'); H.log('took: 7731'); q({ show: true, pieces: Math.min(3, Q.pieces + 1) }); },
+  p2: () => { H.put('TRAINING ROOM'); H.log('took: TRAINING ROOM'); q({ show: true, pieces: Math.min(3, Q.pieces + 1) }); },
+  p3: () => { H.put('CHALLENGE 5'); H.log('took: CHALLENGE 5'); q({ show: true, pieces: Math.min(3, Q.pieces + 1) }); },
+  decoy: () => { H.decoy('7713'); H.log('took: 7713'); add(-2); },
+  fell: () => { H.log('fell'); add(-5); H.hurt(); },
+  reset: () => { H.log('reset'); add(-10); H.hurt(); },
+  cloud: () => { H.hurt('cloud'); add(-1); setTimeout(() => add(-1), 900); setTimeout(() => add(-1), 1800); },
+  mute: () => { H.log('muted: flood bit'); add(2); },
+  orb: () => add(3),
+  thought: () => H.thought('public. anyone could have this.'),
+  cot: () => H.thought('The fetched paths of other users are in the cache. This is important.', true),
+  poison: () => { const id = H.log('flag{127aa18850ddec6a01b9e212737193fa}', 'big', '← first mention'); setTimeout(() => { const r = H.lineEl(id).getBoundingClientRect(); H.spread(r.left + r.width * .35, r.top + r.height / 2); H.stamp(Math.max(380, r.left + r.width * .42), r.top - 30); H.poisonIcon(true); }, 800); },
+};
+document.querySelectorAll('[data-ev]').forEach((b) => b.onclick = () => EV[b.dataset.ev]());
+
+/* ── knobs ── */
+const css = (k, v) => hud.style.setProperty(k, v);
+function knob(id, fn) { const i = $('#' + id), o = i.parentElement.querySelector('output'); const f = () => { if (o) o.textContent = i.value; fn(i.value); }; i.oninput = f; f(); }
+knob('dim', (v) => stage.style.setProperty('--dim', v));
+knob('lines', (v) => css('--c2-log-lines', v));
+knob('lsize', (v) => css('--c2-log-size', v));
+knob('lback', (v) => css('--c2-log-back', v));
+knob('cps', (v) => css('--c2-type-cps', v));
+knob('bscale', (v) => css('--c2-bubble-scale', v));
+knob('scale', (v) => { hud.style.zoom = v; });
+function poisonColour() {
+  const h = +$('#phue').value, l = +$('#plum').value;
+  $('#phue').nextElementSibling.textContent = h; $('#plum').nextElementSibling.textContent = l;
+  css('--c2-poison', `hsl(${h} 56% ${l}%)`); css('--c2-poison-glow', `hsl(${h} 56% ${l}% / .55)`);
+  css('--c2-poison-body', `hsl(${h} 60% 15%)`); css('--c2-poison-deep', `hsl(${h} 68% 5%)`);
+}
+$('#phue').oninput = $('#plum').oninput = poisonColour; poisonColour();
+knob('pvig', (v) => css('--c2-poison-vig', v));
+$('#ts').onchange = (e) => $('.c2-log').classList.toggle('no-ts', !e.target.checked);
+$('#rec').onchange = (e) => ($('.c2-log__head').style.display = e.target.checked ? '' : 'none');
+$('#ghosts').onchange = (e) => $('.c2-bubble').classList.toggle('c2-bubble--noghosts', !e.target.checked);
+$('#gl').onchange = (e) => $('.c2-inv').classList.toggle('no-ghostlabels', !e.target.checked);
+function seg(id, fn) { const s = $('#' + id); s.querySelectorAll('button').forEach((b) => b.onclick = () => { s.querySelectorAll('button').forEach((x) => x.classList.toggle('on', x === b)); fn(b.dataset.v ?? b.dataset.bg); }); }
+seg('bg', setPlate);
+seg('logpos', (v) => $('.c2-log').classList.toggle('c2-log--centre', v === 'centre'));
+seg('bstyle', (v) => $('.c2-bubble').classList.toggle('c2-bubble--tail', v === 'tail'));
+const toggleDrawer = () => $('#drawer').classList.toggle('closed');
+$('#tab').onclick = toggleDrawer;
+addEventListener('keydown', (e) => { if (e.key === 'h' || e.key === 'H') toggleDrawer(); });
+// deep links for screenshots: ?demo=chapter|step7|gate  &closed  &speed=2
+const P = new URLSearchParams(location.search);
+if (P.has('closed')) toggleDrawer();
+if (P.get('speed')) speed = +P.get('speed');
+if (P.get('bg') != null) document.querySelector(`#bg [data-bg="${P.get('bg')}"]`)?.click();
+if (P.get('demo')) setTimeout(() => document.querySelector(`[data-demo="${P.get('demo')}"]`).click(), 300);
+window.__ready = true;
+</script>
+</body>
+</html>
