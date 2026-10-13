@@ -42,4 +42,4 @@ Each role has its own memory folder (`memory: project` in its agent file → `.c
 `docs/DECISIONS.md` is append-only: `- YYYY-MM-DD · role · decision — why`. Log anything other roles must respect, such as the stack, formats, naming or story canon. Never edit past entries. To reverse a decision, append a new entry.
 
 ## Current phase
-Phase 1: research. Update this line when Julius moves the project on.
+Phase 2: story and build. Ch1 is built and accepted; Ch2 is being planned. Update this line when Julius moves the project on.
