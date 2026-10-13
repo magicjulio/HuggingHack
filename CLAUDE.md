@@ -8,7 +8,7 @@ The real levels, content and mechanics are worked out in the story phase and rec
 ## Ground rules
 - `NOTES.md` belongs to Julius. Read it, never edit it.
 - Julius (the user) owns creative direction. When a choice changes how the game plays or looks, ask instead of deciding silently.
-- These are real events. Never invent facts about the incident. Creative freedom in how they are shown is fine; when a level dramatizes or changes something, the story files say so.
+- These are real events. Never invent facts about the incident. Creative freedom in how they are shown is fine, and departures need no note.
 - The game is in english
 - One shared checkout: every role works in the repo root (`/home/julio/Desktop/HuggingHack`) on `main`. No git worktrees or branches, because files written there (handoffs too) are invisible to the other roles. If your session starts in `.claude/worktrees/…` or on another branch, stop and tell Julius.
 
