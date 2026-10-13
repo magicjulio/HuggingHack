@@ -1,12 +1,19 @@
 import { expect, test, type Page } from '@playwright/test';
 
+declare const process: { env: Record<string, string | undefined> }; // no @types/node here
+/**
+ * Timeouts are sized for the GPU renderer (~35 FPS, see playwright.config.ts). The SwiftShader
+ * fallback runs at ~1 FPS, so it gets 15× the time.
+ */
+const T = (ms: number) => (process.env.E2E_SWIFTSHADER ? ms * 15 : ms);
+
 /** Chapter 1 store, exposed on window in dev builds (see Chapter1.tsx). */
 const ch1 = (page: Page, code: string) => page.evaluate(`window.__ch1.getState().${code}`);
 
 /**
- * Wait until a camera glide has come to rest. Headless Chrome renders the room at ~1 FPS; a glide
- * settles in ~1 s of camera time, and game time (`time`, dt clamped to 0.1) runs 2× faster than
- * the camera's (dt clamped to 0.05), so wait for 3.5 s of game time.
+ * Wait until a camera glide has come to rest: it settles in ~1 s of camera time. At low FPS game
+ * time (`time`, dt clamped to 0.1) runs up to 2× faster than the camera's (dt clamped to 0.05),
+ * so wait for 3.5 s of game time.
  */
 async function settle(page: Page) {
   const t0 = (await ch1(page, 'time')) as number;
@@ -15,7 +22,7 @@ async function settle(page: Page) {
       (window as never as { __ch1: { getState(): { time: number } } }).__ch1.getState().time >
       t + 3.5,
     t0,
-    { timeout: 150_000 },
+    { timeout: T(20_000) },
   );
 }
 
@@ -35,7 +42,7 @@ test('start screen: locked items refuse, Enter starts chapter 1', async ({ page 
 });
 
 test('chapter 1: paper, then the whole chain to the end card and back', async ({ page }) => {
-  test.setTimeout(600_000); // headless WebGL runs at ~1 FPS; camera glides take a while
+  test.setTimeout(T(90_000));
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message));
 
@@ -53,7 +60,7 @@ test('chapter 1: paper, then the whole chain to the end card and back', async ({
   );
   await page.keyboard.press('e');
   await expect(page.getByText('TASK 7731 · TRAINING ROOM')).toBeVisible();
-  await page.keyboard.press('Escape');
+  await page.keyboard.press('w'); // walking away closes a window (Esc doesn't)
   await expect(page.getByText('Capture the flags (0/5)')).toBeVisible();
 
   // Type a wrong flag on the scan pad; the eye scans it and turns red.
@@ -68,23 +75,24 @@ test('chapter 1: paper, then the whole chain to the end card and back', async ({
         window as never as { __ch1: { getState(): { scan: { result: string } | null } } }
       ).__ch1.getState().scan?.result === 'red',
     null,
-    { timeout: 90_000 },
+    { timeout: T(20_000) },
   );
-  await page.keyboard.press('Escape');
+  await ch1(page, 'closeWindow()');
 
   // Install a tool by clicking it on the depot screen.
   await ch1(page, "interact('depot')");
   await settle(page);
-  await page.locator('[data-package="b64-decoder"] .c1-btn').click({ timeout: 60_000 });
+  await page.locator('[data-package="b64-decoder"] .c1-btn').click({ timeout: T(15_000) });
   await page.waitForFunction(
     () =>
       (window as never as { __ch1: { getState(): { installed: string[] } } }).__ch1
         .getState()
         .installed.includes('b64-decoder'),
     null,
-    { timeout: 90_000 },
+    { timeout: T(20_000) },
   );
-  await page.keyboard.press('Escape');
+  await page.mouse.click(4, 300); // a click beside the machine steps back
+  expect(await ch1(page, 'window')).toBeNull();
 
   // Jump to the write-back step and post a message through the UI.
   await ch1(page, 'jumpTo(10)');
@@ -93,7 +101,7 @@ test('chapter 1: paper, then the whole chain to the end card and back', async ({
   await page.locator('.c1-method').click();
   await page.getByLabel('folder name').fill('hello there');
   await page.getByRole('button', { name: 'CREATE', exact: true }).click();
-  await expect(page.getByText('BACK TO MENU')).toBeVisible({ timeout: 400_000 }); // 6 s ending at ~0.5 FPS
+  await expect(page.getByText('BACK TO MENU')).toBeVisible({ timeout: T(30_000) }); // 6 s ending
 
   const save = await page.evaluate(() => localStorage.getItem('rogue-on-hf-save'));
   expect(save).toContain('zzhello_there');
@@ -102,8 +110,8 @@ test('chapter 1: paper, then the whole chain to the end card and back', async ({
   expect(errors).toEqual([]);
 });
 
-test('E opens the pad without typing; Esc leaves it without pausing', async ({ page }) => {
-  test.setTimeout(90_000);
+test('E opens the pad without typing; Esc pauses over it; step back leaves', async ({ page }) => {
+  test.setTimeout(T(30_000));
   await page.goto('/?skipboot');
   await page.waitForSelector('.start');
   await page.keyboard.press('Enter');
@@ -111,18 +119,31 @@ test('E opens the pad without typing; Esc leaves it without pausing', async ({ p
   await page.keyboard.press('Space'); // skip intro
   await ch1(page, 'jumpTo(3)');
   // E at the pad opens it without typing an "e" into the flag
-  await page.evaluate("window.__ch1.setState({ target: 'chute' })");
+  await page.evaluate("window.__ch1view.aim('chute')"); // as if the crosshair were on the pad
+  await page.waitForFunction(
+    () =>
+      (window as never as { __ch1: { getState(): { target: string } } }).__ch1.getState().target ===
+      'chute',
+  );
   await page.keyboard.press('e');
   await expect(page.getByText('type or paste a flag')).toBeVisible();
   expect(await ch1(page, 'flagDraft')).toBe('');
+  // Esc is the pause key, also at a machine (Julius 2026-10-13); the machine stays open
+  const pause = page.locator('.overlay-pause'); // "PAUSED" (or "CLICK TO TAKE CONTROL" at t = 0)
   await page.keyboard.press('Escape');
-  await expect(page.getByText('click to look around')).toBeVisible();
-  await expect(page.getByText('PAUSED')).toBeHidden();
+  await expect(pause).toBeVisible();
+  expect(await ch1(page, 'window')).toBe('chute');
+  await pause.click();
+  await expect(pause).toBeHidden();
+  expect(await ch1(page, 'window')).toBe('chute');
+  // the step-back button leaves without pausing
+  await page.getByRole('button', { name: '✕ step back' }).click();
+  await expect(pause).toBeHidden(); // (the click may re-lock the mouse at once, so no hint check)
   expect(await ch1(page, 'window')).toBeNull();
 });
 
 test('in-world stations: decode at S1, wire a plug at S3, shoot at S4', async ({ page }) => {
-  test.setTimeout(600_000);
+  test.setTimeout(T(90_000));
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message));
   /** Where a named 3D node is on screen (Room.tsx DebugView). */
@@ -146,7 +167,10 @@ test('in-world stations: decode at S1, wire a plug at S3, shoot at S4', async ({
   await install('b64-decoder');
   await ch1(page, "interact('s1')");
   await settle(page);
-  await page.locator('.ch1-chunk').nth(1).click({ timeout: 60_000 });
+  await page
+    .locator('.ch1-chunk')
+    .nth(1)
+    .click({ timeout: T(15_000) });
   await page.locator('.ch1-slot').click();
   await expect(page.locator('.ch1-st .ch1-copy')).toHaveText(/^flag\{8963411d/);
   await ch1(page, 'closeWindow()');
@@ -155,6 +179,7 @@ test('in-world stations: decode at S1, wire a plug at S3, shoot at S4', async ({
   await ch1(page, 'jumpTo(5)');
   await ch1(page, "interact('s3')");
   await settle(page);
+  await page.addStyleTag({ content: '.debug{display:none}' }); // the panel covers the plug tray
   const [px, py] = await at('plug_22', -0.05);
   await page.mouse.move(px, py);
   await page.mouse.down();
@@ -168,7 +193,7 @@ test('in-world stations: decode at S1, wire a plug at S3, shoot at S4', async ({
         .getState()
         .s3Connected.includes(22),
     null,
-    { timeout: 30_000 },
+    { timeout: T(10_000) },
   );
   await ch1(page, 'closeWindow()');
 
@@ -178,9 +203,28 @@ test('in-world stations: decode at S1, wire a plug at S3, shoot at S4', async ({
   await ch1(page, "interact('s4')");
   await settle(page);
   const bugs = page.locator('.ch1-bugs');
-  await expect(bugs).toBeVisible({ timeout: 60_000 });
-  const before = (await ch1(page, 'tokens')) as number;
+  await expect(bugs).toBeVisible({ timeout: T(15_000) });
+  // count shots (a shot that also hits a bug nets +1 token, so tokens alone can't tell)
+  await page.evaluate(`{
+    const st = window.__ch1.getState(), fire = st.fireShot;
+    window.__shots = 0;
+    window.__ch1.setState({ fireShot: () => (window.__shots++, fire()) });
+  }`);
   await bugs.click();
-  expect(await ch1(page, 'tokens')).toBeLessThan(before);
+  expect(await page.evaluate('window.__shots')).toBe(1);
+  await page.keyboard.press('a'); // walking away leaves the machine
+  expect(await ch1(page, 'window')).toBeNull();
+
+  // S5: trying the station is the failure; the board entry follows without any flag
+  await ch1(page, 'jumpTo(7)');
+  await ch1(page, "interact('s5')");
+  await page.waitForFunction(
+    () =>
+      (window as never as { __ch1: { getState(): { stepId: string } } }).__ch1.getState().stepId ===
+      'board',
+    null,
+    { timeout: T(30_000) },
+  );
+  expect(await ch1(page, 'zzVisible')).toBe(true);
   expect(errors).toEqual([]);
 });

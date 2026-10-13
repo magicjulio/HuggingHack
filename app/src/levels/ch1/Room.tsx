@@ -13,6 +13,10 @@ import { Depot3D, Plinth3D, Scorer3D } from './models';
 import { Desk3D, Reflections, RoomShell } from './RoomShell';
 import { Stations } from './stations';
 
+type PropId = (typeof PROPS)[number]['id'];
+/** Dev/e2e: a target forced by `__ch1view.aim(id)`, held until the player uses something. */
+let aimed: PropId | null = null;
+
 /** Finds the usable object under the crosshair and stores it as `target`. */
 function Targeting() {
   const store = useCh1Store();
@@ -21,8 +25,10 @@ function Targeting() {
   const to = useRef(new Vector3());
   useFrame(() => {
     const s = store.getState();
-    let best: (typeof PROPS)[number]['id'] | null = null;
-    if (s.phase === 'play' && !s.window) {
+    let best: PropId | null = null;
+    if (s.window) aimed = null;
+    if (aimed && s.phase === 'play' && !s.window) best = aimed;
+    else if (s.phase === 'play' && !s.window) {
       camera.getWorldDirection(fwd.current);
       let bestAngle = 0.42; // ~24° cone
       for (const p of PROPS) {
@@ -44,7 +50,7 @@ function Targeting() {
 
 /**
  * Dev/e2e hook: `window.__ch1view.at(name, dy, dz)` = where a named 3D node is on screen (client px), so
- * Playwright can click and drag things in the room (e.g. the S3 plugs).
+ * Playwright can click and drag things in the room (e.g. the S3 plugs); `aim(id)` forces the target.
  */
 function DebugView() {
   const { camera, scene, gl } = useThree();
@@ -62,6 +68,10 @@ function DebugView() {
         p.project(camera);
         const r = gl.domElement.getBoundingClientRect();
         return [r.left + ((p.x + 1) / 2) * r.width, r.top + ((1 - p.y) / 2) * r.height];
+      },
+      /** Pretend the crosshair is on `id` until something is used (fast renderers re-aim each frame). */
+      aim: (id: PropId) => {
+        aimed = id;
       },
     };
     return () => {

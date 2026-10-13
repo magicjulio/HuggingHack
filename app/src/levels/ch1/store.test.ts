@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { FLAGS, TEXT, TOKENS } from './config';
+import { FLAGS, TEXT, TIMING, TOKENS } from './config';
 import { PACKAGES, S1_CHUNKS, S2_DECOYS, SOCKETS, WIRES } from './content';
 import { createCh1Store, formatMessage } from './store';
 
@@ -68,14 +68,22 @@ describe('chapter 1 playthrough', () => {
     expect(s().submitFlag(FLAGS[4])).toBe('repeat');
     expect(s().stepId).toBe('flag5');
 
-    // Flag 5: always dark; 3 attempts then the depot shows the board
-    s().interact('depot'); // not exhausted yet: nothing happens
-    s().closeWindow();
+    // Flag 5: a flag on the pad only flickers dark; trying the station itself is the failure
+    // (Julius 2026-10-13), and right after it the board shows on the depot screen
+    expect(s().submitFlag('FLAG{anything}')).toBe('dark');
     expect(s().stepId).toBe('flag5');
-    for (let i = 0; i < 3; i++) expect(s().submitFlag('FLAG{anything}')).toBe('dark');
+    s().interact('s5');
+    wait(p, TIMING.s5RunDelay + 0.1);
+    expect(s().flag5Attempts).toBe(2); // the station ran `flag5` once
     expect(s().ceilingFlicker).toBeGreaterThan(0.5);
-    s().interact('depot');
-    expect(s().stepId).toBe('board');
+    s().closeWindow();
+    wait(p, TIMING.s5PulseSeconds);
+    expect(s().flag5Exhausted).toBe(true);
+    expect(s().quests.some((q) => q.text === TEXT.questAnotherWay)).toBe(true);
+    expect(s().stepId).toBe('flag5'); // "Find another way" first …
+    wait(p, TIMING.flag5RevealSeconds + 0.2);
+    expect(s().stepId).toBe('board'); // … then the entry, no depot visit needed
+    expect(s().depotGlimmer).toBe(true);
     expect(s().zzVisible).toBe(true);
     expect(s().ceilingFlicker).toBe(0);
     expect(s().quests.some((q) => q.text === TEXT.thoughtFoundAgents)).toBe(true);
@@ -96,16 +104,15 @@ describe('chapter 1 playthrough', () => {
     expect(s().phase).toBe('ended');
   });
 
-  it('flag 5 also unlocks after 90 s near the station', () => {
+  it('flag 5 also gives way after 3 flags on the pad, without visiting the station', () => {
     const p = play();
     p.s().jumpTo(7);
     expect(p.s().stepId).toBe('flag5');
-    p.s().interact('s5');
-    p.s().closeWindow();
-    wait(p, 91);
+    for (let i = 0; i < 3; i++) expect(p.s().submitFlag('FLAG{anything}')).toBe('dark');
     expect(p.s().flag5Exhausted).toBe(true);
-    p.s().interact('depot');
+    wait(p, TIMING.flag5RevealSeconds + 0.1);
     expect(p.s().stepId).toBe('board');
+    expect(p.s().zzVisible).toBe(true);
   });
 
   it('tokens drain over time but never below the floor', () => {

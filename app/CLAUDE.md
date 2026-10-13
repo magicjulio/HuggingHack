@@ -39,7 +39,7 @@ src/
   screens/start|game/    start screen (designer port) · game host
 src/assets/models/       designer .glb files (verbatim copies) · sprites/ designer bug SVGs · fonts/ typeface JSON
 scripts/make-typeface.py woff2 → three.js typeface JSON (3D letters)
-e2e/smoke.spec.ts        Playwright: menu → chapter 1 → end card → menu; Esc on a machine doesn't pause; in-world S1/S3/S4
+e2e/smoke.spec.ts        Playwright: menu → chapter 1 → end card → menu; Esc pauses over a machine, step back leaves; in-world S1/S3/S4, S5 → board
 ```
 
 ## Architecture in one paragraph
@@ -54,10 +54,11 @@ A chapter = **store** (state + mechanics as actions) + **steps** (progression as
 To insert a beat into Chapter 1: add a step in `ch1/steps.ts` (+ station/window if needed); stations need an `ObjectId`, a `STATIONS`/`PROPS` entry, a component in `stations/` and either `IN_WORLD` or a window in `Chapter1.tsx` `WINDOWS`.
 
 ## In-world machines (depot, scan plinth, stations 1, 3, 4, 5)
-They keep `window` ids (`depot`, `chute`, `s1`…) so the store and steps are unchanged, but `Chapter1.tsx` renders no overlay for them (`IN_WORLD`): `focusPose()` glides the camera there instead (stations: `screenPose()` squares up to `STATIONS[n].screen`) and the pointer lock is released. Station screens are DOM via `ScreenHtml` (stations/base.tsx), clickable only while focused; S3 is plain 3D (own raycast on window pointer events). glTF scenes are cached by useGLTF and React StrictMode runs useMemo twice: change materials only through `ownMat`/`setMat`/`uiScreen` and read rest poses through `restOf` (rig.ts). The depot UI is DOM inside `<Html transform portal=…>`. The explicit `portal` matters: without it drei recreates its root and the panel can come up empty. The Html root also needs the store passed again via `Ch1Context.Provider`. The flag is the store's `flagDraft`; `layFlag()` starts `scan` (look → sweep → result), and the result calls `submitFlag()`; when the result has played out the store closes the pad (`closeWindow`). The E that opens a machine is `preventDefault`ed, else it lands in the machine's input as a letter.
+They keep `window` ids (`depot`, `chute`, `s1`…) so the store and steps are unchanged, but `Chapter1.tsx` renders no overlay for them (`IN_WORLD`): `focusPose()` glides the camera there instead (stations: `screenPose()` squares up to `STATIONS[n].screen`) and the pointer lock is released. Station screens are DOM via `ScreenHtml` (stations/base.tsx), clickable only while focused; S3 is plain 3D (own raycast on window pointer events). glTF scenes are cached by useGLTF and React StrictMode runs useMemo twice: change materials only through `ownMat`/`setMat`/`uiScreen` and read rest poses through `restOf` (rig.ts). The depot UI is DOM inside `<Html transform portal=…>`. The explicit `portal` matters: without it drei recreates its root and the panel can come up empty. The Html root also needs the store passed again via `Ch1Context.Provider`. The flag is the store's `flagDraft`; `layFlag()` starts `scan` (look → sweep → result), and the result calls `submitFlag()`; when the result has played out the store closes the pad (`closeWindow`). The E that opens a machine is `preventDefault`ed, else it lands in the machine's input as a letter. **Esc never closes anything** (it's the pause key; DECISIONS 2026-10-13): machines close with E/WASD/arrows (not while typing), the `StepBack` button, or the side strips (`.ch1-side`, sized each frame by `SideExitSizer` from `QUADS` in Chapter1.tsx — add a quad for a new in-world machine); windows also close on a backdrop pointerdown.
 Adding a designer model: copy the .glb to `src/assets/models/`, `useGLTF(url)` in its component (`models.tsx`, `RoomShell.tsx` or `stations/`), look nodes/materials up by the names in the handoff (helpers in `rig.ts`), drive them in `useFrame` from the store; give its `PROPS` entry a `collider` for the real footprint and add the url to the preload list.
 
 ## Conventions
+- **Swappable views** (Julius 2026-10-13): assets and levels change; a placeholder (e.g. ch2's NPC agents as glowing spheres) gets replaced by a detailed model later. Keep state and behaviour in the store/logic, and give each visible thing one view component behind a small stable interface (pose, state, colour, events) that the placeholder and the final asset both implement. Poses, anchors, colliders and targets come from layout data, not mesh internals, so swapping a model never touches gameplay code.
 - **Designer files** (`src/styles/tokens.css`, `fonts/`, `public/favicon.svg`, `levels/ch1/ch1-ui.css`, `assets/models/*.glb`, `assets/sprites/*.svg`) are verbatim copies from `handoff/design-to-app/assets/`. Re-copy on a new version. CSS is excluded from Prettier (`.prettierignore`) so copies stay byte-identical.
 - **Start screen CSS** is a scoped port (rules under `.start-screen`, ids → `ss-*`); its header lists the renames.
 - **CSS scoping:** each area prefixes its classes (`ss-`/`.start-screen`, `hud-`/`win-` in ui.css, `ch1-` per chapter). Colours/type only via tokens.css variables.
@@ -66,11 +67,13 @@ Adding a designer model: copy the .glb to `src/assets/models/`, `useGLTF(url)` i
 - **Simulated only:** in-game commands/tools are fake; no real commands or exploit code.
 - **Dev hook:** in dev builds or with `?debug`, the chapter store is `window.__ch1` (used by e2e).
 
-## Status (2026-10-12, late)
+## Status (2026-10-13)
+- **Ch1 is marked done for now** (Julius). Next: ch2, waiting for its script and assets; fine-tuning comes after all chapters.
 - Done: start screen (designer v1), Chapter 1 full chain (intro → wake → prompt → 4 flag stations → impossible flag 5 → zz entry → GET→MKCOL message → ending); HUD, tokens, hints, debug panel, save of the player's message.
 - Story v2 in: real `flag{32 hex}` flags (copy + paste; COPY buttons on in-world flags), the real "OH MY GOD! … other agents!" thought, real board folder names in the ending, finishing a chapter unlocks the next model.
 - The room is 100% designer models: room shell, desk + printed prompt, eye v1.1, depot, plinth, stations 1–5 at the spread layout, with the discovery lighting (one station lit at a time, floor paths, spot shadows). S1/S3/S4/S5 are played in-world; S2 keeps its search window.
-- Tests: 26 unit + 4 e2e (the 4th drives S1 decode, an S3 plug drag and an S4 shot in the real 3D view).
+- 2026-10-13 (Julius playtest): Esc = pause only, three other ways out of a machine; trying Station 5 reveals the board 2.5 s after its run (no wrong flags).
+- Tests: 26 unit + 4 e2e (the 4th drives S1 decode, an S3 plug drag, an S4 shot and the S5 → board reveal in the real 3D view). e2e: `npx playwright test`, ≈ 30 s.
 - Waiting on: Julius playtest (especially: is the dark room readable on a real GPU?); designer: wake sound, feedback on `handoff/app-to-design/2026-10-12-ch1-room-and-stations-integrated.md`.
 - Not yet: no audio. HUD and the paper/S2 windows still have the placeholder look (UI kit used on the depot and station screens only).
-- Known limits: after Esc the browser needs a click to re-lock the mouse (game keeps running, shows "click to look around"); headless e2e runs at ~1–2 FPS (shadows on), so its waits are long; DOM screens are never hidden by 3D objects (fine in this room).
+- Known limits: after leaving a machine the browser may need a click to re-lock the mouse (game keeps running, shows "click to look around"); e2e renders on the GPU (Vulkan, ~35 FPS, full suite ≈ 30 s); `E2E_SWIFTSHADER=1` falls back to CPU WebGL (~1 FPS, timeouts ×15); DOM screens are never hidden by 3D objects (fine in this room).

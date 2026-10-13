@@ -1,6 +1,6 @@
 ---
 name: reference-tooling-gotchas
-description: Tooling traps hit in this repo — zsh bare redirect hangs, prettier on CSS, drei Html root, headless FPS
+description: Tooling traps hit in this repo — zsh bare redirect hangs, prettier on CSS, drei Html root, headless GPU (Vulkan) for e2e
 metadata:
   type: reference
 ---
@@ -8,6 +8,6 @@ metadata:
 - zsh: a bare `> file` runs `cat` (NULLCMD) and waits on stdin. Use `: >| file` to truncate. Don't `pkill -f` a pattern that also matches your own shell command line.
 - `npm run format` (prettier on src) used to reformat all CSS, which broke the designer's verbatim copies. `app/.prettierignore` now excludes `*.css`; run prettier on ts/tsx only.
 - drei `<Html>` creates its own React root: React context does not reach it (re-provide it), and pass an explicit `portal` or the root is recreated once R3F connects events and the panel can come up empty.
-- Headless Chrome (swiftshader) runs the textured room at ~2 FPS with tick dt clamped to 0.1, so game time crawls. e2e waits need 60–150 s, and Playwright "element is not stable" means the camera glide has not snapped yet.
+- Headless Chrome: SwiftShader (CPU) ran the room at 0.3–2 FPS → 15 min e2e. This laptop's Iris Xe works headless with `--use-gl=angle --use-angle=vulkan --enable-features=Vulkan` (~35 FPS, suite ≈ 30 s; `--use-angle=gl`/`egl` silently fall back to SwiftShader — check UNMASKED_RENDERER_WEBGL). Fast FPS exposes races slow FPS hid: Targeting rewrites `target` every frame (use `__ch1view.aim(id)` + wait for it), and assert on counted actions, not token totals. Run `--repeat-each=5` after changing e2e.
 - React StrictMode runs `useMemo` twice in dev: anything that swaps a mesh's material inside a memo ends up driving a copy that isn't on the mesh (dormant screens glowed). Use the idempotent helpers in `levels/ch1/rig.ts` (`ownMat`, `setMat`, `uiScreen`). useGLTF caches scenes across replays, so read rest poses via `restOf`, never `node.position.clone()` at mount.
 - Screenshots of the 3D room: temporary spec (kept in the job tmp as `zz-shots.spec.ts`) against `npx vite --port 5175`, 960×540, wait ~30 s per camera glide with fx on. `window.__ch1view.at(name, dy, dz)` gives a node's screen position for clicks/drags.

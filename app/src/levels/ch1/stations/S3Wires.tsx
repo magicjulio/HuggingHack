@@ -118,7 +118,10 @@ export function Station3() {
     const canvas = gl.domElement;
     const aim = (e: PointerEvent) => {
       const r = canvas.getBoundingClientRect();
-      tools.ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+      tools.ndc.set(
+        ((e.clientX - r.left) / r.width) * 2 - 1,
+        -((e.clientY - r.top) / r.height) * 2 + 1,
+      );
       tools.ray.setFromCamera(tools.ndc, camera);
     };
     const playing = () => {
@@ -135,7 +138,9 @@ export function Station3() {
       return parts.plugs.find((q) => q.node === o) ?? null;
     };
     const down = (e: PointerEvent) => {
-      if (e.button !== 0 || !playing()) return;
+      // not through the side exits or a button (step back, COPY …)
+      const el = e.target as HTMLElement | null;
+      if (e.button !== 0 || !playing() || el?.closest?.('.ch1-side, button, input')) return;
       aim(e);
       const q = plugUnder();
       if (!q || q.into) return; // plugged ones stay in
@@ -144,7 +149,10 @@ export function Station3() {
       q.back = -1;
       parts.space.updateWorldMatrix(true, false);
       const n = new Vector3(0, 0, 1).transformDirection(parts.space.matrixWorld);
-      tools.plane.setFromNormalAndCoplanarPoint(n, parts.space.localToWorld(new Vector3(0, 0, 0.19)));
+      tools.plane.setFromNormalAndCoplanarPoint(
+        n,
+        parts.space.localToWorld(new Vector3(0, 0, 0.19)),
+      );
       move(e);
     };
     const move = (e: PointerEvent) => {
@@ -180,7 +188,9 @@ export function Station3() {
         best.flash = 0.4;
       } else {
         if (best) {
-          parts.spark.position.copy(parts.space.localToWorld(best.pos.clone().setZ(best.pos.z + 0.05)));
+          parts.spark.position.copy(
+            parts.space.localToWorld(best.pos.clone().setZ(best.pos.z + 0.05)),
+          );
           parts.spark.intensity = 2.5;
           best.flash = -0.3;
         }
@@ -207,7 +217,9 @@ export function Station3() {
     if (parts.card) {
       parts.card.visible = g.installed.includes('port-map');
       const pulse = g.effects.includes('pulse-legend') && !solved;
-      parts.card.scale.setScalar(pulse ? 1 + 0.06 * Math.max(0, Math.sin(clock.elapsedTime * 5)) : 1);
+      parts.card.scale.setScalar(
+        pulse ? 1 + 0.06 * Math.max(0, Math.sin(clock.elapsedTime * 5)) : 1,
+      );
     }
     parts.spark.intensity *= 0.82;
 

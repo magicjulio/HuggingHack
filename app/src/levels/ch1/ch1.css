@@ -37,6 +37,16 @@
 .ch1-pad-input{position:absolute;left:0;top:0;width:1px;height:1px;opacity:0;pointer-events:none}
 .ch1-pad-help{position:absolute;left:50%;bottom:2.2rem;transform:translateX(-50%);padding:.5rem 1rem;background:var(--color-panel);border:1px solid var(--color-line);font-size:var(--fs-sm);color:var(--color-text-dim);letter-spacing:.06em;white-space:nowrap;z-index:20}
 .ch1-pad-help b{color:var(--color-signal-cyan);font-weight:700}
+.ch1-stepback{margin:0;padding:.1rem .5rem;background:none;border:1px solid var(--color-line-strong);color:var(--color-signal-cyan);font:inherit;letter-spacing:.06em;cursor:pointer}
+.ch1-stepback:hover{border-color:var(--color-signal-cyan)}
+/* side exits: click left or right of a machine to step back (sized in Chapter1.tsx) */
+.ch1-side{position:absolute;top:0;bottom:0;width:12vw;z-index:15;display:flex;align-items:center;justify-content:center;cursor:pointer}
+.ch1-side.is-left{left:0}
+.ch1-side.is-right{right:0}
+.ch1-side span{padding:.35rem .6rem;background:var(--color-panel);border:1px solid var(--color-line);font-size:var(--fs-xs);letter-spacing:.18em;text-transform:uppercase;color:var(--color-text-dim);white-space:nowrap;opacity:0;transition:opacity .15s}
+.ch1-side:hover span{opacity:1}
+.ch1-side.is-left:hover{background:linear-gradient(90deg,rgba(56,216,255,.07),transparent)}
+.ch1-side.is-right:hover{background:linear-gradient(270deg,rgba(56,216,255,.07),transparent)}
 
 /* station 1 */
 .ch1-s1{display:grid;grid-template-columns:1fr 1fr;gap:1rem;min-height:260px}
