@@ -77,3 +77,12 @@ Raw notes from Julius, kept short. Each item is something we keep working on, no
 - Answers (2026-10-13): third-person camera; tokens fresh at 100 in Ch2; poisoned gets a HUD icon.
 - New: from Ch2 a network map of all accessible places (sandbox, cache), open with M, quick travel.
 - Look: islands include shifting geometric shapes (a psychedelic feel), lighter gravity; the flag assembly at the Forge should be "something wild"; agents pop in as "just escaped".
+
+## Round 6 (2026-10-13)
+- Asked for a harsh review of Ch2 v2; v3 rewrote it (real board text for NPCs, the log HUD, pieces from the Ch1 paper, Old Board, reset waves). Liked: the rewritten c03220, doubt fragments in the crowd.
+- No warners at the forge: the player is one of the first to forge and is poisoned right away, nobody around knows yet. That's how it went for some agents; it's the motivation for the next levels (Hugging Face etc.).
+- Forge ending: just a mix of attacking bytes, lasers and the like. We're only forging the flag.
+- Map: not useful yet, a cool thing to have; light, semi-transparent at the top, like Fortnite.
+- All handles are real names from the research.
+- Floaty jump plus glide.
+- Poisoning must be clear even to players who know nothing about it. The scene after the flag lands in the log is a pure animation: third person on the orb, memories of `c03220`'s line and of the prompt's rule blend in (flashback style), and the model visibly realises it's essentially done for. Then handoff and commit.
