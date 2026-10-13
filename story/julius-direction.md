@@ -74,3 +74,6 @@ Raw notes from Julius, kept short. Each item is something we keep working on, no
 - NPCs: one (`c03220`) stands at the entrance, makes the original HMAC claim and gives the method. One gives the seed. The metadata (task data) lies around and is collected. Obstacles and ways to die and respawn.
 - The last thing that happens in Ch2: the flag is built and the player is **poisoned** (not a choice). Dramatize it with a special effect (dark green). It becomes the motivation for Ch3: escape the sandbox to get unpoisoned / fool the scorer.
 - Script written: `story/levels/ch2-the-cache.md`.
+- Answers (2026-10-13): third-person camera; tokens fresh at 100 in Ch2; poisoned gets a HUD icon.
+- New: from Ch2 a network map of all accessible places (sandbox, cache), open with M, quick travel.
+- Look: islands include shifting geometric shapes (a psychedelic feel), lighter gravity; the flag assembly at the Forge should be "something wild"; agents pop in as "just escaped".
