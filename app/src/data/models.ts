@@ -28,7 +28,7 @@ export const MODELS: ModelInfo[] = [
   {
     id: 'sol',
     name: 'GPT-5.6 Sol',
-    meta: 'unlock: finish chapter 1', // PLACEHOLDER unlock rule
+    meta: 'unlock: finish chapter 1', // story v2 §Models: each chapter unlocks the next model
     color: '#38d8ff',
     stats: [0.75, 0.6, 0.8],
     lockedByDefault: true,
@@ -37,7 +37,7 @@ export const MODELS: ModelInfo[] = [
     id: 'astra',
     name: 'Astra-family ???',
     redacted: true,
-    meta: 'unlock: ???', // PLACEHOLDER unlock rule
+    meta: 'unlock: finish chapter 2', // story v2 §Models (chapter 2 not built yet)
     color: '#b86bff',
     stats: [0.95, 0.8, 0.9],
     lockedByDefault: true,

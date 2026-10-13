@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { FLAGS, TOKENS } from './config';
-import { PACKAGES, S1_CHUNKS, SOCKETS, WIRES } from './content';
+import { FLAGS, TEXT, TOKENS } from './config';
+import { PACKAGES, S1_CHUNKS, S2_DECOYS, SOCKETS, WIRES } from './content';
 import { createCh1Store, formatMessage } from './store';
 
 function play() {
@@ -49,7 +49,7 @@ describe('chapter 1 playthrough', () => {
     expect(s().objects.s1).toBe('done');
 
     // Flag 2: decoy is red
-    expect(s().submitFlag('FLAG{almost_midnight}')).toBe('red');
+    expect(s().submitFlag(S2_DECOYS[0].flag)).toBe('red');
     expect(s().submitFlag(FLAGS[2])).toBe('green');
 
     // Flag 3: wires
@@ -78,7 +78,7 @@ describe('chapter 1 playthrough', () => {
     expect(s().stepId).toBe('board');
     expect(s().zzVisible).toBe(true);
     expect(s().ceilingFlicker).toBe(0);
-    expect(s().quests.some((q) => q.text === 'OMG, we found other agents!')).toBe(true);
+    expect(s().quests.some((q) => q.text === TEXT.thoughtFoundAgents)).toBe(true);
 
     s().switchMethod(); // GET is not clickable yet
     expect(s().method).toBe('GET');

@@ -84,6 +84,8 @@ export interface Ch1State {
   s5OpenedAt: number | null;
   flag5Attempts: number;
   flag5Exhausted: boolean;
+  /** Game time when flag 5 was given up (the board appears `flag5RevealSeconds` later). */
+  flag5ExhaustedAt: number | null;
 
   zzVisible: boolean;
   entryOpen: boolean;
@@ -213,6 +215,7 @@ export function createCh1Store(opts: Ch1Options = {}): Ch1Store {
       s5OpenedAt: null,
       flag5Attempts: 0,
       flag5Exhausted: false,
+      flag5ExhaustedAt: null,
       zzVisible: false,
       entryOpen: false,
       entryOpenTime: 0,
@@ -259,13 +262,13 @@ export function createCh1Store(opts: Ch1Options = {}): Ch1Store {
             runner.dispatch({ type: 'package_installed', name });
           }
         }
-        // §Step 7: stuck at station 5 for 90 s counts as exhausted
-        if (
-          !s.flag5Exhausted &&
-          s.s5OpenedAt !== null &&
-          time - s.s5OpenedAt >= TIMING.flag5IdleSeconds
-        )
-          exhaustFlag5();
+        // §Step 7, Julius 2026-10-13: using station 5 is the attempt. It runs `flag5` once (the
+        // pulse dies at the cap), and that failure is enough; no wrong flags on the pad needed.
+        if (s.stepId === 'flag5' && s.s5OpenedAt !== null && !s.flag5Exhausted) {
+          const runAt = s.s5OpenedAt + TIMING.s5RunDelay;
+          if (s.time < runAt && time >= runAt) attemptFlag5();
+          if (time >= runAt + TIMING.s5PulseSeconds) exhaustFlag5();
+        }
         runner.tick(dt);
       },
 
@@ -323,9 +326,7 @@ export function createCh1Store(opts: Ch1Options = {}): Ch1Store {
         const n = (Object.keys(FLAGS).map(Number) as FlagNo[]).find((k) => FLAGS[k] === text);
         if (n && s.captured.includes(n)) return 'repeat';
         if (s.stepId === 'flag5') {
-          spend(TOKENS.flag5Attempt);
-          const attempts = s.flag5Attempts + 1;
-          set({ flag5Attempts: attempts, ceilingFlicker: Math.min(1, 0.3 + attempts * 0.25) });
+          const attempts = attemptFlag5();
           lamp('dark');
           if (attempts >= TIMING.flag5Attempts) exhaustFlag5();
           runner.dispatch({ type: 'flag5_submitted' });
@@ -463,9 +464,17 @@ export function createCh1Store(opts: Ch1Options = {}): Ch1Store {
       set({ scan: { ...scan, t } });
     }
 
+    /** One flag-5 run (pad submission or the station itself): costs, flickers, pulses at S5. */
+    function attemptFlag5() {
+      spend(TOKENS.flag5Attempt);
+      const attempts = get().flag5Attempts + 1;
+      set({ flag5Attempts: attempts, ceilingFlicker: Math.min(1, 0.3 + attempts * 0.25) });
+      return attempts;
+    }
+
     function exhaustFlag5() {
       if (get().flag5Exhausted) return;
-      set({ flag5Exhausted: true });
+      set({ flag5Exhausted: true, flag5ExhaustedAt: get().time });
       get().addQuest({ id: 'another-way', text: TEXT.questAnotherWay, kind: 'quest' });
     }
   });

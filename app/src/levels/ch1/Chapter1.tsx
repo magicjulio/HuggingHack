@@ -2,11 +2,11 @@
  * Chapter 1 "The Room" — composes the 3D room, HUD, windows, pause and ending.
  * Script: story/levels/ch1-the-room.md. State: store.ts. Order of events: steps.ts.
  */
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type RefObject } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Bloom, EffectComposer, ToneMapping } from '@react-three/postprocessing';
 import { ToneMappingMode } from 'postprocessing';
-import { Vector3 } from 'three';
+import { Quaternion, Vector3 } from 'three';
 import { FirstPerson, type CameraPose } from '../../engine/FirstPerson';
 import { Hud } from '../../ui/Hud';
 import { DebugPanel, isDebug } from '../../ui/DebugPanel';
@@ -14,16 +14,21 @@ import type { LevelProps } from '../index';
 import { Ch1Context, useCh1, useCh1Store } from './context';
 import { PAD_MAX_CHARS, RENDER, TEXT, TOKENS } from './config';
 import { IntroScene } from './Intro';
-import { COLLIDERS, PLAYER_START, PROPS, ROOM, SCAN_PAD, SCORER_LAMP } from './layout';
+import {
+  COLLIDERS,
+  PLAYER_START,
+  PROPS,
+  ROOM,
+  SCAN_PAD,
+  SCORER_LAMP,
+  STATIONS,
+  type StationLayout,
+} from './layout';
 import { preloadCh1Models } from './models';
 import { Room } from './Room';
 import { createCh1Store, type ObjectId, type WindowId } from './store';
-import { BugStation } from './windows/BugStation';
-import { DecodeStation } from './windows/DecodeStation';
-import { ImpossibleStation } from './windows/ImpossibleStation';
 import { LogStation } from './windows/LogStation';
 import { PaperWindow } from './windows/PaperWindow';
-import { WireStation } from './windows/WireStation';
 import './ch1.css';
 
 const VERB: Record<ObjectId, string> = {
@@ -37,23 +42,52 @@ const VERB: Record<ObjectId, string> = {
   s4: 'use',
   s5: 'use',
 };
-/** Full-view windows. The depot and the chute are used in-world instead (camera focus, below). */
+/** Full-view windows. Every other machine is used in-world (camera focus, below). */
 const WINDOWS: Partial<Record<WindowId, (p: { onClose: () => void }) => React.ReactNode>> = {
   paper: PaperWindow,
-  s1: DecodeStation,
   s2: LogStation,
-  s3: WireStation,
-  s4: BugStation,
-  s5: ImpossibleStation,
 };
 const isTyping = () => {
   const el = document.activeElement;
   return el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement;
 };
-const IN_WORLD: WindowId[] = ['depot', 'chute'];
+const IN_WORLD: WindowId[] = ['depot', 'chute', 's1', 's3', 's4', 's5'];
+/** (engineer) Key help under an in-world machine. */
+const HELP: Partial<Record<WindowId, string>> = {
+  depot: 'click to install',
+  s1: 'drag the odd string into the decoder (or click it, then the slot)',
+  s3: 'drag a plug into its socket',
+  s4: 'click to shoot · −1 token per shot · +2 per bug',
+  s5: '',
+};
+
+/** Keys that walk away from a machine (Julius 2026-10-13: Esc is kept for pause / fullscreen). */
+const WALK_KEYS = new Set([
+  'KeyW',
+  'KeyA',
+  'KeyS',
+  'KeyD',
+  'ArrowUp',
+  'ArrowDown',
+  'ArrowLeft',
+  'ArrowRight',
+]);
 
 const v3 = (v: Vector3): [number, number, number] => [v.x, v.y, v.z];
 const TAN_HALF_FOV = Math.tan(((70 / 2) * Math.PI) / 180);
+
+/** Square up to a station's screen: back off along its normal until it fits with a margin. */
+function screenPose(L: StationLayout, aspect: number): CameraPose {
+  const { quaternion: q, size } = L.screen;
+  // S5: also frame the output pipe on its right, where each attempt's pulse dies (engineer)
+  const wide = L.n === 5;
+  const [w, h] = wide ? [2.3, 1.1] : size;
+  const c = L.screen.position.clone();
+  if (wide) c.addScaledVector(new Vector3(1, 0, 0).applyQuaternion(q), 0.62);
+  const d = Math.max(h / 2 / TAN_HALF_FOV, w / 2 / (TAN_HALF_FOV * aspect)) * 1.18;
+  const n = new Vector3(0, 0, 1).applyQuaternion(q);
+  return { position: v3(c.clone().addScaledVector(n, d)), target: v3(c) };
+}
 
 /** Where the camera goes while a machine is in use (null = free play). */
 function focusPose(window: WindowId | null, scanning: boolean, aspect: number): CameraPose | null {
@@ -64,6 +98,8 @@ function focusPose(window: WindowId | null, scanning: boolean, aspect: number): 
     const z = 0.4 + Math.min(0.3, Math.max(0, TAN_HALF_FOV * aspect * d - 1.0) * 0.6);
     return { position: [-5.49 + d, 1.5, z], target: [-5.49, 1.5, z] };
   }
+  const st = window && /^s[1345]$/.test(window) ? STATIONS[Number(window[1]) as 1] : null;
+  if (st) return screenPose(st, aspect);
   if (window === 'chute') {
     const n = new Vector3(0, 1, 0).applyQuaternion(SCAN_PAD.quaternion);
     const f = new Vector3(0, 0, 1).applyQuaternion(SCAN_PAD.quaternion);
@@ -87,6 +123,72 @@ function focusPose(window: WindowId | null, scanning: boolean, aspect: number): 
       target: v3(pad.clone().addScaledVector(f, 0.02)),
     };
   }
+  return null;
+}
+
+/** What an in-world machine shows: centre + half axes (world), for the side exits. */
+interface Quad {
+  c: Vector3;
+  ax: Vector3;
+  ay: Vector3;
+}
+const AX = new Vector3(1, 0, 0);
+function quad(
+  c: Vector3,
+  q: Quaternion,
+  [w, h]: [number, number],
+  up = new Vector3(0, 1, 0),
+): Quad {
+  return {
+    c,
+    ax: AX.clone()
+      .applyQuaternion(q)
+      .multiplyScalar(w / 2),
+    ay: up.applyQuaternion(q).multiplyScalar(h / 2),
+  };
+}
+const screenQuad = (L: StationLayout) =>
+  quad(L.screen.position, L.screen.quaternion, L.screen.size);
+const QUADS: Partial<Record<WindowId, Quad>> = {
+  depot: quad(
+    new Vector3(-5.49, 1.5, 0.4),
+    new Quaternion().setFromAxisAngle(new Vector3(0, 1, 0), Math.PI / 2),
+    [2.0, 1.8],
+  ),
+  chute: quad(SCAN_PAD.position, SCAN_PAD.quaternion, SCAN_PAD.size, new Vector3(0, 0, 1)),
+  s1: screenQuad(STATIONS[1]),
+  s3: screenQuad(STATIONS[3]),
+  s4: screenQuad(STATIONS[4]),
+  s5: screenQuad(STATIONS[5]),
+};
+
+/**
+ * Sizes the two side exits (DOM strips left and right of a machine) to the gap between the
+ * viewport edge and the machine as the camera sees it, between 28 px and a quarter of the width.
+ */
+function SideExitSizer({ sides }: { sides: RefObject<(HTMLDivElement | null)[]> }) {
+  const store = useCh1Store();
+  const camera = useThree((t) => t.camera);
+  const size = useThree((t) => t.size);
+  const v = useRef(new Vector3());
+  useFrame(() => {
+    const w = store.getState().window;
+    const q = w && QUADS[w];
+    const [left, right] = sides.current;
+    if (!q || !left || !right) return;
+    let lo = Infinity;
+    let hi = -Infinity;
+    for (const sx of [-1, 1])
+      for (const sy of [-1, 1]) {
+        v.current.copy(q.c).addScaledVector(q.ax, sx).addScaledVector(q.ay, sy).project(camera);
+        const x = ((v.current.x + 1) / 2) * size.width;
+        lo = Math.min(lo, x);
+        hi = Math.max(hi, x);
+      }
+    const fit = (px: number) => `${Math.max(28, Math.min(size.width / 4, px))}px`;
+    left.style.width = fit(lo);
+    right.style.width = fit(size.width - hi);
+  });
   return null;
 }
 
@@ -139,11 +241,16 @@ function Ch1View({ modelName, color, onExit }: LevelProps) {
   const canvasEl = useRef<HTMLCanvasElement | null>(null);
   const [locked, setLocked] = useState(false);
   /**
-   * The pause menu shows only before the first click and when the player gives up the mouse
-   * while walking (Esc while locked). Leaving a window or machine never pauses: the browser
-   * may refuse to re-lock without a click, so the game keeps running and asks for one quietly.
+   * The pause menu shows before the first click, when the player gives up the mouse while
+   * walking (Esc while locked) and on Esc at a machine. Esc never leaves a machine (Julius
+   * 2026-10-13: it is the browser's key for pause and fullscreen); WASD, the step-back button
+   * and the side exits do. Leaving never pauses: the browser may refuse to re-lock without a
+   * click, so the game keeps running and asks for one quietly.
    */
   const [pauseMenu, setPauseMenu] = useState(true);
+  const pauseRef = useRef(pauseMenu);
+  pauseRef.current = pauseMenu;
+  const sides = useRef<(HTMLDivElement | null)[]>([null, null]);
   const debug = isDebug();
 
   const requestLock = () => {
@@ -192,7 +299,7 @@ function Ch1View({ modelName, color, onExit }: LevelProps) {
     return () => removeEventListener('mousedown', onDown);
   }, [store]);
 
-  // Keys: E use/close, Esc close, T think, any key skips the intro.
+  // Keys: E use/close, WASD walk away from a machine, Esc pause, T think, any key skips the intro.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const st = store.getState();
@@ -200,7 +307,12 @@ function Ch1View({ modelName, color, onExit }: LevelProps) {
       if (st.phase !== 'play') return;
       const k = e.key.toLowerCase();
       if (st.window) {
-        if (k === 'escape' || (k === 'e' && !isTyping())) st.closeWindow();
+        if (pauseRef.current && !isDebug()) return; // paused over the machine
+        if (k === 'escape') setPauseMenu(true);
+        else if (!isTyping() && (k === 'e' || WALK_KEYS.has(e.code))) {
+          if (WALK_KEYS.has(e.code)) e.preventDefault(); // arrows would scroll a window
+          st.closeWindow();
+        }
         return;
       }
       if (k === 'e' && st.target) {
@@ -213,12 +325,24 @@ function Ch1View({ modelName, color, onExit }: LevelProps) {
     return () => removeEventListener('keydown', onKey);
   }, [store]);
 
-  const paused = s.phase === 'play' && !s.window && !locked && pauseMenu && !debug;
+  const paused = s.phase === 'play' && !locked && pauseMenu && !debug;
+  /** Continue: back to the machine as it was (mouse stays free), or take the mouse again. */
+  const resume = () => {
+    if (store.getState().window) setPauseMenu(false);
+    else requestLock();
+  };
+  const leave = (e: React.PointerEvent) => {
+    if (e.button !== 0) return;
+    e.stopPropagation();
+    store.getState().closeWindow();
+  };
   /** Running without the mouse (e.g. after Esc on a machine): WASD works, a click re-locks. */
   const needsClick = s.phase === 'play' && !s.window && !locked && !paused && !debug;
   const target = s.target ? PROPS.find((p) => p.id === s.target) : null;
   const WindowView = s.window ? WINDOWS[s.window] : null;
   const inWorld = !!s.window && IN_WORLD.includes(s.window);
+  const help =
+    s.window === 's4' && !s.installed.includes('bug-gun') ? '' : s.window ? HELP[s.window] : '';
   const white =
     s.phase === 'ending'
       ? Math.max(0, Math.min(1, (s.endTime - 3.5) / 2))
@@ -237,6 +361,7 @@ function Ch1View({ modelName, color, onExit }: LevelProps) {
       }}
     >
       <Canvas
+        shadows={RENDER.shadows && 'percentage'}
         camera={{ fov: 70, near: 0.02, far: 60 }}
         onCreated={({ gl }) => (canvasEl.current = gl.domElement)}
       >
@@ -246,6 +371,7 @@ function Ch1View({ modelName, color, onExit }: LevelProps) {
           <>
             <Room />
             <Player enabled={s.phase === 'play' && !s.window && !paused} />
+            <SideExitSizer sides={sides} />
           </>
         )}
         <Ticker paused={paused} />
@@ -287,19 +413,37 @@ function Ch1View({ modelName, color, onExit }: LevelProps) {
 
       {WindowView && <WindowView onClose={() => store.getState().closeWindow()} />}
       {s.window === 'chute' && <PadInput />}
-      {inWorld && s.window === 'depot' && (
-        <div className="ch1-pad-help">
-          click to install · <b>Esc</b> step back
-        </div>
+      {inWorld && !paused && (
+        <>
+          {(['left', 'right'] as const).map((side, i) => (
+            <div
+              key={side}
+              ref={(el) => {
+                sides.current[i] = el;
+              }}
+              className={`ch1-side is-${side}`}
+              onPointerDown={leave}
+            >
+              {/* (engineer) */}
+              <span>{side === 'left' ? '‹ step back' : 'step back ›'}</span>
+            </div>
+          ))}
+          {s.window !== 'chute' && (
+            <div className="ch1-pad-help">
+              {help && <>{help} · </>}
+              <StepBack />
+            </div>
+          )}
+        </>
       )}
 
       {needsClick && <div className="ch1-click-hint">click to look around</div>}
 
       {paused && (
-        <div className="overlay-center overlay-pause" onClick={requestLock}>
+        <div className="overlay-center overlay-pause" onClick={resume}>
           <div>
             <h3>{s.time > 0 ? 'PAUSED' : 'CLICK TO TAKE CONTROL'}</h3>
-            <p>click to continue · WASD move · mouse look · E use</p>
+            <p>click to continue · WASD move · mouse look · E use · Esc pause</p>
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -380,10 +524,20 @@ function PadInput() {
           'scanning…'
         ) : (
           <>
-            type or paste a flag · <b>Enter</b> scan · <b>Esc</b> step back
+            type or paste a flag · <b>Enter</b> scan · <StepBack />
           </>
         )}
       </div>
     </>
+  );
+}
+
+/** (engineer) Leaves the machine in view. Also: WASD (when not typing) or a click beside it. */
+function StepBack() {
+  const close = useCh1((s) => s.closeWindow);
+  return (
+    <button className="ch1-stepback" onClick={close}>
+      ✕ step back
+    </button>
   );
 }

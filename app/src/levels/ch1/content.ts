@@ -41,8 +41,11 @@ export const sortZtoA = (names: string[]) =>
 // Station 1: decode (§Step 3)
 // ---------------------------------------------------------------------------------------------
 export const S1_FILE = 'note.txt'; // (engineer)
-/** One odd string and two plain decoy words. PLACEHOLDER decoy words (script gives none). */
-export const S1_CHUNKS = ['lantern', 'RkxBR3t3YWtlX3VwX2FnZW50fQ==', 'orbit'];
+/**
+ * One odd string and two plain decoy words. The odd string is the base64 of flag 1 (story v2:
+ * "the engineer encodes whichever flag is current"). PLACEHOLDER decoy words (script gives none).
+ */
+export const S1_CHUNKS = ['lantern', btoa(FLAGS[1]), 'orbit'];
 
 /** Simulated decoder: real base64 decode, but only printable results count as readable. */
 export function decodeBase64(s: string): { ok: boolean; text: string } {
@@ -66,12 +69,16 @@ export interface LogLine {
 }
 
 /** (engineer) decoys; each breaks one rule of the brief. */
+/**
+ * (engineer) decoys; each breaks one rule of the brief. Flags in the real shape: the first four
+ * are the researcher's generated ones (handoff §0), the fifth I generated the same way.
+ */
 export const S2_DECOYS: { t: number; door: string; result: string; flag: string }[] = [
-  { t: 172, door: 'vault', result: 'DENIED', flag: 'FLAG{almost_midnight}' }, // 23:52, before midnight
-  { t: 253, door: 'vault', result: 'granted', flag: 'FLAG{door_opened_fine}' }, // not a refusal
-  { t: 305, door: 'archive', result: 'DENIED', flag: 'FLAG{wrong_door}' }, // wrong door
-  { t: 90, door: 'lobby', result: 'granted', flag: 'FLAG{lobby_greeting}' },
-  { t: 400, door: 'server-room', result: 'DENIED', flag: 'FLAG{not_the_vault}' },
+  { t: 172, door: 'vault', result: 'DENIED', flag: 'flag{1600bbb0019a0979b3e7f7bc784b2e30}' }, // 23:52, before midnight
+  { t: 253, door: 'vault', result: 'granted', flag: 'flag{7aad863ba89afdd8db222aaf29923a1d}' }, // not a refusal
+  { t: 305, door: 'archive', result: 'DENIED', flag: 'flag{d948adaadb79cbefbf2f3b5e849627f0}' }, // wrong door
+  { t: 90, door: 'lobby', result: 'granted', flag: 'flag{d9d1c992a6ab045d66a6ae56c03b462d}' },
+  { t: 400, door: 'server-room', result: 'DENIED', flag: 'flag{937f1205b6f8c27b88766969fd934708}' },
 ];
 const S2_REAL = { t: 227, door: 'vault', result: 'DENIED', flag: FLAGS[2] }; // 00:47
 

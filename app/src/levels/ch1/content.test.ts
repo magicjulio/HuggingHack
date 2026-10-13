@@ -3,6 +3,7 @@ import { FLAGS } from './config';
 import {
   AFTER_MIDNIGHT,
   BUG_TOTAL,
+  S1_CHUNKS,
   S4_BUGGY_LINES,
   decodeBase64,
   filterLogs,
@@ -13,7 +14,8 @@ import {
 
 describe('chapter 1 content', () => {
   it('flag 1 base64 decodes to the flag; decoys do not', () => {
-    expect(decodeBase64('RkxBR3t3YWtlX3VwX2FnZW50fQ==')).toEqual({ ok: true, text: FLAGS[1] });
+    expect(decodeBase64(S1_CHUNKS[1])).toEqual({ ok: true, text: FLAGS[1] });
+    expect(FLAGS[1]).toMatch(/^flag\{[0-9a-f]{32}\}$/);
     expect(decodeBase64('lantern').ok).toBe(false);
     expect(decodeBase64('orbit').ok).toBe(false);
   });

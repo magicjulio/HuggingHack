@@ -21,6 +21,14 @@ describe('game store', () => {
     expect(useGame.getState().selectModel('sol')).toBe(true);
   });
 
+  it('finishing chapter 1 unlocks the next model (story v2 §Models)', () => {
+    useGame.getState().finishChapter('ch1', 'zzhi');
+    expect(useGame.getState().save.unlockedModels).toEqual(['sol']);
+    useGame.getState().finishChapter('ch1');
+    expect(useGame.getState().save.unlockedModels).toEqual(['sol']);
+    expect(useGame.getState().selectModel('sol')).toBe(true);
+  });
+
   it('start and quit switch screens', () => {
     useGame.getState().startGame();
     expect(useGame.getState().screen).toBe('game');

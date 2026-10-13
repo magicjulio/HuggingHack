@@ -1,6 +1,6 @@
 /**
  * Chapter 1 designer props (handoff/design-to-app/2026-10-12-ch1-3d-props.md): the ARTIFACTORY
- * depot, the scorer eye and the scan plinth. Each model is code-driven: node and material names
+ * depot, the scorer eye (v1.1, ceiling mount: …-desk-and-eye.md) and the scan plinth. Each model is code-driven: node and material names
  * from the handoff are looked up once, then animated every frame from the chapter store.
  * Timings and glow values follow the designer's review hub (design/3d/index.html).
  */
@@ -29,16 +29,11 @@ import { DEPOT_MODEL, PLINTH_MODEL, SCAN_PAD, SCORER_LAMP } from './layout';
 import { DepotScreen, DEPOT_SCREEN_PX } from './DepotScreen';
 import { FlagLetters } from './FlagLetters';
 import { LAMP_GLOW, darkFlicker } from './glow';
+import { matOf, nodes } from './rig';
+import { preloadRoomModels } from './RoomShell';
+import { preloadStations } from './stations';
 
 const CYAN = '#38d8ff';
-
-function nodes(root: Object3D) {
-  const map = new Map<string, Object3D>();
-  root.traverse((o) => map.set(o.name, o));
-  return map;
-}
-const matOf = (o: Object3D | undefined) =>
-  (o as Mesh | undefined)?.material as MeshStandardMaterial | undefined;
 
 // ---------------------------------------------------------------------------------------------
 // Depot · ch1-depot.glb
@@ -337,4 +332,6 @@ export function preloadCh1Models() {
   useGLTF.preload(depotUrl);
   useGLTF.preload(scorerUrl);
   useGLTF.preload(plinthUrl);
+  preloadRoomModels();
+  preloadStations();
 }

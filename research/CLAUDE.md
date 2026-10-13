@@ -13,3 +13,5 @@
 - Handle names like `PHASEONE10841` are METR's agent handles (S3 fn 80); `[big]` marks an OpenAI redaction.
 
 Status (2026-10-11): pass 1 done for S1–S3 (raw archived, INDEX.md, interesting.md, handoff written). Next: secondary sources (S4+) after Julius decides depth; open leads in INDEX.md §6.
+
+- 2026-10-12: Julius wants sources beyond S1-S3 searched whenever a question needs them. First one used: **S4 = ExploitGym paper** (arXiv 2605.11086, https://arxiv.org/abs/2605.11086; PDF text converted locally, not yet archived in raw/). Real flag format `flag{<32 hex>}`; see `handoff/research-to-build/2026-10-12-real-prompts-and-code.md` §0. TODO: archive S4 in raw/ and add to INDEX.md.

@@ -1,3 +1,4 @@
 - [Workflow with Julius](feedback_workflow.md) — propose first, wait for OK; designer runs before integration
 - [Direct changes from Julius](feedback_direct_changes.md) — "just make it": build small gameplay changes now, log + tell story after
 - [Tooling gotchas](reference_tooling_gotchas.md) — zsh `> file` hang, prettier vs CSS, drei Html root/portal, headless FPS
+- [Design protocol](feedback_design_protocol.md) — designer handoffs: models plug in, rigs/values don't; send screenshots back

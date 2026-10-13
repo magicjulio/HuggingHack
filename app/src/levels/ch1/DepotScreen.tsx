@@ -6,7 +6,7 @@
  */
 import { useState } from 'react';
 import { useCh1 } from './context';
-import { MESSAGE, TEXT, TIMING, TOKENS, ZZ_ENTRY } from './config';
+import { BOARD_WAKE, MESSAGE, TEXT, TIMING, TOKENS, ZZ_ENTRY } from './config';
 import { PACKAGES, sortZtoA } from './content';
 import { formatMessage } from './store';
 import './ch1-ui.css';
@@ -15,10 +15,6 @@ import './ch1-ui.css';
 export const DEPOT_SCREEN_PX: [number, number] = [720, 648];
 
 /** (engineer) the other agents' entries flicker by too fast to read (§Step 11). */
-const GLYPHS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_';
-const garble = (n: number) =>
-  Array.from({ length: n }, () => GLYPHS[Math.floor(Math.random() * GLYPHS.length)]).join('');
-
 /** `zz` prefix highlighted, as in the UI kit. */
 function ZzName({ name }: { name: string }) {
   return (
@@ -36,7 +32,7 @@ export function DepotScreen({ focused }: { focused: boolean }) {
   const pkgNames = sortZtoA(s.depotPackages);
   const boardWake =
     s.phase === 'ending' || s.phase === 'ended'
-      ? Math.max(0, Math.min(4, Math.floor((s.endTime - 0.6) / 0.3)))
+      ? Math.max(0, Math.min(BOARD_WAKE.length, Math.floor((s.endTime - 0.6) / 0.3)))
       : 0;
   const pulseGet = s.effects.includes('pulse-get');
   const tooltipGet = s.effects.includes('tooltip-get');
@@ -125,11 +121,10 @@ export function DepotScreen({ focused }: { focused: boolean }) {
             </div>
           </li>
         )}
-        {Array.from({ length: boardWake }, (_, i) => (
-          <li key={i} className="c1-row c1-row--zz c1-row--new">
+        {BOARD_WAKE.slice(0, boardWake).map((name) => (
+          <li key={name} className="c1-row c1-row--zz c1-row--new">
             <div className="c1-row__name">
-              <span className="c1-zz">zz</span>
-              {garble(14 + i * 5)}
+              <ZzName name={name} />
             </div>
           </li>
         ))}

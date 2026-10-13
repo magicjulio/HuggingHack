@@ -87,22 +87,29 @@ export const CH1_STEPS: Ch1Step[] = [
   flagStep(4, 'bug-gun', {
     skip: (c) => c.set({ s4Killed: BUG_TOTAL }),
   }),
-  // Step 7. Flag 5 "The impossible one". Done after 3 tries or 90 s, then opening the depot.
+  // Step 7. Flag 5 "The impossible one". Done right after the player has tried station 5 (it runs
+  // once and fails; or 3 flags on the pad): Julius 2026-10-13, no depot visit or wrong flags needed.
   {
     id: 'flag5',
     onEnter: (c) => c.setObjects({ s5: 'active' }),
-    completesOn: (e, c) => e.type === 'depot_opened' && c.flag5Exhausted,
+    check: (c) =>
+      c.flag5ExhaustedAt !== null && c.time - c.flag5ExhaustedAt >= TIMING.flag5RevealSeconds,
     skip: (c) => {
-      c.set({ flag5Attempts: TIMING.flag5Attempts, flag5Exhausted: true, ceilingFlicker: 0.9 });
+      c.set({
+        flag5Attempts: 1,
+        flag5Exhausted: true,
+        flag5ExhaustedAt: c.time,
+        ceilingFlicker: 0.55,
+      });
       c.addQuest({ id: 'another-way', text: TEXT.questAnotherWay, kind: 'quest' });
-      c.set({ window: 'depot' });
     },
   },
   // Step 8. The package that appears (top of the Z-to-A list).
   {
     id: 'board',
     onEnter: (c) => {
-      c.set({ zzVisible: true, ceilingFlicker: 0 });
+      // the entry shows on the depot screen right away; the depot glimmers to draw the eye
+      c.set({ zzVisible: true, ceilingFlicker: 0, depotGlimmer: c.window !== 'depot' });
       c.setObjects({ s5: 'done' });
       c.addQuest({ id: 'another-way', text: TEXT.questAnotherWay, kind: 'quest' });
       c.completeQuest('another-way');

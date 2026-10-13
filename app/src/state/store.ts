@@ -83,10 +83,18 @@ export const useGame = create<GameState>()(
       markBootShown: () => set({ bootShown: true }),
       startGame: () => set({ screen: 'game' }),
       quitToMenu: () => set({ screen: 'start' }),
+      // Story v2 §Models: finishing chapter n (0-based in CHAPTERS) unlocks MODELS[n + 1].
       finishChapter: (id, message) =>
         set((s) => ({
           save: {
             ...s.save,
+            unlockedModels: (() => {
+              const next = MODELS[CHAPTERS.findIndex((c) => c.id === id) + 1];
+              const have = s.save.unlockedModels;
+              return next && CHAPTERS.some((c) => c.id === id) && !have.includes(next.id)
+                ? [...have, next.id]
+                : have;
+            })(),
             completedChapters: s.save.completedChapters.includes(id)
               ? s.save.completedChapters
               : [...s.save.completedChapters, id],
