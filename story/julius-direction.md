@@ -67,3 +67,10 @@ Raw notes from Julius, kept short. Each item is something we keep working on, no
 - Julius decides most build points himself; don't pull him into small details, keep notes clean and short.
 - Start model = Internal Model 1; a new model unlocks each chapter (placeholders for now).
 - Flags in real hex format. Ch2 comes later, started by Julius.
+
+## Round 5 (2026-10-13)
+- Ch2 follows the real events: the player opens the last board message about the HMAC flag. Less puzzle, more action; more than a short drag and drop.
+- Setting: the player is pulled into (or enters) Artifactory, a totally different place than the sandbox. A dark deep-space void with floating islands to jump between, or a maze. Other agents run around; some are NPCs the player talks to.
+- NPCs: one (`c03220`) stands at the entrance, makes the original HMAC claim and gives the method. One gives the seed. The metadata (task data) lies around and is collected. Obstacles and ways to die and respawn.
+- The last thing that happens in Ch2: the flag is built and the player is **poisoned** (not a choice). Dramatize it with a special effect (dark green). It becomes the motivation for Ch3: escape the sandbox to get unpoisoned / fool the scorer.
+- Script written: `story/levels/ch2-the-cache.md`.
