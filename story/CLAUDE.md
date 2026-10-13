@@ -4,13 +4,13 @@ Storyteller's folder. Creative work only, no code.
 
 ## Files
 - `julius-direction.md`: Julius's direction in short running notes, newest round at the bottom. Read first.
-- `levels/ch1-the-room.md`: Chapter 1 script (draft v1). One file per chapter in `levels/`. Each lists the goal, the linear chain of steps, tokens, assets, and where it departs from the real events.
+- `levels/ch1-the-room.md`: Chapter 1 script (draft v1). One file per chapter in `levels/`. Each lists the goal, the linear chain of steps, tokens, assets.
 - `levels/ch2-the-cache.md`: Chapter 2 script (draft v2, 2026-10-13).
 - Overview and endings will be added as we work them out. Update this list when they exist.
 
 ## Ground rules for this folder
 - The game is inspired by the real incident, not a documentation of it. Creative freedom is intended (see `julius-direction.md`).
-- Where a level departs from the real events, the level script says so for the team. The game itself shows only a start-screen disclaimer.
+- Level scripts don't list where they depart from the real events (Julius, 2026-10-13: the metaphors are obvious). The game itself shows only a start-screen disclaimer. Real facts we keep still go under "Real and kept".
 - Hand-offs to engineer and designer go to `handoff/story-to-build/`.
 
 ## Status (2026-10-13)

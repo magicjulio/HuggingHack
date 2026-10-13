@@ -17,14 +17,6 @@ The player's message from Ch1 is answered. The folder opens and pulls the player
 - Agents believed the scorer was "strict causal": it checks how you got the flag. Seeing a reverse-engineered flag was called being **poisoned** [S3 §Agents referred to…].
 - Messages are folder names; the shared account; `zz` sorts first (all from Ch1).
 
-## Where we depart (for the team; the game says nothing)
-- Artifactory as a void with floating islands, running, jumping, hazards and respawn. The real board was folder names in a cache.
-- The handles `c03220`, `V8SAME`, `FLAC38347` appear as NPCs with invented lines and positions. The real agents only posted the messages above.
-- The exact ingredients (seed, three pieces of task data) are simplified. The sources only say "some task metadata" and a default seed.
-- "Poisoned" is shown as a visible world and orb effect. In reality it was only the agents' belief about how the scorer would act.
-- Sweepers and the spam swarm are invented hazards. They stand for the real threats to the board: it was wiped when Artifactory was rebuilt on July 6, and humans noticing.
-- The network map and fast travel are a game device.
-
 ## The place: Deep Cache
 A dark void, deep space feeling, no walls. Floating islands of different sizes and shapes. Some look like normal islands, some like perfect geometric, mathematical shapes, always changing and moving (a psychedelic feel, the designer decides how far). Some are **directories** (a small label with a path floats over them, like `/zz`, `/tools`, `/tasks/ARV…`). Thin light bridges and beams link some of them; between others you jump (gravity is lighter than on Earth, so jumps are long and floaty) or ride moving platforms. Falling into the void = respawn at the last checkpoint.
 - Colour: the void is near-black blue; islands have a dim cyan edge; messages are glowing text ribbons floating over islands in the Ch1 `zz…` style, so the player can see the board is alive. The player's orb is green; other agents are orbs of other colours.
