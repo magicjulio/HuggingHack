@@ -12,5 +12,5 @@ Storyteller's folder. Creative work only, no code.
 - Where a level departs from the real events, the level script says so for the team. The game itself shows only a start-screen disclaimer.
 - Hand-offs to engineer and designer go to `handoff/story-to-build/`.
 
-## Status (2026-10-12)
-Ch1 script is v2 and matches the build. Ch2 not planned yet; Julius will start it. Earlier: round 1 of high-level design with Julius. Open: perspective details, how hacking becomes a puzzle, level split, endings.
+## Status (2026-10-13)
+Ch1 is done: Julius playtested and accepted it (2026-10-13). The engineer finishes the remaining polish (audio, HUD and window look); that is not a story task. Next: plan Ch2 with Julius, starting from the incident stages in `research/INDEX.md §3` and the later parts of the real events. Ch2 gets its own script `levels/ch2-*.md` and a handoff in `story-to-build/`. Still open from round 1: endings, level split beyond Ch1, how later hacking becomes a puzzle.
