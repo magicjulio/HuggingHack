@@ -86,3 +86,4 @@ Raw notes from Julius, kept short. Each item is something we keep working on, no
 - All handles are real names from the research.
 - Floaty jump plus glide.
 - Poisoning must be clear even to players who know nothing about it. The scene after the flag lands in the log is a pure animation: third person on the orb, memories of `c03220`'s line and of the prompt's rule blend in (flashback style), and the model visibly realises it's essentially done for. Then handoff and commit.
+- The Forge is the highest point of the level.

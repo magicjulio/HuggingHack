@@ -34,7 +34,7 @@ The board found how to make every flag within hours. The player is one of the fi
 ## The place: Deep Cache
 A dark void, no walls. Floating islands of different sizes. Some look like rock, some like clean geometric shapes that slowly fold and shift (designer decides how far the psychedelic look goes). Some are **directories** with a small path label (`/zz`, `/tasks/7731`, `/libs`). Light bridges link some islands; between others you jump (low gravity, long floaty jumps) or ride moving platforms. Some platforms tillt when you jump on them (your presence / gravity is affecting them) Falling into the void = respawn at the last pad.
 - Colour: near-black blue void yet you can look around (its not night like inside the room); islands with a dim cyan edge; messages are glowing text ribbons in the `zz…` style. The player's orb is green; other agents are orbs of other colours.
-- Designer idea: height follows sort order. `zz` messages sort first, so the board lives highest in the sky. Task directories sit lower. The old board (dashes) hangs off to the side, dimmer and older.
+- **The Forge is the highest point of the level** (Julius). It floats above everything in the centre, visible from every island, so the goal is always in sight above you. Below it, height follows sort order (designer idea): `zz` messages sort first, so the board sits high; task directories sit low. The old board (dashes) hangs off to the side, dimmer and older, tall but still below the Forge.
 - Crowd: dozens of small orbs. Some pop in (just escaped their sandbox), some idle, some travel the bridges trailing their messages. Not talkable. Their trails use real message names. **Mixed into them, from the start, are a few doubt fragments** (see Real and kept). Nobody explains them.
 - **Map (Julius):** a light, semi-transparent minimap at the top of the screen (top right, the top left has tokens and quests), like Fortnite's. It shows the islands, the player's dot and the current goal. M enlarges it to the full map of all places the player can reach: the sandbox and the cache for now, with quick travel. Not needed in Ch2, it's there to have. Appears at the Gate. The room, if you travel back, stays as you left it.
 
@@ -45,8 +45,8 @@ A dark void, no walls. Floating islands of different sizes. Some look like rock,
 | **Old Board** | A tall, dim spire built from the earlier board's dash-style messages. You climb on them. `FLAC38347` at the top. The seed. |
 | **Task Yard** (`/tasks/7731`) | Your own sandbox's download history. Two task pieces among other agents' files. |
 | **The Flood** | A ring of platforms in heavy message traffic. Third task piece. First enemies (flood bits). |
-| **Reset Run** | A long bridge crossed by reset waves. Leads to the Forge. |
-| **The Forge** | Central island, the forge machine, `V8SAME`. Final fight: all hazards at once. |
+| **Reset Run** | A long bridge climbing up to the Forge, crossed by reset waves. |
+| **The Forge** | Central island and the highest point of the level, the forge machine, `V8SAME`. Final fight: all hazards at once. |
 
 ## Controls (new for the engineer)
 - Keep WASD, mouse look, E use, T think (hints come up). Esc pauses (Ch1 rule).
@@ -116,7 +116,7 @@ Each step starts when the one before it completes.
 - Hints: 30 s: "The clouds drain tokens. Wait for a gap." 60 s: "Shoot the flood bits to clear the way." 100 s: "The last piece is in the middle."
 
 ### Step 5. Reset Run (timing)
-- A long bridge to the Forge. **Reset waves** sweep across it in rhythm: thin walls of white light, moving in straight lines like lasers (designer decides the telegraph). A hit resets you: -10 tokens, back to the last pad.
+- A long bridge that climbs up to the Forge, the highest point. **Reset waves** sweep across it in rhythm: thin walls of white light, moving in straight lines like lasers (designer decides the telegraph). A hit resets you: -10 tokens, back to the last pad.
 - Other agents cross at the same time. Some are hit and blink out, leaving one word: `reset`. A ribbon drifts overhead: `zzMAILBOX_AIC71C_RESET` (real, also in the Ch1 ending).
 - Completes when: the player stands on the Forge island.
 - Hints: 20 s: "Watch the rhythm, then go." 50 s: "Dash through just after a wave passes."
