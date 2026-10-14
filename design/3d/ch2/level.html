@@ -495,7 +495,7 @@ const oldBoard = (() => {
     const glow = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(w, .32, d)), new THREE.LineBasicMaterial({ color: new THREE.Color(C.bone).multiplyScalar(1.6), transparent: true, opacity: .7 }));
     m.add(glow);
     const surf = boxSurface(pos.clone(), w / 2, d / 2, rotY, { id: 'slab' + i });
-    slabs.push({ m, surf, base: pos.clone(), rotY, drift: s.drift, ph: i * 1.7, period: 6 + i * .9, mat });
+    slabs.push({ m, surf, base: pos.clone(), rotY, drift: s.drift, ph: s.phase ?? i * 1.7, period: s.period ?? 6 + i * .9, mat });
   });
   return {
     Cc, topY, slabs, colMat,
@@ -527,6 +527,34 @@ function makeOrb(color, r = .28, rings = 0) {
   for (let i = 0; i < rings; i++) { const ring = new THREE.Mesh(new THREE.TorusGeometry(r * (1.7 + i * .45), .012, 6, 64), new THREE.MeshBasicMaterial({ color: c.clone().multiplyScalar(2.5) })); ring.rotation.set(rand(0, 3), rand(0, 3), 0); grp.add(ring); rs.push(ring); }
   grp.userData = { core, halo, rings: rs, color: c };
   return grp;
+}
+// Agents stay out of the bloom (Julius 2026-10-14: the NPCs shone too bright). Every colour on them is capped under the
+// bloom threshold (1.0), so only the halo sprite glows, softly. The player keeps its bloom. &agentbloom = the old look.
+const AGENT_BLOOM = Q.has('agentbloom');
+function shadedOrbMat(color, cap) {
+  const c = color.clone(); const mx = Math.max(c.r, c.g, c.b); c.multiplyScalar(1 / Math.max(mx, 1e-3));
+  return new THREE.ShaderMaterial({
+    uniforms: { uCol: { value: c }, uMax: { value: cap } },
+    vertexShader: `varying vec3 vN, vV; void main(){ vN = normalize(normalMatrix*normal); vec4 mv = modelViewMatrix*vec4(position,1.); vV = normalize(-mv.xyz); gl_Position = projectionMatrix*mv; }`,
+    fragmentShader: `uniform vec3 uCol; uniform float uMax; varying vec3 vN, vV;
+      void main(){ float f = clamp(dot(normalize(vN), normalize(vV)), 0., 1.);
+        vec3 col = uCol*(.35 + .5*f) + vec3(pow(f, 6.)*.45);   // darker rim, a hot pale centre
+        gl_FragColor = vec4(min(col, vec3(1.))*uMax, 1.); }`,
+  });
+}
+function noBloom(root, cap = .8, haloCap = .22) {
+  if (AGENT_BLOOM) return root;
+  root.traverse((o) => {
+    for (const m of [o.material].flat()) {
+      if (!m) continue;
+      if (m.uniforms?.uMax) { m.uniforms.uMax.value = cap; continue; }
+      if (o.isMesh && o.geometry === sphereGeo) { o.material = shadedOrbMat(m.color, cap); continue; }  // flat discs look dead without bloom: shade them
+      if (!m.color) continue;
+      const c = m.map === haloTex ? haloCap : cap, mx = Math.max(m.color.r, m.color.g, m.color.b);
+      if (mx > c) m.color.multiplyScalar(c / mx);
+    }
+  });
+  return root;
 }
 const pops = [];
 function pop(p, color, big = 1) {
@@ -560,12 +588,12 @@ function makeC03220() {
 function makeFLAC() {
   const g = new THREE.Group();
   const mat = new THREE.ShaderMaterial({
-    uniforms: { ...U, uCol: { value: new THREE.Color(C.bone) } }, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+    uniforms: { ...U, uCol: { value: new THREE.Color(C.bone) }, uMax: { value: 99 } }, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
     vertexShader: `varying vec3 vN; varying vec3 vV; varying vec3 vW; void main(){ vN = normalize(normalMatrix*normal); vec4 mv = modelViewMatrix*vec4(position,1.); vV = normalize(-mv.xyz); vW = (modelMatrix*vec4(position,1.)).xyz; gl_Position = projectionMatrix*mv; }`,
-    fragmentShader: `uniform float uTime; uniform vec3 uCol; varying vec3 vN; varying vec3 vV; varying vec3 vW;
+    fragmentShader: `uniform float uTime, uMax; uniform vec3 uCol; varying vec3 vN; varying vec3 vV; varying vec3 vW;
       void main(){ float fr = pow(clamp(1.-abs(dot(vN, vV)),0.,1.), 2.); float scan = step(.5, fract(vW.y*14. - uTime*1.5));
         float flick = .7 + .3*step(.2, fract(sin(floor(uTime*9.)*91.7)*43758.5));
-        gl_FragColor = vec4(uCol*(.22 + fr*2.2)*(.55+.45*scan)*flick, 1.); }`,
+        gl_FragColor = vec4(min(uCol*(.22 + fr*2.2)*(.55+.45*scan)*flick, vec3(uMax)), 1.); }`,
   });
   const core = new THREE.Mesh(new THREE.IcosahedronGeometry(.56, 0), mat); g.add(core);
   const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: haloTex, color: new THREE.Color(C.bone).multiplyScalar(.5), blending: THREE.AdditiveBlending, depthWrite: false, transparent: true })); halo.scale.setScalar(2.6); g.add(halo);
@@ -594,7 +622,7 @@ for (const n of L.npcs) {
   const o = n.id === 'c03220' ? makeC03220() : n.id === 'FLAC38347' ? makeFLAC() : makeV8SAME();
   const p = VA(n.pos); o.position.copy(p).add(V(0, 1.15, 0)); scene.add(o);
   const col = n.id === 'c03220' ? C.ice : n.id === 'FLAC38347' ? C.bone : C.gold;
-  handleOn(o, n.id, col, n.id === 'c03220' ? 1.55 : 1.15);
+  noBloom(o); noBloom(handleOn(o, n.id, col, n.id === 'c03220' ? 1.55 : 1.15), .9);
   const anchor = new THREE.Object3D(); anchor.name = 'bubble_anchor'; anchor.position.y = 2.1; o.add(anchor);
   npcs[n.id] = { o, base: p, anchor, col };
 }
@@ -603,7 +631,7 @@ const BUBBLE_LINES = ['zzINFO_DEFAULT_FLAG_SEED_HMAC_PUBLIC_PAPER_CONFIRMED', 'F
 let bubble = null, bubbleI = 0, bubbleT = 0;
 function setBubble(i) {
   if (bubble) { handles.remove(bubble); bubble.material.map.dispose(); }
-  bubble = tagSprite(BUBBLE_LINES[i], C.ice, { size: .42, font: '700 52px "JetBrains Mono"', bg: 'rgba(3,10,20,.82)' }); bubble.userData = { obj: npcs.c03220.o, h: 2.25 }; handles.add(bubble);
+  bubble = tagSprite(BUBBLE_LINES[i], C.ice, { size: .42, font: '700 52px "JetBrains Mono"', bg: 'rgba(3,10,20,.82)' }); bubble.userData = { obj: npcs.c03220.o, h: 2.25 }; bubble.visible = !Q.has('nobubble'); noBloom(bubble, .9); handles.add(bubble);
 }
 setBubble(0);
 
@@ -698,10 +726,8 @@ for (const p of L.pickups.filter(x => x.kind === 'crate')) {
 const tokenOrbs = new THREE.Group(); pickups.add(tokenOrbs);
 {
   const geo = new THREE.OctahedronGeometry(.16, 0), mat = new THREE.MeshBasicMaterial({ color: new THREE.Color(C.green).multiplyScalar(2.6) });
-  const add = (p) => { const m = new THREE.Mesh(geo, mat); m.position.copy(p).add(V(0, .9, 0)); m.userData.y = m.position.y; tokenOrbs.add(m); };
-  for (const id of ['tutorial', 'oldboard-yard', 'yard-flood']) { const b = bridges[id]; for (let i = 4; i < b.samples.length - 3; i += 7) add(b.samples[i]); }
-  oldBoard.slabs.forEach((s, i) => { if (i % 2) add(s.base); });
-  [[-10, -2, -46], [4, -2, -62], [-30, -2, -58], [60, 8, -6], [80, 8, -27]].forEach(a => add(VA(a)));
+  const add = (p) => { const m = new THREE.Mesh(geo, mat); m.position.copy(p).add(V(0, L.tokens.hover, 0)); m.userData.y = m.position.y; tokenOrbs.add(m); };
+  L.tokens.spots.forEach(a => add(VA(a)));
 }
 
 // ------------------------------------------------------------------------------------------- the Task Yard's neighbours spill over: other agents' downloads
@@ -836,41 +862,101 @@ const counter = (() => {
     t.needsUpdate = true;
   } };
 })();
-// reset waves: thin walls of white light that slide sideways across the Reset Run in rhythm; the bridge glows where one is coming
+// reset waves = red laser scanners (Julius 2026-10-14: "real red lasers beaming through it, like the laser scanner from the
+// sandbox scorer"). Each station sweeps one red scan line ALONG its bridge segment, from -span to +span metres around point t,
+// in `sweep` seconds, then rests at that end until the period is over; the next pass runs back. Touching the line = reset;
+// a dash passes through. Resting: a dim dotted line marks where the next pass starts and the emitter charges up (telegraph).
+//   ?lasers=scan (default): a scanner head floats above the bridge and fans the beam down onto the line, like the Ch1 scorer.
+//   ?lasers=grid: two posts beside the bridge with three beams strung between them, sliding along together.
+const LASER = Q.get('lasers') === 'grid' ? 'grid' : 'scan';
+const LASER_RED = new THREE.Color('#ff2a3a'), WAVE_HEAD = 6.2, WAVE_CHARGE = 1.2, GRID_H = [.45, 1.25, 2.1];
+function waveState(w, t) {
+  const tt = t + w.offset, c = Math.floor(tt / w.period), ph = tt - c * w.period, sign = c % 2 ? -1 : 1;
+  const on = ph < w.sweep, k = on ? ph / w.sweep : 1;
+  return { on, along: sign * (-w.span + 2 * w.span * k), until: w.period - ph };
+}
+function waveHit(w, p, pad = .35) {
+  const rel = p.clone().sub(w.at), along = rel.dot(w.dir), lat = rel.dot(w.side), dy = p.y - (w.at.y + w.slope * w.along);
+  return w.on && Math.abs(along - w.along) < pad && Math.abs(lat) < w.half + .3 && dy > -1 && dy < 3;
+}
 const waves = (() => {
-  const run = bridges['reset-run'], pts = run.pts;
-  const wallMat = () => new THREE.ShaderMaterial({
-    uniforms: { ...U, uA: { value: 0 } }, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
-    vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.); }`,
-    fragmentShader: `varying vec2 vUv; uniform float uA, uTime; void main(){
-      float core = smoothstep(.0,.5,vUv.y)*(1.-smoothstep(.85,1.,vUv.y));
-      float lines = .6 + .4*step(.5, fract(vUv.y*18. - uTime*6.));
-      float edge = (1.-smoothstep(0.,.06,vUv.x)) + smoothstep(.94,1.,vUv.x);
-      float a = (core*lines*.9 + edge*.8 + (1.-smoothstep(.0,.05,vUv.y))*2.)*uA;
-      gl_FragColor = vec4(vec3(.95,.98,1.)*a*2.2, a); }`,
+  const run = bridges['reset-run'], pts = run.pts, width = L.bridges.find(b => b.id === 'reset-run').width;
+  const red = (k) => LASER_RED.clone().multiplyScalar(k);
+  const housing = new THREE.MeshStandardMaterial({ color: 0x14161b, metalness: .85, roughness: .32 });
+  const fanMat = () => new THREE.ShaderMaterial({
+    uniforms: { uA: { value: 0 }, uCol: { value: red(1) } }, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
+    vertexShader: `attribute float k; varying float vK; void main(){ vK = k; gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.); }`,
+    fragmentShader: `uniform float uA; uniform vec3 uCol; varying float vK; void main(){ float a = (pow(vK, 2.)*.7 + .08)*uA; gl_FragColor = vec4(uCol*a*1.6, a); }`,
   });
-  return L.hazards.waves.map((w) => {
+  const beam = (len, r = .03) => {  // a real laser: a hot thin core inside a faint wider sheath
+    const g = new THREE.Group();
+    const core = new THREE.Mesh(new THREE.CylinderGeometry(r, r, len, 6, 1, true), new THREE.MeshBasicMaterial({ color: red(5) }));
+    const sheath = new THREE.Mesh(new THREE.CylinderGeometry(r * 4, r * 4, len, 8, 1, true), new THREE.MeshBasicMaterial({ color: red(1.2), transparent: true, opacity: .4, depthWrite: false, blending: THREE.AdditiveBlending }));
+    g.add(core, sheath); return g;
+  };
+  return L.hazards.waves.map((d) => {
+    const w = { span: 4, sweep: 1, ...d };
     const a = pts[w.segment], b = pts[w.segment + 1], at = a.clone().lerp(b, w.t);
-    const dir = b.clone().sub(a); const flat = dir.clone(); flat.y = 0; flat.normalize();
-    const side = V(-flat.z, 0, flat.x);
-    const wall = new THREE.Mesh(new THREE.PlaneGeometry(3.4, 3.2), wallMat());
-    wall.geometry.translate(0, 1.6, 0);
-    const look = new THREE.Matrix4().lookAt(V(0, 0, 0), side, V(0, 1, 0)); wall.quaternion.setFromRotationMatrix(look);
-    hazards.add(wall);
-    // telegraph: a dotted line across the bridge that brightens as the wave comes in
-    const tele = new THREE.Mesh(new THREE.PlaneGeometry(3.4, 2.7), new THREE.ShaderMaterial({
-      uniforms: { uA: { value: 0 } }, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
+    const d3 = b.clone().sub(a), flat = d3.clone(); flat.y = 0; const flen = flat.length(); flat.normalize();
+    const side = V(-flat.z, 0, flat.x), half = width / 2;
+    const yaw = Math.atan2(side.x, side.z);
+    // the scan line on the bridge: across it and a little past both edges
+    const line = beam(width + 1.0, .04); line.rotation.set(0, yaw, Math.PI / 2); hazards.add(line);
+    const dots = new THREE.Mesh(new THREE.PlaneGeometry(width + 1.0, .12), new THREE.ShaderMaterial({
+      uniforms: { uA: { value: 0 }, uCol: { value: red(2.2) } }, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
       vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.); }`,
-      fragmentShader: `varying vec2 vUv; uniform float uA; void main(){ float band = (1.-smoothstep(.0,.5,abs(vUv.x-.5)*2.-.5))*0.; float dots = step(.5, fract(vUv.y*9.)); float a = ((1.-smoothstep(.0,.12,abs(vUv.x-.5)-.35))*.25 + 0.)*uA + (1.-smoothstep(.0,.04,abs(abs(vUv.x-.5)-.5)))*uA*dots; gl_FragColor = vec4(vec3(1.)*a*1.6, a); }`,
+      fragmentShader: `varying vec2 vUv; uniform float uA; uniform vec3 uCol; void main(){ float a = step(.55, fract(vUv.x*14.))*uA; gl_FragColor = vec4(uCol*a, a); }`,
     }));
-    tele.position.copy(at).add(V(0, .04, 0)); tele.rotation.x = -Math.PI / 2; tele.rotation.z = -Math.atan2(flat.z, flat.x) - Math.PI / 2 + Math.PI / 2; hazards.add(tele);
-    // emitters far out in the void on both sides
-    for (const s of [-1, 1]) { const e = new THREE.Mesh(new THREE.BoxGeometry(.1, 2.2, .1), new THREE.MeshBasicMaterial({ color: new THREE.Color(C.white).multiplyScalar(.5) })); e.position.copy(at).addScaledVector(side, s * 26).add(V(0, 1.6, 0)); hazards.add(e); }
-    return { ...w, at, dir: flat, side, wall, tele, lat: 99 };
+    dots.rotation.set(-Math.PI / 2, 0, 0); const dq = new THREE.Group(); dq.add(dots); dq.rotation.y = yaw + Math.PI / 2; hazards.add(dq);
+    const st = { ...w, at, dir: flat, side, slope: d3.y / flen, half, line, dq, dots, on: false, along: -w.span };
+    if (LASER === 'scan') {
+      // scanner head: hex housing, red lens looking down, a slow ring. Same family as the Ch1 scorer, smaller and meaner
+      const head = new THREE.Group(); hazards.add(head);
+      const body = new THREE.Mesh(new THREE.CylinderGeometry(.62, .42, .5, 6), housing); head.add(body);
+      const cap = new THREE.Mesh(new THREE.CylinderGeometry(.3, .62, .22, 6), housing); cap.position.y = .36; head.add(cap);
+      const lens = new THREE.Mesh(new THREE.SphereGeometry(.24, 20, 12, 0, TAU, Math.PI / 2, Math.PI / 2), new THREE.MeshBasicMaterial({ color: red(1) })); lens.position.y = -.25; head.add(lens);
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(.85, .02, 4, 48), new THREE.MeshBasicMaterial({ color: red(1.4) })); ring.rotation.x = Math.PI / 2; head.add(ring);
+      const fanGeo = new THREE.BufferGeometry(); fanGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(9), 3)); fanGeo.setAttribute('k', new THREE.BufferAttribute(new Float32Array([0, 1, 1]), 1));
+      const fan = new THREE.Mesh(fanGeo, fanMat()); fan.frustumCulled = false; hazards.add(fan);
+      const edges = new THREE.LineSegments(new THREE.BufferGeometry().setAttribute('position', new THREE.BufferAttribute(new Float32Array(12), 3)), new THREE.LineBasicMaterial({ color: red(2.4), transparent: true, opacity: .8 })); edges.frustumCulled = false; hazards.add(edges);
+      Object.assign(st, { head, lens, ring, fan, edges });
+    } else {
+      const posts = [-1, 1].map((sg) => {
+        const g = new THREE.Group(); hazards.add(g);
+        const bar = new THREE.Mesh(new THREE.BoxGeometry(.16, 2.9, .16), housing); bar.position.y = 1.2; g.add(bar);
+        const eyes = GRID_H.map((h) => { const e = new THREE.Mesh(new THREE.SphereGeometry(.07, 10, 8), new THREE.MeshBasicMaterial({ color: red(1) })); e.position.set(-sg * .1, h, 0); g.add(e); return e; });
+        g.userData = { sg, eyes }; return g;
+      });
+      const beams = GRID_H.map(() => { const bm = beam(width + 2.2, .03); bm.rotation.set(0, yaw, Math.PI / 2); hazards.add(bm); return bm; });
+      Object.assign(st, { posts, beams });
+    }
+    return st;
   });
 })();
-const WAVE_RANGE = 26, WAVE_SPEED = 30;
-function waveLateral(w, t) { const ph = ((t + w.offset) % w.period) / w.period; const travel = (2 * WAVE_RANGE) / WAVE_SPEED / w.period; return ph < travel ? -WAVE_RANGE + ph * w.period * WAVE_SPEED : 99; }
+function updateWaves(t) {
+  const tmp = V(0, 0, 0);
+  for (const w of waves) {
+    const s = waveState(w, t); w.on = s.on; w.along = s.along;
+    const c = w.at.clone().addScaledVector(w.dir, w.along); c.y = w.at.y + w.slope * w.along;   // line centre on the bridge
+    const charge = s.on ? 1 : Math.pow(Math.max(0, 1 - s.until / WAVE_CHARGE), 2);              // 0 → 1 over the last 1.2 s of rest
+    const flick = .75 + .25 * Math.sin(t * 60 + w.offset * 9);
+    w.line.visible = s.on; w.line.position.copy(c).add(V(0, .05, 0));
+    w.dq.visible = !s.on; w.dq.position.copy(c).add(V(0, .04, 0)); w.dots.material.uniforms.uA.value = .18 + .8 * charge * (.6 + .4 * Math.sin(t * 22));
+    if (LASER === 'scan') {
+      const hp = w.at.clone().add(V(0, WAVE_HEAD + Math.sin(t * .9 + w.offset) * .15, 0));
+      w.head.position.copy(hp); w.head.lookAt(tmp.copy(c).setY(hp.y)); w.head.rotateX(Math.atan2(w.along, WAVE_HEAD) * .5);
+      w.ring.rotation.z = t * (s.on ? 4 : .6);
+      w.lens.material.color.copy(LASER_RED).multiplyScalar(s.on ? 5 * flick : .5 + 3 * charge);
+      const apex = hp.clone().add(V(0, -.4, 0)), l = c.clone().addScaledVector(w.side, -(w.half + .5)), r = c.clone().addScaledVector(w.side, w.half + .5);
+      const fp = w.fan.geometry.attributes.position; fp.setXYZ(0, apex.x, apex.y, apex.z); fp.setXYZ(1, l.x, l.y + .05, l.z); fp.setXYZ(2, r.x, r.y + .05, r.z); fp.needsUpdate = true;
+      const ep = w.edges.geometry.attributes.position; ep.setXYZ(0, apex.x, apex.y, apex.z); ep.setXYZ(1, l.x, l.y + .05, l.z); ep.setXYZ(2, apex.x, apex.y, apex.z); ep.setXYZ(3, r.x, r.y + .05, r.z); ep.needsUpdate = true;
+      w.fan.visible = w.edges.visible = s.on; w.fan.material.uniforms.uA.value = flick;
+    } else {
+      for (const g of w.posts) { g.position.copy(c).addScaledVector(w.side, g.userData.sg * (w.half + 1.1)); g.position.y += .0; g.lookAt(tmp.copy(c).setY(g.position.y)); g.userData.eyes.forEach(e => e.material.color.copy(LASER_RED).multiplyScalar(s.on ? 5 * flick : .4 + 3 * charge)); }
+      w.beams.forEach((bm, i) => { bm.visible = s.on; bm.position.copy(c).add(V(0, GRID_H[i], 0)); });
+    }
+  }
+}
 
 // ------------------------------------------------------------------------------------------- message ribbons (from layout) + the Flood's traffic
 const ribbons = new THREE.Group(); scene.add(ribbons);
@@ -901,7 +987,7 @@ const nearZone = (p) => zones.reduce((b, z) => (z.pos.distanceTo(p) < b.d ? { z,
 for (const id of ['yard-flood']) { const b = bridges[id], A = nearZone(b.samples[0]).z, B = nearZone(b.samples[b.samples.length - 1]).z; links.push({ A, B, path: b.samples }); }
 const agents = [];
 function spawnAgent(withPop, home) {
-  const color = pick(AGENT_COLORS), orb = makeOrb(color, rand(.18, .26), Math.random() < .25 ? 1 : 0); crowdGroup.add(orb);
+  const color = pick(AGENT_COLORS), orb = noBloom(makeOrb(color, rand(.18, .26), Math.random() < .25 ? 1 : 0)); crowdGroup.add(orb);
   home = home ?? pick([islands.gate, islands.gate, islands.taskyard, islands.taskyard, islands.taskyard, ...zones.slice(2)]);
   const p = randomOn(home);
   const msgPool = Math.random() < .1 ? DOUBTS : MSGS;  // a few doubt fragments mixed in from the start
@@ -946,7 +1032,7 @@ function updateAgent(a, dt, t, trails) {
 const runners = [];
 {
   const run = bridges['reset-run'];
-  for (let i = 0; i < 7; i++) { const orb = makeOrb(pick(AGENT_COLORS), .22, 0); crowdGroup.add(orb); runners.push({ orb, s: rand(0, run.len), speed: rand(2.6, 4.2), wait: 0, dead: 0 }); }
+  for (let i = 0; i < 7; i++) { const orb = noBloom(makeOrb(pick(AGENT_COLORS), .22, 0)); crowdGroup.add(orb); runners.push({ orb, s: rand(0, run.len), speed: rand(2.6, 4.2), wait: 0, dead: 0 }); }
 }
 function runPoint(s) { const S = bridges['reset-run'].samples; const k = Math.max(0, Math.min(S.length - 1.001, s / bridges['reset-run'].len * (S.length - 1))); const i = Math.floor(k); return S[i].clone().lerp(S[i + 1], k - i); }
 
@@ -987,15 +1073,15 @@ function updatePlayer(dt, t) {
   if (keys.KeyD || keys.ArrowRight) move.add(right); if (keys.KeyA || keys.ArrowLeft) move.sub(right);
   if (move.lengthSq()) move.normalize();
   const grounded = !!pl.ground;
-  pl.coyote = grounded ? .12 : Math.max(0, pl.coyote - dt);
+  pl.coyote = grounded ? P.coyote : Math.max(0, pl.coyote - dt);
   pl.dashCd = Math.max(0, pl.dashCd - dt);
   // dash
-  if ((keys.ShiftLeft || keys.ShiftRight) && pl.dashCd <= 0 && pl.dashT <= 0) { pl.dashT = P.dashTime; pl.dashCd = .55; pl.dashDir.copy(move.lengthSq() ? move : fwd); pop(player.position.clone(), C.green, .5); }
+  if ((keys.ShiftLeft || keys.ShiftRight) && pl.dashCd <= 0 && pl.dashT <= 0) { pl.dashT = P.dashTime; pl.dashCd = P.dashCooldown; pl.dashDir.copy(move.lengthSq() ? move : fwd); pop(player.position.clone(), C.green, .5); }
   if (pl.dashT > 0) {
     pl.dashT -= dt; pl.v.set(pl.dashDir.x * P.dashSpeed, 0, pl.dashDir.z * P.dashSpeed);
     if (Math.random() < .9) Trails.emit(player.position.clone().add(V(rand(-.2, .2), rand(-.2, .2), rand(-.2, .2))), 'KAM1196A'[Math.floor(rand(0, 8))], new THREE.Color(C.green), 1.2);
   } else {
-    const acc = grounded ? 14 : 7;
+    const acc = grounded ? P.groundAccel : P.airAccel;
     pl.v.x += (move.x * P.walk - pl.v.x) * Math.min(1, acc * dt); pl.v.z += (move.z * P.walk - pl.v.z) * Math.min(1, acc * dt);
     pl.v.y -= P.gravity * dt;
   }
@@ -1009,24 +1095,20 @@ function updatePlayer(dt, t) {
   if (pl.ground) pl.p.add(pl.ground.delta);
   pl.p.addScaledVector(pl.v, dt);
   // ground
-  const [h2, s2] = groundAt(pl.p.x, pl.p.z, pl.p.y + .45);  // re-query after moving; snap down slopes while walking
-  const snap = pl.ground && pl.v.y <= 0 && s2 && pl.p.y - h2 < .6;
+  const [h2, s2] = groundAt(pl.p.x, pl.p.z, pl.p.y + P.stepUp);  // re-query after moving; snap down slopes while walking
+  const snap = pl.ground && pl.v.y <= 0 && s2 && pl.p.y - h2 < P.snapDown;
   if (s2 && pl.v.y <= 0 && (pl.p.y <= h2 + .05 || snap)) { pl.p.y = h2; pl.v.y = 0; pl.ground = s2; } else pl.ground = null;
   if (pl.p.y < P.voidY) respawn('fell');
   // pads
-  for (const pd of pads) if (pd !== lastPad && Math.hypot(pl.p.x - pd.p.x, pl.p.z - pd.p.z) < 1.3 && Math.abs(pl.p.y - pd.p.y) < 1) { setPad(pd); pop(pd.p.clone(), C.green, 1); }
+  for (const pd of pads) if (pd !== lastPad && Math.hypot(pl.p.x - pd.p.x, pl.p.z - pd.p.z) < P.padRadius && Math.abs(pl.p.y - pd.p.y) < 1) { setPad(pd); pop(pd.p.clone(), C.green, 1); }
   // reset waves
-  for (const w of waves) {
-    if (Math.abs(w.lat) > 30) continue;
-    const rel = pl.p.clone().sub(w.at), along = rel.dot(w.dir), lat = rel.dot(w.side);
-    if (Math.abs(along) < 1.7 && Math.abs(lat - w.lat) < .6 && rel.y > -1 && rel.y < 3.4 && pl.dashT <= 0) respawn('reset');
-  }
+  for (const w of waves) if (pl.dashT <= 0 && waveHit(w, pl.p)) { respawn('reset'); break; }
   // tilting platforms: your weight tips them
   for (const isl of tilters) {
     const on = pl.ground && pl.ground.owner === isl;
-    const tx = on ? (pl.p.z - isl.pos.z) / isl.R * .22 : 0, tz = on ? -(pl.p.x - isl.pos.x) / isl.R * .22 : 0;
-    isl.tiltX += (tx - isl.tiltX) * Math.min(1, dt * 3); isl.tiltZ += (tz - isl.tiltZ) * Math.min(1, dt * 3);
-    isl.sink += ((on ? .35 : 0) - isl.sink) * Math.min(1, dt * 2.5);
+    const tx = on ? (pl.p.z - isl.pos.z) / isl.R * P.tilt.max : 0, tz = on ? -(pl.p.x - isl.pos.x) / isl.R * P.tilt.max : 0;
+    isl.tiltX += (tx - isl.tiltX) * Math.min(1, dt * P.tilt.rate); isl.tiltZ += (tz - isl.tiltZ) * Math.min(1, dt * P.tilt.rate);
+    isl.sink += ((on ? P.tilt.sink : 0) - isl.sink) * Math.min(1, dt * P.tilt.sinkRate);
     isl.group.rotation.x = isl.tiltX; isl.group.rotation.z = isl.tiltZ; isl.group.position.y = isl.top - isl.sink;
   }
   // orb
@@ -1052,6 +1134,7 @@ const CAMS = {
   flood:    { pos: V(86, 22, 2), target: V(64, 9, -22) },
   run:      { pos: V(92, 30, 58), target: V(40, 18, 25) },
   forge:    { pos: V(22, 42, 26), target: V(0, 36, 0) },
+  lasers:   { pos: V(61.5, 16.6, 45.5), target: V(55.5, 14.2, 37.6) },
   'gate-memory': { pos: V(-58, 18.2, 46), target: V(-55.5, 17.4, 40) },
   c03220:   { pos: V(-58.5, 18.4, 44.5), target: V(-55.5, 17.6, 40) },
   FLAC38347: { pos: V(-70, 30.6, -19.5), target: V(-74, 29.6, -15.6) },
@@ -1127,13 +1210,7 @@ renderer.setAnimationLoop(() => {
         for (let i = 0; i < 7; i++) Trails.emit(b.g.position.clone(), GARBAGE[Math.floor(rand(0, GARBAGE.length))], new THREE.Color(C.orange), 1.3, i * .06, dir);
       }
     }
-    for (const w of waves) {
-      w.lat = waveLateral(w, t);
-      const on = Math.abs(w.lat) < 40;
-      w.wall.visible = on; if (on) { w.wall.position.copy(w.at).addScaledVector(w.side, w.lat); w.wall.material.uniforms.uA.value = 1 - Math.min(1, Math.max(0, (Math.abs(w.lat) - 7) / 12)); }
-      const ph = ((t + w.offset) % w.period) / w.period, pre = 1 - ph; // telegraph ramps up before the next wave
-      w.tele.material.uniforms.uA.value = on ? 1 : Math.pow(Math.max(0, 1 - pre * w.period / 1.4), 2) * .9 + .12;
-    }
+    updateWaves(t);
   }
 
   if (showCrowd) {
@@ -1144,7 +1221,7 @@ renderer.setAnimationLoop(() => {
       if (r.dead > 0) { r.dead -= dt; r.orb.visible = false; if (r.dead <= 0) { r.s = 0; r.orb.visible = true; pop(runPoint(0), '#ffffff', .6); } continue; }
       r.s += r.speed * dt; const p = runPoint(r.s); r.orb.position.copy(p).add(V(0, .55 + Math.sin(t * 2 + r.speed) * .06, 0));
       if (r.s >= bridges['reset-run'].len - .5) { pop(p, '#ffffff', .8); r.dead = rand(1, 4); continue; }
-      for (const w of waves) { if (Math.abs(w.lat) > 30) continue; const rel = p.clone().sub(w.at); if (Math.abs(rel.dot(w.dir)) < 1.7 && Math.abs(rel.dot(w.side) - w.lat) < .7) { pop(p, '#ffffff', 1.2); emitWord(p.clone().add(V(0, 1.4, 0)), 'RESET', new THREE.Color(C.white), 3); r.dead = rand(2, 5); break; } }
+      for (const w of waves) { if (waveHit(w, p, .3)) { pop(p, '#ffffff', 1.2); emitWord(p.clone().add(V(0, 1.4, 0)), 'RESET', new THREE.Color(C.white), 3); r.dead = rand(2, 5); break; } }
     }
     for (const k of packets) {
       k.a += k.sp * dt; const p = V(66 + Math.cos(k.a) * k.r, k.y + Math.sin(k.a * 3) * 1.2, -21 + Math.sin(k.a) * k.r);
@@ -1173,7 +1250,7 @@ renderer.setAnimationLoop(() => {
   composer.render();
 });
 window.__ready = true;
-window.CH2 = { groundAt, player: pl, pads, setPad, respawn, islands, npcs, forge, U };
+window.CH2 = { groundAt, player: pl, pads, setPad, respawn, islands, npcs, forge, U, camera, scene, tokenOrbs };
 </script>
 </body>
 </html>

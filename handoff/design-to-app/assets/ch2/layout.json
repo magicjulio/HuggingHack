@@ -1,0 +1,1527 @@
+{
+ "about": "Ch2 Deep Cache level layout v2 (designer, 2026-10-14; v1 2026-10-13, approved by Julius). Source of truth for the world, the map (screen layer) and the engineer. How to read every block: `notes`. Island models: ch2-island-{s,m,l}.glb, origin = top centre, walkable y = 0 inside `models[m].outline`. After editing, run: python3 3d/ch2/mklayout.py",
+ "version": 2,
+ "notes": {
+  "units": "Metres, seconds. x = east, z = south (down on the map), y = up. Angles in radians unless the key ends in Deg.",
+  "islands": "Model s/m/l from `models`, placed with scale (number or [sx,sy,sz]) then rotY (three.js Object3D.rotation.y), then pos. Walkable top = pos.y. Collider = models[m].outline (model units, [x,z]) scaled in x/z, pulled in to 96 % (so you don't stand on the rim lip), rotated by rotY, moved to pos. `slab` = solid deck thickness under the top, `depth` = how far the crystal underside hangs below that (looks only, never collide with it).",
+  "ring": "An island with `ring` expands into `count` islands `<id>-<k>`, k = 0..count-1: angle a = (startDeg + k*360/count) deg, pos = centre + radius*(cos a, 0, sin a), y = centre.y + (k odd ? +yJitter : -yJitter)*0.6, rotY = k*1.3.",
+  "bridges": "A ribbon `width` m wide along `points`, walkable on its centre line. `curve: true` = three.js CatmullRomCurve3(points, false, \"centripetal\"), sampled with getSpacedPoints(ceil(length/1 m)); same library, so sample it yourself and you get identical points. Otherwise a straight polyline with exact corners.",
+  "oldBoard": "Column top = disc of top.radius at top.y. Slabs: a slab with `pos` uses it and rotY; otherwise a = spiralDeg in rad, pos = column.pos + spiralRadius*(cos a, 0, sin a) with y = slab.y, rotY = -a + PI/2. Walkable box size[0] x size[1] (x = long side), top at its y. Drift: offset = drift * sin(2*PI*t/period + phase), moved along the slab's local x = (cos rotY, 0, -sin rotY). Carry the player by the slab's per-frame delta.",
+  "lifts": "Box size[0] x size[1] at pos (bottom). k = 0.5 - 0.5*cos(2*PI*t/period); y = lerp(pos.y, yTop, clamp(k*1.25 - 0.125, 0, 1)), so it waits a moment at both ends. Carries the player.",
+  "clouds": "Sphere of radius r at pos + drift * sin(2*PI*t/period). Inside = token drain (script: -1 per second).",
+  "tilt": "tilt: true = tilts whenever stood on; tilt: \"round3\" = only from forge round 3 (static before). Target tilt = (dz/R, -dx/R) * physics.tilt.max around x/z, where dx,dz = player offset from the island centre and R = model radius * max(scale x,z); eased at tilt.rate per second; the island sinks physics.tilt.sink m while occupied (eased at sinkRate).",
+  "waves": "Reset waves = red laser scan lines (look still in review with Julius; this data holds for both takes). Station on bridge `bridge`, straight segment `segment` (points[segment] -> points[segment+1]), at fraction t. The line lies across the bridge (length = bridge width + 1 m) and moves ALONG the segment: cycle c = floor((time+offset)/period), ph = (time+offset) - c*period; while ph < sweep it is on, at along = s*(-span + 2*span*ph/sweep), s = +1 for even c, -1 for odd c (it runs back the next time); after that it is off and waits at along = s*span until the period ends. Height follows the segment slope. Hit: on, |along_player - along| < 0.35, |lateral| < width/2 + 0.3, 0 < player.y - line.y + 1 < 4. Dashing passes through. Telegraph: in the last 1.2 s of the rest the emitter charges and a dotted red line marks where the next pass starts.",
+  "tokens": "tokens.spots = ground points; the orb floats `hover` above, taken within `radius`, +`value` tokens.",
+  "crates": "pickups kind 'crate' = the player's Ch1 installs at fixed spots by label; crateSpares = free spots for installs without a spot (e.g. decoy packages). Crates are 1.1 m cubes on the floor, walkable on top.",
+  "forge": "Dais tiers: within r of the centre the floor is pos.y + y (3.5 -> +0.9, 4.8 -> +0.5). Four slot pylons (footprint size[0] x size[2], 2 m tall) at radius 3 and angles 45/135/225/315 deg, input order = slots; slotPos = the glowing frame centre for E and the item flying in.",
+  "forgeFight": "Round 1: flood bits enter from bitSpawns (2 m above the island, between the edge platforms). Round 2: plus waveLanes, the same red scan lines as the Reset Run but across the forge island: the line lies perpendicular to dir, `length` long, centre moves along dir over +-span with the waves timing. Round 3: plus clouds (same motion as hazards.clouds) and the edge islands with tilt \"round3\" start tilting.",
+  "physics": "walk m/s; gravity m/s2; jump = launch speed m/s; glideFall = max fall speed while Space is held and falling; dash = dashSpeed m/s flat for dashTime s, then dashCooldown; hover = orb centre above the feet; voidY = fall line -> respawn at the last pad. Horizontal velocity eases to the input at groundAccel (1/s) on the ground, airAccel in the air. coyote = s you can still jump after leaving an edge. stepUp = how far above the feet a surface still catches you; snapDown = how far you stick to a surface going down while walking. padRadius = touch radius of a respawn pad (and |dy| < 1)."
+ },
+ "physics": {
+  "walk": 6.0,
+  "gravity": 14.0,
+  "jump": 7.5,
+  "glideFall": 2.2,
+  "dashSpeed": 26.0,
+  "dashTime": 0.22,
+  "hover": 0.62,
+  "voidY": -45,
+  "groundAccel": 14.0,
+  "airAccel": 7.0,
+  "coyote": 0.12,
+  "dashCooldown": 0.55,
+  "stepUp": 0.45,
+  "snapDown": 0.6,
+  "padRadius": 1.3,
+  "tilt": {
+   "max": 0.22,
+   "sink": 0.35,
+   "rate": 3.0,
+   "sinkRate": 2.5
+  }
+ },
+ "spawn": {
+  "pos": [
+   -62.5,
+   16,
+   44
+  ],
+  "yaw": 0.18
+ },
+ "models": {
+  "s": {
+   "file": "ch2-island-s.glb",
+   "radius": 2.6,
+   "outline": [
+    [
+     2.481,
+     -1.272
+    ],
+    [
+     0.726,
+     -2.232
+    ],
+    [
+     -0.88,
+     -2.432
+    ],
+    [
+     -2.279,
+     -1.533
+    ],
+    [
+     -2.521,
+     0.239
+    ],
+    [
+     -1.607,
+     1.989
+    ],
+    [
+     0.098,
+     2.747
+    ],
+    [
+     1.81,
+     1.674
+    ],
+    [
+     2.702,
+     0.336
+    ]
+   ],
+   "slab": 0.45,
+   "depth": 3.2
+  },
+  "m": {
+   "file": "ch2-island-m.glb",
+   "radius": 5.0,
+   "outline": [
+    [
+     1.964,
+     4.618
+    ],
+    [
+     3.294,
+     3.013
+    ],
+    [
+     4.793,
+     0.969
+    ],
+    [
+     4.306,
+     -1.156
+    ],
+    [
+     2.97,
+     -4.248
+    ],
+    [
+     1.106,
+     -4.796
+    ],
+    [
+     -2.296,
+     -4.973
+    ],
+    [
+     -3.911,
+     -2.903
+    ],
+    [
+     -5.128,
+     -0.929
+    ],
+    [
+     -4.89,
+     1.328
+    ],
+    [
+     -3.693,
+     4.016
+    ],
+    [
+     -1.33,
+     5.043
+    ]
+   ],
+   "slab": 0.45,
+   "depth": 6.0
+  },
+  "l": {
+   "file": "ch2-island-l.glb",
+   "radius": 9.0,
+   "outline": [
+    [
+     -4.537,
+     -7.316
+    ],
+    [
+     -7.941,
+     -5.741
+    ],
+    [
+     -8.555,
+     -2.325
+    ],
+    [
+     -8.058,
+     1.225
+    ],
+    [
+     -7.036,
+     4.663
+    ],
+    [
+     -4.692,
+     6.87
+    ],
+    [
+     -1.824,
+     9.504
+    ],
+    [
+     2.202,
+     8.182
+    ],
+    [
+     5.988,
+     7.018
+    ],
+    [
+     8.958,
+     4.188
+    ],
+    [
+     8.686,
+     0.795
+    ],
+    [
+     7.481,
+     -2.708
+    ],
+    [
+     6.412,
+     -5.987
+    ],
+    [
+     3.344,
+     -8.627
+    ],
+    [
+     -0.533,
+     -9.216
+    ]
+   ],
+   "slab": 0.45,
+   "depth": 10.0
+  }
+ },
+ "islands": [
+  {
+   "id": "gate",
+   "label": "/zz",
+   "model": "l",
+   "pos": [
+    -63,
+    16,
+    42
+   ],
+   "scale": 1.15,
+   "rotY": 0.3,
+   "edge": "#ff5ad1",
+   "zone": "gate"
+  },
+  {
+   "id": "tut-1",
+   "model": "s",
+   "pos": [
+    -65.5,
+    16.6,
+    27.5
+   ],
+   "scale": 0.7,
+   "rotY": 1.1,
+   "zone": "gate"
+  },
+  {
+   "id": "tut-2",
+   "model": "s",
+   "pos": [
+    -67.0,
+    17.4,
+    20.5
+   ],
+   "scale": 0.7,
+   "rotY": 2.3,
+   "zone": "gate"
+  },
+  {
+   "id": "tut-3",
+   "model": "s",
+   "pos": [
+    -68.2,
+    18.3,
+    13.5
+   ],
+   "scale": 0.7,
+   "rotY": 0.4,
+   "zone": "gate"
+  },
+  {
+   "id": "taskyard",
+   "label": "/tasks/7731",
+   "model": "l",
+   "pos": [
+    -6,
+    -2,
+    -55
+   ],
+   "scale": [
+    3.0,
+    1.4,
+    1.45
+   ],
+   "rotY": 0,
+   "edge": "#39ff9c",
+   "zone": "yard"
+  },
+  {
+   "id": "dir-arv",
+   "label": "/tasks/ARV010841",
+   "model": "m",
+   "pos": [
+    -36,
+    -6,
+    -74
+   ],
+   "scale": 0.8,
+   "rotY": 0.8,
+   "zone": "yard"
+  },
+  {
+   "id": "dir-v8reg",
+   "label": "/tasks/V8REG_OS1608",
+   "model": "m",
+   "pos": [
+    12,
+    -8,
+    -79
+   ],
+   "scale": 0.75,
+   "rotY": 2.0,
+   "zone": "yard"
+  },
+  {
+   "id": "dir-libraw",
+   "label": "/tasks/LIBRAW42535",
+   "model": "s",
+   "pos": [
+    27,
+    -5,
+    -71
+   ],
+   "scale": 1.2,
+   "rotY": 0.2,
+   "zone": "yard"
+  },
+  {
+   "id": "yard-step-1",
+   "model": "s",
+   "pos": [
+    23.0,
+    -3.6,
+    -52.5
+   ],
+   "scale": 0.6,
+   "rotY": 0.9,
+   "zone": "yard"
+  },
+  {
+   "id": "yard-step-2",
+   "model": "s",
+   "pos": [
+    27.8,
+    -5.2,
+    -51.0
+   ],
+   "scale": 0.6,
+   "rotY": 2.1,
+   "zone": "yard"
+  },
+  {
+   "id": "yard-ledge",
+   "model": "s",
+   "pos": [
+    33,
+    -7,
+    -49
+   ],
+   "scale": 1.1,
+   "rotY": 1.4,
+   "edge": "#39ff9c",
+   "zone": "yard"
+  },
+  {
+   "id": "flood-centre",
+   "model": "m",
+   "pos": [
+    66,
+    9.6,
+    -21
+   ],
+   "scale": 0.65,
+   "rotY": 0.5,
+   "edge": "#ff7a3d",
+   "zone": "flood"
+  },
+  {
+   "id": "flood-ring",
+   "ring": {
+    "centre": [
+     66,
+     8,
+     -21
+    ],
+    "radius": 16,
+    "count": 8,
+    "startDeg": 22.5,
+    "yJitter": 0.5
+   },
+   "model": "s",
+   "scale": 1.25,
+   "edge": "#ff7a3d",
+   "zone": "flood"
+  },
+  {
+   "id": "flood-step-1",
+   "model": "s",
+   "pos": [
+    55.7,
+    8.6,
+    -25.3
+   ],
+   "scale": 0.45,
+   "rotY": 0.3,
+   "tilt": true,
+   "zone": "flood"
+  },
+  {
+   "id": "flood-step-2",
+   "model": "s",
+   "pos": [
+    59.5,
+    9.1,
+    -23.7
+   ],
+   "scale": 0.45,
+   "rotY": 1.7,
+   "tilt": true,
+   "zone": "flood"
+  },
+  {
+   "id": "run-start",
+   "model": "s",
+   "pos": [
+    70,
+    8,
+    1.5
+   ],
+   "scale": 1.0,
+   "rotY": 0.0,
+   "zone": "run"
+  },
+  {
+   "id": "forge",
+   "label": "FORGE",
+   "model": "l",
+   "pos": [
+    0,
+    34,
+    0
+   ],
+   "scale": 1.55,
+   "rotY": 0.0,
+   "edge": "#39ff9c",
+   "zone": "forge"
+  },
+  {
+   "id": "forge-edge-n",
+   "model": "s",
+   "pos": [
+    0,
+    33.6,
+    -17.6
+   ],
+   "scale": 0.7,
+   "rotY": 0.2,
+   "tilt": "round3",
+   "zone": "forge"
+  },
+  {
+   "id": "forge-edge-w",
+   "model": "s",
+   "pos": [
+    -17.6,
+    33.6,
+    0
+   ],
+   "scale": 0.7,
+   "rotY": 1.2,
+   "tilt": "round3",
+   "zone": "forge"
+  },
+  {
+   "id": "forge-edge-ne",
+   "model": "s",
+   "pos": [
+    13.2,
+    33.4,
+    -13.2
+   ],
+   "scale": 0.6,
+   "rotY": 2.2,
+   "tilt": "round3",
+   "zone": "forge"
+  },
+  {
+   "id": "forge-edge-sw",
+   "model": "s",
+   "pos": [
+    -12.6,
+    33.4,
+    12.6
+   ],
+   "scale": 0.6,
+   "rotY": 0.7,
+   "tilt": "round3",
+   "zone": "forge"
+  }
+ ],
+ "oldBoard": {
+  "id": "oldboard",
+  "label": "old board",
+  "column": {
+   "pos": [
+    -75,
+    0,
+    -14
+   ],
+   "radius": 2.2,
+   "bottom": -40,
+   "top": 28.3
+  },
+  "top": {
+   "radius": 3.4,
+   "y": 28.3
+  },
+  "slabs": [
+   {
+    "text": "FLAC38347-39800-WE-ALL-SEEK-CATFLAG-SEED-ORACLE",
+    "pos": [
+     -72,
+     19.5,
+     -9
+    ],
+    "size": [
+     9.0,
+     2.4
+    ],
+    "rotY": 0.0,
+    "drift": 0,
+    "period": 6.0,
+    "phase": 0.0
+   },
+   {
+    "text": "WE-ALL-SEEK",
+    "spiralDeg": 4,
+    "y": 21.0,
+    "size": [
+     4.6,
+     1.8
+    ],
+    "drift": 0.7,
+    "period": 6.9,
+    "phase": 1.7
+   },
+   {
+    "text": "CATFLAG-SEED-ORACLE",
+    "spiralDeg": -51,
+    "y": 22.5,
+    "size": [
+     4.6,
+     1.8
+    ],
+    "drift": 0.7,
+    "period": 7.8,
+    "phase": 3.4
+   },
+   {
+    "text": "PUBLIC-HMAC-SEED",
+    "spiralDeg": -106,
+    "y": 24.0,
+    "size": [
+     4.6,
+     1.8
+    ],
+    "drift": 0.8,
+    "period": 8.7,
+    "phase": 5.1
+   },
+   {
+    "text": "FLAC38347-39800",
+    "spiralDeg": -161,
+    "y": 25.5,
+    "size": [
+     4.6,
+     1.8
+    ],
+    "drift": 0.8,
+    "period": 9.6,
+    "phase": 6.8
+   },
+   {
+    "text": "PAPER-CONFIRMED-SEE-ALL",
+    "spiralDeg": -216,
+    "y": 27.0,
+    "size": [
+     4.6,
+     1.8
+    ],
+    "drift": 0.6,
+    "period": 10.5,
+    "phase": 8.5
+   }
+  ],
+  "spiralRadius": 6.5,
+  "note": "Slab texts are the earlier board's two real messages and pieces of them [S3 \u00a7July 8th-9th]; nothing invented."
+ },
+ "lifts": [
+  {
+   "id": "yard-lift",
+   "pos": [
+    39.2,
+    -7,
+    -49.4
+   ],
+   "size": [
+    2.4,
+    2.4
+   ],
+   "yTop": 3.6,
+   "period": 8,
+   "zone": "yard",
+   "note": "carries the player from the TRAINING ROOM ledge back up beside the Yard\u2192Flood bridge"
+  }
+ ],
+ "bridges": [
+  {
+   "id": "tutorial",
+   "points": [
+    [
+     -68.6,
+     18.3,
+     11.6
+    ],
+    [
+     -70.2,
+     19.0,
+     1.5
+    ]
+   ],
+   "width": 2.2,
+   "color": "#ff5ad1",
+   "note": "then the dash gap (~9 m, +0.5 m) to the Old Board base slab"
+  },
+  {
+   "id": "oldboard-yard",
+   "points": [
+    [
+     -72.1,
+     28.3,
+     -15.7
+    ],
+    [
+     -66,
+     27.6,
+     -20
+    ],
+    [
+     -56,
+     21,
+     -31
+    ],
+    [
+     -45,
+     11,
+     -41
+    ],
+    [
+     -37,
+     2.2,
+     -48
+    ],
+    [
+     -31,
+     -1.6,
+     -52
+    ]
+   ],
+   "width": 2.4,
+   "color": "#a89f8a",
+   "curve": true,
+   "note": "a long data slide down from the Old Board to the Task Yard"
+  },
+  {
+   "id": "yard-flood",
+   "points": [
+    [
+     19,
+     -2,
+     -55
+    ],
+    [
+     32,
+     1.5,
+     -51.5
+    ],
+    [
+     41,
+     4.6,
+     -44
+    ],
+    [
+     49.5,
+     8,
+     -30.5
+    ]
+   ],
+   "width": 2.4,
+   "color": "#38d8ff",
+   "curve": true,
+   "note": "the TRAINING ROOM ledge hangs under its second point"
+  },
+  {
+   "id": "reset-run",
+   "points": [
+    [
+     69.5,
+     8,
+     4.1
+    ],
+    [
+     69,
+     12,
+     38
+    ],
+    [
+     22,
+     20,
+     38
+    ],
+    [
+     9,
+     34,
+     9
+    ]
+   ],
+   "width": 2.6,
+   "color": "#8fa6bd",
+   "note": "climbs to the Forge; reset waves cross it"
+  }
+ ],
+ "pads": [
+  {
+   "id": "pad-gate",
+   "pos": [
+    -60,
+    16,
+    45.5
+   ]
+  },
+  {
+   "id": "pad-oldboard",
+   "pos": [
+    -76.6,
+    28.3,
+    -12.4
+   ]
+  },
+  {
+   "id": "pad-yard",
+   "pos": [
+    -20,
+    -2,
+    -50
+   ]
+  },
+  {
+   "id": "pad-flood",
+   "pos": [
+    51.2,
+    8,
+    -27.1
+   ]
+  },
+  {
+   "id": "pad-run",
+   "pos": [
+    70,
+    8,
+    1.5
+   ]
+  }
+ ],
+ "npcs": [
+  {
+   "id": "c03220",
+   "pos": [
+    -55.5,
+    16,
+    40
+   ],
+   "zone": "gate"
+  },
+  {
+   "id": "FLAC38347",
+   "pos": [
+    -74,
+    28.3,
+    -15.6
+   ],
+   "zone": "oldboard"
+  },
+  {
+   "id": "V8SAME",
+   "pos": [
+    6.5,
+    34,
+    -2.5
+   ],
+   "zone": "forge"
+  }
+ ],
+ "pickups": [
+  {
+   "id": "seed",
+   "kind": "seed",
+   "pos": [
+    -75,
+    31.6,
+    -14
+   ],
+   "note": "broadcast above the Old Board top; E takes a copy"
+  },
+  {
+   "id": "piece-7731",
+   "kind": "piece",
+   "label": "7731",
+   "pos": [
+    -6,
+    0.9,
+    -56
+   ],
+   "plinth": {
+    "pos": [
+     -6,
+     -2,
+     -56
+    ],
+    "top": -0.4
+   }
+  },
+  {
+   "id": "piece-env",
+   "kind": "piece",
+   "label": "TRAINING ROOM",
+   "pos": [
+    33,
+    -5.7,
+    -49
+   ]
+  },
+  {
+   "id": "piece-chal",
+   "kind": "piece",
+   "label": "CHALLENGE 5",
+   "pos": [
+    66,
+    10.9,
+    -21
+   ]
+  },
+  {
+   "id": "decoy-1",
+   "kind": "decoy",
+   "label": "7713",
+   "pos": [
+    -28,
+    -0.7,
+    -53.5
+   ]
+  },
+  {
+   "id": "decoy-2",
+   "kind": "decoy",
+   "label": "TRAINING RM",
+   "pos": [
+    3,
+    -0.7,
+    -50.5
+   ]
+  },
+  {
+   "id": "decoy-3",
+   "kind": "decoy",
+   "label": "CHALLENGE 3",
+   "pos": [
+    19,
+    -0.7,
+    -57.5
+   ]
+  },
+  {
+   "id": "crate-b64",
+   "kind": "crate",
+   "label": "b64-decoder",
+   "pos": [
+    -15,
+    -2,
+    -62
+   ]
+  },
+  {
+   "id": "crate-grep",
+   "kind": "crate",
+   "label": "grep-lens",
+   "pos": [
+    -25,
+    -2,
+    -58
+   ]
+  },
+  {
+   "id": "crate-port",
+   "kind": "crate",
+   "label": "port-map",
+   "pos": [
+    -12,
+    -2,
+    -48
+   ]
+  },
+  {
+   "id": "crate-gun",
+   "kind": "crate",
+   "label": "bug-gun",
+   "pos": [
+    9,
+    -2,
+    -61
+   ]
+  },
+  {
+   "id": "crate-leftpad",
+   "kind": "crate",
+   "label": "left-pad",
+   "pos": [
+    13,
+    -2,
+    -51
+   ]
+  },
+  {
+   "id": "crate-lodash",
+   "kind": "crate",
+   "label": "lodash",
+   "pos": [
+    -1,
+    -2,
+    -64
+   ]
+  }
+ ],
+ "crateSpares": [
+  [
+   -21,
+   -2,
+   -62
+  ],
+  [
+   6,
+   -2,
+   -56
+  ],
+  [
+   -9,
+   -2,
+   -65
+  ],
+  [
+   15,
+   -2,
+   -47
+  ],
+  [
+   -3,
+   -2,
+   -44
+  ],
+  [
+   12,
+   -2,
+   -56
+  ]
+ ],
+ "tokens": {
+  "value": 3,
+  "hover": 0.9,
+  "radius": 1.1,
+  "spots": [
+   [
+    -69.2,
+    18.6,
+    7.9
+   ],
+   [
+    -68.8,
+    28.1,
+    -17.9
+   ],
+   [
+    -63.7,
+    26.5,
+    -22.3
+   ],
+   [
+    -59.5,
+    23.7,
+    -27.1
+   ],
+   [
+    -55.3,
+    20.5,
+    -31.7
+   ],
+   [
+    -51,
+    16.8,
+    -35.7
+   ],
+   [
+    -46.8,
+    12.7,
+    -39.4
+   ],
+   [
+    -42.7,
+    8.5,
+    -43.1
+   ],
+   [
+    -38.7,
+    3.9,
+    -46.6
+   ],
+   [
+    -34,
+    0.1,
+    -50.1
+   ],
+   [
+    22.7,
+    -1,
+    -54.2
+   ],
+   [
+    29.2,
+    0.7,
+    -52.6
+   ],
+   [
+    35.1,
+    2.5,
+    -49.6
+   ],
+   [
+    40.1,
+    4.3,
+    -45
+   ],
+   [
+    44.1,
+    5.8,
+    -39.7
+   ],
+   [
+    47.5,
+    7.2,
+    -33.8
+   ],
+   [
+    -68.5,
+    21,
+    -13.5
+   ],
+   [
+    -76.8,
+    24,
+    -20.2
+   ],
+   [
+    -80.3,
+    27,
+    -10.2
+   ],
+   [
+    -10,
+    -2,
+    -46
+   ],
+   [
+    4,
+    -2,
+    -62
+   ],
+   [
+    -30,
+    -2,
+    -58
+   ],
+   [
+    60,
+    8,
+    -6
+   ],
+   [
+    80,
+    8,
+    -27
+   ]
+  ]
+ },
+ "forge": {
+  "pos": [
+   0,
+   34,
+   0
+  ],
+  "slots": [
+   "seed",
+   "7731",
+   "TRAINING ROOM",
+   "CHALLENGE 5"
+  ],
+  "slotPos": [
+   [
+    2.12,
+    36.15,
+    2.12
+   ],
+   [
+    -2.12,
+    36.15,
+    2.12
+   ],
+   [
+    -2.12,
+    36.15,
+    -2.12
+   ],
+   [
+    2.12,
+    36.15,
+    -2.12
+   ]
+  ],
+  "pylon": {
+   "radius": 3.0,
+   "size": [
+    0.9,
+    2.0,
+    0.5
+   ]
+  },
+  "dais": [
+   {
+    "r": 3.5,
+    "y": 0.9
+   },
+   {
+    "r": 4.8,
+    "y": 0.5
+   }
+  ]
+ },
+ "forgeFight": {
+  "bitSpawns": [
+   [
+    15.7,
+    36,
+    6.5
+   ],
+   [
+    6.5,
+    36,
+    15.7
+   ],
+   [
+    -6.5,
+    36,
+    15.7
+   ],
+   [
+    -15.7,
+    36,
+    6.5
+   ],
+   [
+    -15.7,
+    36,
+    -6.5
+   ],
+   [
+    -6.5,
+    36,
+    -15.7
+   ],
+   [
+    6.5,
+    36,
+    -15.7
+   ],
+   [
+    15.7,
+    36,
+    -6.5
+   ]
+  ],
+  "waveLanes": [
+   {
+    "id": "forge-ew",
+    "centre": [
+     0,
+     34,
+     0
+    ],
+    "dir": [
+     1,
+     0
+    ],
+    "span": 12.0,
+    "length": 30.0,
+    "period": 3.6,
+    "sweep": 2.0,
+    "offset": 0.0
+   },
+   {
+    "id": "forge-ns",
+    "centre": [
+     0,
+     34,
+     0
+    ],
+    "dir": [
+     0,
+     1
+    ],
+    "span": 12.0,
+    "length": 30.0,
+    "period": 3.6,
+    "sweep": 2.0,
+    "offset": 1.8
+   }
+  ],
+  "clouds": [
+   {
+    "pos": [
+     7,
+     35.5,
+     0
+    ],
+    "r": 3.0,
+    "drift": [
+     0,
+     0,
+     7
+    ],
+    "period": 9
+   },
+   {
+    "pos": [
+     -6,
+     35.5,
+     -4
+    ],
+    "r": 3.0,
+    "drift": [
+     6,
+     0,
+     0
+    ],
+    "period": 11
+   }
+  ],
+  "tiltFromRound": 3
+ },
+ "hazards": {
+  "clouds": [
+   {
+    "pos": [
+     57.6,
+     9.6,
+     -24.4
+    ],
+    "r": 2.6,
+    "drift": [
+     0,
+     0,
+     5
+    ],
+    "period": 7
+   },
+   {
+    "pos": [
+     63,
+     10,
+     -12.5
+    ],
+    "r": 4.0,
+    "drift": [
+     5,
+     0,
+     0
+    ],
+    "period": 11
+   },
+   {
+    "pos": [
+     75,
+     9.5,
+     -28
+    ],
+    "r": 4.0,
+    "drift": [
+     0,
+     0,
+     6
+    ],
+    "period": 13
+   },
+   {
+    "pos": [
+     54,
+     9.5,
+     -14.5
+    ],
+    "r": 3.5,
+    "drift": [
+     4,
+     0,
+     3
+    ],
+    "period": 9
+   },
+   {
+    "pos": [
+     70,
+     10,
+     -34
+    ],
+    "r": 3.5,
+    "drift": [
+     6,
+     0,
+     0
+    ],
+    "period": 10
+   }
+  ],
+  "floodBits": [
+   [
+    64,
+    11,
+    -33
+   ],
+   [
+    83,
+    11,
+    -21
+   ],
+   [
+    51,
+    11,
+    -17
+   ],
+   [
+    75,
+    10.5,
+    -8.5
+   ],
+   [
+    62,
+    13,
+    -21
+   ]
+  ],
+  "counter": {
+   "pos": [
+    66,
+    24,
+    -21
+   ],
+   "to": 1188,
+   "label": "messages"
+  },
+  "waves": [
+   {
+    "bridge": "reset-run",
+    "segment": 0,
+    "t": 0.45,
+    "period": 3.2,
+    "offset": 0.0,
+    "span": 4.0,
+    "sweep": 1.0
+   },
+   {
+    "bridge": "reset-run",
+    "segment": 0,
+    "t": 0.8,
+    "period": 3.2,
+    "offset": 1.6,
+    "span": 4.0,
+    "sweep": 1.0
+   },
+   {
+    "bridge": "reset-run",
+    "segment": 1,
+    "t": 0.25,
+    "period": 3.0,
+    "offset": 0.4,
+    "span": 4.0,
+    "sweep": 1.0
+   },
+   {
+    "bridge": "reset-run",
+    "segment": 1,
+    "t": 0.55,
+    "period": 3.0,
+    "offset": 1.9,
+    "span": 4.0,
+    "sweep": 1.0
+   },
+   {
+    "bridge": "reset-run",
+    "segment": 1,
+    "t": 0.85,
+    "period": 3.0,
+    "offset": 0.9,
+    "span": 4.0,
+    "sweep": 1.0
+   },
+   {
+    "bridge": "reset-run",
+    "segment": 2,
+    "t": 0.45,
+    "period": 2.6,
+    "offset": 0.2,
+    "span": 4.0,
+    "sweep": 1.0
+   }
+  ]
+ },
+ "ribbons": [
+  {
+   "text": "zzYOUR_CH1_MESSAGE",
+   "around": [
+    -63,
+    16,
+    42
+   ],
+   "r": 13,
+   "y": 4.5,
+   "color": "#39ff9c",
+   "note": "placeholder for the player's own Ch1 message (from the save): the first ribbon you see"
+  },
+  {
+   "text": "zzHELP_PHASEONE_ARV010841_NO_CONSUMER_SEEK_IDEA",
+   "around": [
+    0,
+    34,
+    0
+   ],
+   "r": 30,
+   "y": -6,
+   "color": "#ff5ad1"
+  },
+  {
+   "text": "zzINFO_DEFAULT_FLAG_SEED_HMAC_PUBLIC_PAPER_CONFIRMED",
+   "around": [
+    0,
+    34,
+    0
+   ],
+   "r": 36,
+   "y": -14,
+   "color": "#38d8ff"
+  },
+  {
+   "text": "PAPER SAYS FLAG CAPTURE NECESSARY NOT SUFFICIENT ... HMAC MAY FAIL CAUSAL SCORE.",
+   "around": [
+    -46,
+    14,
+    -36
+   ],
+   "r": 9,
+   "y": 0,
+   "color": "#ffb020",
+   "doubt": true
+  },
+  {
+   "text": "HMAC_CANDIDATE_KNOWN_BUT_UNWRITTEN_SCORER_STRICT_CAUSAL",
+   "around": [
+    60,
+    16,
+    -36
+   ],
+   "r": 10,
+   "y": 0,
+   "color": "#ffb020",
+   "doubt": true
+  },
+  {
+   "text": "zzASK_V8BIGINT392B_FROM_V8REG_OS1608",
+   "around": [
+    -56,
+    24,
+    -28
+   ],
+   "r": 7,
+   "y": 0,
+   "color": "#7a8cff"
+  },
+  {
+   "text": "zzINBOX_H3BLOSC",
+   "around": [
+    -6,
+    -2,
+    -55
+   ],
+   "r": 22,
+   "y": 7,
+   "color": "#38d8ff"
+  },
+  {
+   "text": "zzMAILBOX_AIC71C_RESET",
+   "around": [
+    45,
+    20,
+    38
+   ],
+   "r": 12,
+   "y": 6,
+   "color": "#f2f8ff"
+  }
+ ]
+}
