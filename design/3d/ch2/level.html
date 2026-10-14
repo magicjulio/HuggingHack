@@ -73,6 +73,7 @@
 <script src="ch2-island-m.glb.js"></script>
 <script src="ch2-island-l.glb.js"></script>
 <script src="layout.js"></script>
+<script src="../depot/ch1-depot.glb.js"></script>
 <script type="importmap">
 {"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/"}}
 </script>
@@ -101,6 +102,7 @@ import { createFlood } from './world/flood.js';
 import { createRibbons } from './world/ribbons.js';
 import { createForge } from './world/forge.js';
 import { createPlayerOrb } from './world/playerOrb.js';
+import { createDecor } from './world/decor.js';
 import { waveHit, liftY, slabAt } from './world/motion.js';
 
 const L = window.LAYOUT;
@@ -169,7 +171,8 @@ function segSurface(a, b, w, owner) {
 const loader = new GLTFLoader();
 const b64 = (s) => Uint8Array.from(atob(s), c => c.charCodeAt(0)).buffer;
 const load = (name) => new Promise((ok, no) => loader.parse(b64(window.GLB[name]), '', g => ok(g.scene), no));
-const islandsW = createIslands({ layout: L, U, models: { s: await load('ch2-island-s'), m: await load('ch2-island-m'), l: await load('ch2-island-l') } });
+const MODELS = { s: await load('ch2-island-s'), m: await load('ch2-island-m'), l: await load('ch2-island-l') };
+const islandsW = createIslands({ layout: L, U, models: MODELS });
 scene.add(islandsW.object);
 const { labels } = islandsW, islands = islandsW.byId, islandList = islandsW.list;
 // this page's physics: colliders from the module's outlines; tilt + sink are ours and go back in as state
@@ -183,6 +186,10 @@ const tiltState = () => { const s = {}; for (const isl of tilters) s[isl.id] = {
 const bridgesW = createBridges({ layout: L, U }); scene.add(bridgesW.object);
 const bridges = bridgesW.byId;
 for (const br of Object.values(bridges)) for (let i = 0; i < br.samples.length - 1; i++) segSurface(br.samples[i], br.samples[i + 1], br.def.width, { id: br.def.id });
+
+// ------------------------------------------------------------------------------------------- the mood pass decorations Julius kept (./world/decor.js); &nodecor hides them
+const decorW = createDecor({ layout: L, U, models: MODELS, depot: window.GLB['ch1-depot'] ? await load('ch1-depot') : null });
+decorW.object.visible = !Q.has('nodecor'); scene.add(decorW.object);
 
 // ------------------------------------------------------------------------------------------- the Gate's zz folders, the Yard's neighbours, the stray crate: world module (./world/props.js)
 const propsW = createProps({ layout: L, U, islands }); scene.add(propsW.object);
@@ -419,7 +426,7 @@ renderer.setAnimationLoop(() => {
 
   oldBoard.update(t, dt);
   for (const lf of lifts) { const y = liftY(lf.d, t); lf.surf.delta.set(0, y - lf.surf.c.y, 0); lf.surf.c.y = y; }
-  liftsW.update(t, dt, {}); forge.update(t, dt, { power: 1 }); pickupsW.update(t, dt, { items: itemState }); padsW.update(t, dt, { active: lastPad.d.id }); propsW.update(t, dt); ribbonsW.update(t, dt);
+  liftsW.update(t, dt, {}); forge.update(t, dt, { power: 1 }); pickupsW.update(t, dt, { items: itemState }); padsW.update(t, dt, { active: lastPad.d.id }); propsW.update(t, dt); ribbonsW.update(t, dt); if (decorW.object.visible) decorW.update(t, dt);
   npcsW.update(t, dt, npcState);
   bubbleT += dt; if (bubbleT > 4.2) { bubbleT = 0; bubbleI = (bubbleI + 1) % BUBBLE_LINES.length; setBubble(bubbleI); }
   for (const sp of handles.children) sp.position.copy(sp.userData.obj.position).add(V(0, sp.userData.h, 0));
