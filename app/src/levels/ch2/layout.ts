@@ -12,9 +12,22 @@
  */
 import { CatmullRomCurve3, Vector3 } from 'three';
 import { ngon, rect, type SurfaceDef, type V2, type V3 } from '../../engine/platformer';
-import L from './layout.json';
+import RAW from './layout.json';
 // the designer's pure motion formulas (verbatim copy): the game hits with what the world draws
 import { liftY as liftYOf, slabAt, waveStations } from './world/motion.js';
+
+/**
+ * App-side changes to the designer's data (Julius, DECISIONS 2026-10-14): the forge fight has one
+ * red laser lane, sweeping left to right (`forge-ew`); `forge-ns` is dropped. Remove this once
+ * layout.json itself carries it.
+ */
+const L = {
+  ...RAW,
+  forgeFight: {
+    ...RAW.forgeFight,
+    waveLanes: RAW.forgeFight.waveLanes.filter((l) => l.id === 'forge-ew'),
+  },
+};
 
 export const LAYOUT = L;
 /** Movement numbers (designer's `physics` block; config.ts turns them into the body params). */
@@ -439,10 +452,11 @@ export function cratesFor(installed: string[]): Crate[] {
   const spots = L.pickups.filter((p) => p.kind === 'crate');
   const spares = L.crateSpares.map(v3);
   const out: Crate[] = [];
-  installed.forEach((label, i) => {
+  installed.forEach((label) => {
     const spot = spots.find((s) => 'label' in s && s.label === label);
     const pos = spot ? v3(spot.pos) : spares.shift();
-    if (pos) out.push({ label, position: pos, yaw: (i * 1.7) % TAU });
+    // the designer's crate mesh turns by label (pickups.js); the box collider turns with it
+    if (pos) out.push({ label, position: pos, yaw: (label.length * 1.7) % TAU });
   });
   return out;
 }

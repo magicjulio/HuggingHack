@@ -12,16 +12,18 @@ import { useGame } from '../../state/store';
 import type { LevelProps } from '../index';
 import { Ch2Context, useCh2, useCh2Store } from './context';
 import { CAMERA, RENDER, TEXT } from './config';
-import { ITEMS, LAYOUT, NPCS, SPAWN_YAW } from './layout';
+import { ITEMS, LAYOUT, NPCS, SPAWN, SPAWN_YAW } from './layout';
 import { createCh2Store, type Target } from './store';
 import { ORB_LIFT, WORLD_RENDER, World, preloadCh2 } from './World';
-import { IntroOverlay } from './Screen';
+import { IntroOverlay } from './Intro';
 import { CutsceneOverlay } from './Cutscene';
 import { Rendering } from './Rendering';
-import { FIXED_QUALITY, qualityDpr, type QualityTier } from './presentation';
+import { FIXED_QUALITY, REDUCED_MOTION, qualityDpr, type QualityTier } from './presentation';
 import { camPose, stage } from './world/step7.js';
+import { camPose as introCamPose, orbPos as introOrbPos } from './world/step0.js';
 import { Ch2Hud } from './hud/Ch2Hud';
 import { ScreenProjector } from './hud/screen';
+import { Sound } from './Sound';
 import './ch2.css';
 
 /** Ch1 tools a player must have installed to finish Ch1 (fallback for older saves). */
@@ -65,7 +67,7 @@ export default function Chapter2(props: LevelProps) {
   }, [store]);
   return (
     <Ch2Context.Provider value={store}>
-      <Ch2View {...props} ch1Message={ch1Message} />
+      <Ch2View {...props} ch1Message={ch1Message} installed={installed} />
     </Ch2Context.Provider>
   );
 }
@@ -79,7 +81,29 @@ function Ticker({ paused }: { paused: boolean }) {
   return null;
 }
 
-/** Third-person camera on the orb; the cutscene takes it over with a slow orbit. */
+/**
+ * The play camera at the spawn (= ThirdPerson's pose for the start yaw and pitch): the Step 0
+ * director ends exactly there, so the intro hands over without a jump.
+ */
+function playPose() {
+  const [x, y, z] = SPAWN.position;
+  const ty = y + ORB_LIFT,
+    cp = Math.cos(CAMERA.startPitch);
+  return {
+    pos: [
+      x + Math.sin(SPAWN_YAW) * cp * CAMERA.distance,
+      ty + CAMERA.height + Math.sin(CAMERA.startPitch) * CAMERA.distance,
+      z + Math.cos(SPAWN_YAW) * cp * CAMERA.distance,
+    ],
+    look: [x, ty + CAMERA.height * 0.45, z],
+  };
+}
+const PLAY_POSE = playPose();
+
+/**
+ * Third-person camera on the orb. Step 0 (tornado) and Step 7 (slow orbit) take it over with
+ * their directors' poses.
+ */
 function Camera({
   enabled,
   view,
@@ -94,9 +118,21 @@ function Camera({
   useFrame(() => {
     store.sim.yaw = view.yaw;
   });
-  /** §Step 7: pull back into a slow orbit around the orb. */
   const override = (): CameraOverride | null => {
     const s = store.getState();
+    if (s.phase === 'intro') {
+      // §Step 0: above the funnel, falling with the orb, settling on the play camera
+      const o = introOrbPos(s.introT, LAYOUT, REDUCED_MOTION);
+      const c = introCamPose(
+        s.introT,
+        LAYOUT,
+        [o[0], o[1] + ORB_LIFT, o[2]],
+        PLAY_POSE,
+        REDUCED_MOTION,
+      );
+      return { position: c.pos, target: c.look, fov: c.fov, immediate: true } as CameraOverride;
+    }
+    /** §Step 7: pull back into a slow orbit around the orb. */
     if (s.phase !== 'cutscene' && s.phase !== 'ended') return null;
     const c = camPose(s.cutT, stage(LAYOUT).centre, orbPosition.toArray());
     return {
@@ -139,7 +175,12 @@ function Shooter({ canvas }: { canvas: React.RefObject<HTMLCanvasElement | null>
   return null;
 }
 
-function Ch2View({ color, onExit, ch1Message }: LevelProps & { ch1Message: string }) {
+function Ch2View({
+  color,
+  onExit,
+  ch1Message,
+  installed,
+}: LevelProps & { ch1Message: string; installed: string[] }) {
   const store = useCh2Store();
   const s = useCh2((x) => x);
   const status = useGame((g) => g.save.status);
@@ -233,13 +274,19 @@ function Ch2View({ color, onExit, ch1Message }: LevelProps & { ch1Message: strin
         gl={{ antialias: false, powerPreference: 'high-performance' }}
         onCreated={({ gl }) => (canvasEl.current = gl.domElement)}
       >
-        <SceneWorld color={color} ch1Message={ch1Message} orbPosition={orbPosition} />
+        <SceneWorld
+          color={color}
+          ch1Message={ch1Message}
+          installed={installed}
+          orbPosition={orbPosition}
+        />
         <SceneCamera
           enabled={s.phase === 'play' && !paused && !s.fullMap}
           view={view}
           orbPosition={orbPosition}
         />
         <ScreenProjector />
+        <Sound quiet={paused || s.fullMap} ch1Message={ch1Message} />
         <Shooter canvas={canvasEl} />
         <Ticker paused={paused || s.fullMap} />
         <SceneRendering

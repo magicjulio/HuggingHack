@@ -14,34 +14,13 @@
 .ch2{background:#03050b}
 
 /* ---------- world labels in DOM ---------- */
-.ch2-counter{font:700 22px var(--font-display);letter-spacing:.15em;color:#ff7a3d;text-shadow:0 0 12px rgba(255,122,61,.6);white-space:nowrap}
-.ch2-roundbar{width:220px;font:700 11px var(--font-display);letter-spacing:.25em;color:var(--color-hack-green);text-align:center}
-.ch2-roundbar i{display:block;height:6px;margin-top:4px;background:var(--color-hack-green);box-shadow:var(--glow-green);transition:width .2s}
-.ch2-match{padding:.5rem .7rem;background:rgba(6,12,24,.86);border:1px solid var(--color-hug-yellow);font:12px var(--font-mono);white-space:nowrap}
-.ch2-match-row b{display:inline-block;width:6rem;color:var(--color-hug-yellow);font-weight:400}
-.ch2-match-row span{color:var(--color-text-faint);transition:color .2s}
-.ch2-match-row span.lit{color:var(--color-hack-green);text-shadow:0 0 6px var(--color-hack-green)}
 
 /* ---------- hits ---------- */
 .ch2-reset{position:fixed;left:50%;top:40%;transform:translate(-50%,-50%);z-index:13;font:700 var(--fs-lg) var(--font-display);letter-spacing:.5em;color:#f2f8ff;text-shadow:0 0 18px #fff;pointer-events:none;animation:ch2-in .2s}
 .ch2-click-hint{position:absolute;left:50%;top:calc(50% + 2.2rem);transform:translateX(-50%);padding:.35rem .8rem;background:var(--color-panel);border:1px solid var(--color-line);font-size:var(--fs-xs);letter-spacing:.15em;text-transform:uppercase;color:var(--color-text-dim);pointer-events:none;z-index:20}
 
-/* ---------- Step 0 intro (PLACEHOLDER until the designer's) ---------- */
-.ch2-intro{position:fixed;inset:0;z-index:40;display:grid;place-items:center;background:#03050b;font-family:var(--font-mono)}
-.ch2-intro-list{width:min(720px,86vw);padding:1rem;border:1px solid var(--color-line-strong);background:var(--color-panel-solid);display:flex;flex-direction:column;gap:.4rem;font-size:var(--fs-sm);transition:border-color 1s}
-.ch2-intro-row{padding:.3rem .5rem;white-space:nowrap;overflow:visible}
-.ch2-intro-row.is-old{color:var(--color-hack-green)}
-.ch2-intro-row.is-reply{color:var(--color-signal-cyan);background:rgba(56,216,255,.08)}
-.ch2-intro-row.is-reply span{display:inline-block;animation:ch2-type .02s both;animation-delay:calc(var(--i) * 18ms)}
-@keyframes ch2-type{from{opacity:0}}
-.ch2-intro-list.is-pulling{border-color:transparent;background:transparent}
-.ch2-intro-list.is-pulling .is-old{opacity:.2;transition:opacity 1s}
-.ch2-intro-list.is-pulling .is-reply span{animation:ch2-whirl 2.4s cubic-bezier(.6,0,.9,.4) both;animation-delay:calc(var(--i) * 12ms)}
-@keyframes ch2-whirl{
-  0%{transform:none;opacity:1}
-  100%{transform:translate(calc((var(--n) / 2 - var(--i)) * .55em), 20vh) rotate(calc(var(--i) * 47deg)) scale(.1);opacity:0}
-}
-.ch2-intro-skip{position:absolute;bottom:4vh;font-size:var(--fs-xs);color:var(--color-text-faint);letter-spacing:.15em}
+/* ---------- Step 0 intro: the designer's .c2-intro kit (ui/ch2-ui.css); only its place in the stack */
+.ch2-intro-layer{z-index:40}
 
 /* ---------- accepted Step 7 film: layout wrappers only (visual kit is verbatim) ---------- */
 .ch2{--c2-letterbox:10vh}

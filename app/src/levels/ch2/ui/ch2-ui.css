@@ -329,3 +329,27 @@
 .c2-subt{position:absolute;left:50%;bottom:calc(var(--c2-letterbox,10vh) / 2);transform:translate(-50%,50%);z-index:25;font:400 clamp(15px,1.3vw,22px)/1.5 var(--font-mono);color:#d7e6ff;text-align:center;max-width:70vw;
   text-shadow:0 2px 8px #000;opacity:0;transition:opacity .8s;padding:0 .9em}
 .c2-subt.on{opacity:1}
+
+/* ───────────── Step 0 intro (slice D): the Ch1 depot list, the reply, its letters streaming into the tornado ─────────────
+   Layering: canvas < .c2-intro__dim (z 1) < .c2-intro__win (z 3) < hint/skip (z 6) < .c2-intro__flash (z 10).
+   --frame (1 → 0) dissolves the window around the reply's letters, which keep flying (transforms from step0.letterPose). */
+.c2-intro{position:fixed;inset:0;pointer-events:none;overflow:hidden}
+.c2-intro__dim{position:absolute;inset:0;z-index:1;background:radial-gradient(ellipse at 50% 42%,#071019 0,#020409 60%,#000 100%)}
+.c2-intro__win{position:absolute;left:50%;top:42%;transform:translate(-50%,-50%);z-index:3;--frame:1;
+  background:color-mix(in srgb,var(--color-panel-solid) calc(var(--frame)*100%),transparent);border-color:color-mix(in srgb,var(--color-line-strong) calc(var(--frame)*100%),transparent);
+  box-shadow:0 0 0 1px rgba(0,0,0,var(--frame)),0 20px 60px rgba(0,0,0,calc(var(--frame)*.6))}
+.c2-intro__win > .c1-win__bar,.c2-intro__win .c1-depot__tools{opacity:var(--frame);transition:none}
+.c2-intro .c1-list{overflow:visible;max-height:none}
+.c2-intro__path{color:var(--color-text-faint);letter-spacing:.06em;text-transform:none;font-size:.92em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:62%}
+.c2-intro__win.is-open .c2-intro__path{color:#ffb3ea}
+.c2-intro__win .c1-row{transition:opacity .4s}
+.c2-intro__win .c1-row:not(.c2-intro__reply){opacity:var(--frame)}
+.c2-intro__win.is-open .c1-row:not(.c2-intro__reply){opacity:calc(var(--frame)*.22);filter:blur(1px)}
+.c2-intro__reply{animation:c1-newrow 1.4s ease-out;background:linear-gradient(90deg,rgba(255,90,209,calc(var(--frame)*.16)),transparent 70%);border-left-color:color-mix(in srgb,#ff5ad1 calc(var(--frame)*100%),transparent)}
+.c2-intro__win.is-open .c2-intro__reply{background:linear-gradient(90deg,rgba(255,90,209,calc(var(--frame)*.32)),rgba(255,90,209,calc(var(--frame)*.06)) 80%);box-shadow:inset 0 0 0 1px rgba(255,90,209,calc(var(--frame)*.5))}
+.c2-intro__reply .c1-row__name{color:#ffd6f4;animation:none}
+.c2-intro__reply .c1-row__meta{opacity:var(--frame)}
+.c2-intro__l{display:inline-block;white-space:pre;will-change:transform;text-shadow:0 0 10px rgba(255,90,209,.7)}
+.c2-intro__flash{position:absolute;inset:0;z-index:10;background:#fff}
+.c2-intro__hint{position:absolute;right:var(--space-3);top:var(--space-3);z-index:6;opacity:0;font:700 var(--fs-xs) var(--font-mono);color:var(--color-text-dim);letter-spacing:.12em}
+.c2-intro__skip{position:absolute;right:var(--space-3);bottom:var(--space-3);z-index:6;font:400 var(--fs-xs) var(--font-mono);color:var(--color-text-faint);letter-spacing:.14em;opacity:.7}

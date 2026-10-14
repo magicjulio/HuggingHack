@@ -52,6 +52,8 @@ export interface Bit {
   t: number;
   /** Forge-fight bits give up after this long (seconds of chasing) and drift off; null = never. */
   life: number | null;
+  /** Index in layout `hazards.floodBits` (the Flood's own bits; the view draws them by it). */
+  spot?: number;
 }
 export interface Spit {
   pos: Vector3;

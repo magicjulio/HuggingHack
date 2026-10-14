@@ -114,6 +114,12 @@ export type Ch2Event =
   | { type: 'cutscene_done' }
   | { type: 'respawned'; why: 'fell' | 'reset' | 'empty' };
 
+/** A sound moment for the view (designer's sfx.js one-shot name + options). */
+export interface SoundCue {
+  name: string;
+  opts?: Record<string, unknown>;
+}
+
 export interface Sim {
   world: PlatformWorld;
   body: Body;
@@ -123,6 +129,8 @@ export interface Sim {
   spits: Spit[];
   /** Camera yaw (for the minimap arrow). */
   yaw: number;
+  /** Sound moments since the view last read them (it empties the queue every frame). */
+  sounds: SoundCue[];
 }
 
 export interface Ch2State {
@@ -238,9 +246,14 @@ export function createCh2Store(opts: Ch2Options = {}): Ch2Store {
     world: new PlatformWorld(buildSurfaces(opts.installed ?? [])),
     body: createBody(SPAWN.position),
     input: { move: [0, 0], jump: false, dash: false },
-    bits: FLOOD_BITS.map((p) => makeBit(p)),
+    bits: FLOOD_BITS.map((p, spot) => ({ ...makeBit(p), spot })),
     spits: [],
     yaw: 0,
+    sounds: [],
+  };
+  /** Queue a sound moment (bounded: headless runs never read the queue). */
+  const sound = (name: string, opts?: SoundCue['opts']) => {
+    if (sim.sounds.length < 64) sim.sounds.push({ name, opts });
   };
   for (const id of TILT_FROM_ROUND_3) sim.world.byId(id)!.tiltOn = false;
   let spawnCycle = 0;
@@ -282,6 +295,7 @@ export function createCh2Store(opts: Ch2Options = {}): Ch2Store {
       const pad = PADS.find((p) => p.id === get().lastPad) ?? SPAWN;
       placeBody(sim.body, pad.position);
       sim.spits.length = 0;
+      sound('respawned', { why });
       if (why === 'empty') set({ tokens: TOKENS.respawnAt0 });
       set({ respawn: { why, at: get().time } });
       runner.dispatch({ type: 'respawned', why });
@@ -398,8 +412,10 @@ export function createCh2Store(opts: Ch2Options = {}): Ch2Store {
       shoot: (origin, dir) => {
         if (get().phase !== 'play') return false;
         spend(TOKENS.shot);
+        sound('shoot');
         const hit = shotTarget(sim.bits, origin, dir);
         if (!hit) return false;
+        sound('muted');
         hit.state = 'muted';
         hit.t = 0;
         get().addTokens(TOKENS.mute);
@@ -458,11 +474,13 @@ export function createCh2Store(opts: Ch2Options = {}): Ch2Store {
         const spot = ITEMS.find((i) => i.id === id)!;
         if (spot.kind === 'decoy') {
           set((x) => ({ items: { ...x.items, [id]: 'crumbled' } }));
+          sound('crumble');
           spend(TOKENS.decoy);
           get().addLog(LOG.dropped(spot.label));
           return;
         }
         set((x) => ({ items: { ...x.items, [id]: 'taken' }, inventory: [...x.inventory, id] }));
+        sound('item_taken');
         get().addLog(LOG.took(spot.label));
         if (id === 'seed') {
           get().setQuestText('seed', TEXT.questSeed(1));
@@ -512,6 +530,7 @@ export function createCh2Store(opts: Ch2Options = {}): Ch2Store {
         const ev = stepBody(b, input, sim.world, BODY, h);
         input.dash = false;
         for (const e of ev) {
+          sound(e.type, e.type === 'land' ? { speed: e.speed } : undefined);
           if (e.type === 'dash') spend(TOKENS.dash);
           if (e.type === 'fell') {
             spend(TOKENS.fall);
@@ -544,17 +563,20 @@ export function createCh2Store(opts: Ch2Options = {}): Ch2Store {
       for (const pad of PADS) {
         const d = Math.hypot(b.pos.x - pad.position[0], b.pos.z - pad.position[2]);
         const dy = Math.abs(b.pos.y - pad.position[1]);
-        if (d < PAD_RADIUS && dy < PAD_HEIGHT && get().lastPad !== pad.id)
+        if (d < PAD_RADIUS && dy < PAD_HEIGHT && get().lastPad !== pad.id) {
+          if (!get().padsSeen.includes(pad.id)) sound('pad');
           set((s) => ({
             lastPad: pad.id,
             padsSeen: s.padsSeen.includes(pad.id) ? s.padsSeen : [...s.padsSeen, pad.id],
           }));
+        }
       }
       const orb = orbCentre();
       TOKEN_ORBS.forEach((p, i) => {
         if (get().orbsTaken.includes(i)) return;
         if (orb.distanceTo(new Vector3(...p)) < TOKEN_ORB_RADIUS) {
           set((s) => ({ orbsTaken: [...s.orbsTaken, i] }));
+          sound('token');
           get().addTokens(TOKENS.tokenOrb);
         }
       });
@@ -578,12 +600,14 @@ export function createCh2Store(opts: Ch2Options = {}): Ch2Store {
         if (cloudAcc >= 1) {
           cloudAcc -= 1;
           hurt(1, 'cloud');
+          sound('cloud_tick');
         }
       } else cloudAcc = 0;
       // reset waves (dashing goes through them)
       const lanes = [...RUN_WAVES, ...(round >= 2 ? FORGE_WAVES : [])];
       if (b.dashLeft <= 0 && lanes.some((l) => waveHits(l, t, b.pos))) {
         hurt(TOKENS.resetHit);
+        sound('reset');
         get().addLog(LOG.reset);
         if (get().phase === 'play') respawn('reset');
       }
@@ -595,8 +619,12 @@ export function createCh2Store(opts: Ch2Options = {}): Ch2Store {
         fighting ? new Vector3(...FORGE_HEART) : null,
         dt,
       );
-      if (playerHits) hurt(TOKENS.bitHit * playerHits);
+      if (playerHits) {
+        hurt(TOKENS.bitHit * playerHits);
+        sound('hit');
+      }
       if (forgeHits && fighting) {
+        sound('forge_rewind');
         const f = get().forge;
         // §Step 6: a rewound round always finishes: at worst it takes `maxRoundFactor` × as long
         const least = f.t / (TIMING.roundSeconds * TIMING.maxRoundFactor);
@@ -626,6 +654,7 @@ export function createCh2Store(opts: Ch2Options = {}): Ch2Store {
     // ------------------------------------------------------------ NPC posts
     function startDialogue(npc: NpcId) {
       set({ dialogue: { npc, line: 0, t: 0 } });
+      sound('talk');
       get().addLog(LOG.read(TEXT.c03220[0]));
     }
 
@@ -641,6 +670,7 @@ export function createCh2Store(opts: Ch2Options = {}): Ch2Store {
         return;
       }
       set({ dialogue: { ...d, line, t: 0 } });
+      sound('talk');
       get().addLog(LOG.read(TEXT.c03220[line]));
     }
 
@@ -656,6 +686,7 @@ export function createCh2Store(opts: Ch2Options = {}): Ch2Store {
         forge: { ...x.forge, slots: x.forge.slots + 1 },
       }));
       get().addLog(LOG.forgeIn(label));
+      sound('slot_in');
       if (get().forge.slots === FORGE_INPUTS.length) {
         set({
           forge: { phase: 'forging', slots: 4, round: 1, progress: 0, t: 0 },
@@ -664,6 +695,7 @@ export function createCh2Store(opts: Ch2Options = {}): Ch2Store {
         });
         spawnLeft = 1;
         get().addLog(LOG.round(1));
+        sound('forge_started');
         runner.dispatch({ type: 'forge_started' });
       }
     }
@@ -673,6 +705,10 @@ export function createCh2Store(opts: Ch2Options = {}): Ch2Store {
       if (f.phase === 'idle' || f.phase === 'ready' || f.phase === 'done') return;
       const t = f.t + dt;
       if (f.phase === 'proof') {
+        // the pairs light up over the first 80 % (forge.js), one tick each
+        const pair = (x: number) =>
+          Math.min(16, Math.floor((x / (TIMING.proofSeconds * 0.8)) * 16));
+        if (pair(t) > pair(f.t)) sound(pair(t) === 16 ? 'proof_done' : 'proof_tick');
         if (t >= TIMING.proofSeconds) {
           set({ forge: { ...f, phase: 'ready', t: 0 } });
           get().addThought(TEXT.proofThought);
@@ -683,6 +719,7 @@ export function createCh2Store(opts: Ch2Options = {}): Ch2Store {
       if (f.phase === 'forging') {
         const progress = f.progress + dt / TIMING.roundSeconds;
         if (progress < 1) return set({ forge: { ...f, t, progress } });
+        sound('round_done', { n: f.round });
         runner.dispatch({ type: 'round_done', n: f.round });
         if (f.round < 3) {
           const round = f.round + 1;
@@ -696,12 +733,14 @@ export function createCh2Store(opts: Ch2Options = {}): Ch2Store {
         sim.spits.length = 0;
         for (const id of TILT_FROM_ROUND_3) sim.world.byId(id)!.tiltOn = false;
         set({ forge: { ...f, phase: 'absorb', progress: 1, t: 0 } });
+        sound('flag_fly');
         return;
       }
       if (f.phase === 'absorb') {
         if (t >= TIMING.absorbSeconds) {
           set({ forge: { ...f, phase: 'done', t: 0 } });
           get().completeQuest('forge-sub');
+          sound('flag_in_orb');
           runner.dispatch({ type: 'flag_in_orb' });
         } else set({ forge: { ...f, t } });
       }

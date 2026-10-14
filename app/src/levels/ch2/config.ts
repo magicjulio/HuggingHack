@@ -7,6 +7,7 @@ import { DEFAULT_BODY, type BodyParams } from '../../engine/platformer';
 import { PHYSICS } from './layout';
 // Designer's accepted film is the timing authority for the store and every view.
 export { CUT as CUTSCENE } from './world/step7.js';
+import { T0 as INTRO_T0 } from './world/step0.js';
 
 export const TOKENS = {
   // §Tokens
@@ -65,7 +66,7 @@ export const CAMERA = {
 };
 
 export const TIMING = {
-  introSeconds: 7, // (engineer) Step 0: reply appears, letters stream in, fade to the void
+  introSeconds: INTRO_T0.end, // Step 0: the designer's tornado intro (world/step0.js T0)
   dialogueLine: 3.4, // (engineer) seconds per bubble line; E skips ahead
   proofSeconds: 9, // (engineer) Step 6: V8SAME's flags light up pair by pair
   roundSeconds: 15, // §Step 6: three rounds of about 15 s

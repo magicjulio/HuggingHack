@@ -5,7 +5,7 @@ Read with: `README.md` (how to run), `docs/DECISIONS.md` (engineer entries), `ha
 ## Stack
 Vite + TypeScript + React 19 + React Three Fiber (Three.js, drei), zustand, Vitest, Playwright (local Chrome), ESLint + Prettier.
 Also: @react-three/postprocessing (bloom + AgX tone mapping; `?nofx` turns it off).
-Planned, not installed yet: GSAP (animation), Howler.js (audio) — add when first needed (CSS animations suffice so far; no sounds yet).
+Audio: the designer's `levels/ch2/ui/sfx.js` (WebAudio synth, no files, no library). Planned, not installed yet: GSAP (animation) — add when first needed.
 
 ## Layout
 ```
@@ -49,13 +49,15 @@ src/
       store.ts           state + `sim` (mutable body/world/bits, read per frame) + rules: tokens, pads, pickups,
                          c03220's posts, forge rounds, cutscene beats
       steps.ts           the chain (pickups checked by state, so wandering ahead is fine) + `goalOf` for the map
-      world/*.js         designer world modules, VERBATIM copies (env + RENDER, islands, bridges, lasers,
-                         clouds, forge, playerOrb, fxFlashback, step7 director, npcs, crowd, trails, agents, util, motion.js = pure motion formulas); not linted/formatted
-      World.tsx          3D views: `WorldModule` mounts a designer module (create after fonts → object →
-                         update(t, dt, state) → dispose); PLACEHOLDER views for the rest; `Anchor` = drei Html
-      Screen.tsx         Step 0 intro (PLACEHOLDER; tornado export pending)
+      world/*.js         designer world modules, VERBATIM copies (env + RENDER, decor, islands, props, bridges, lasers,
+                         clouds, oldBoard, pads + lifts, pickups, flood, ribbons, forge, playerOrb, npcs, crowd, trails,
+                         agents, util, tornado; pure: motion.js = motion formulas, step0.js / step7.js = film directors); not linted/formatted
+      World.tsx          3D views, all designer modules: `WorldModule` mounts one (create after fonts → object →
+                         update(t, dt, state) → dispose); `sceneClock` = game time that also runs in the intro
+      Intro.tsx          Step 0 tornado intro DOM (designer's .c2-intro markup, driven by step0.js `direct`)
+      Sound.tsx          plays `sim.sounds` + loops + the films' cue lists with ui/sfx.js
       hud/               accepted HUD port: tokens, quests, dialogue, log, inventory, map + poison layers
-      ui/                designer CSS, icons.js and map.js, copied verbatim
+      ui/                designer CSS, icons.js, map.js and sfx.js, copied verbatim
       Cutscene.tsx       accepted Step 7 DOM: memories (real Ch1 prompt), echoes, letterbox, subtitles, fade
       Rendering.tsx      bloom + AgX, separate FlashbackEffect pass, early still/shader warm-up, quality monitor
       presentation.ts    memory URLs + quality tiers; Canvas owns DPR so HUD updates cannot reset it
@@ -85,7 +87,7 @@ Adding a designer model: copy the .glb to `src/assets/models/`, `useGLTF(url)` i
 
 ## Chapter 2 in one paragraph
 Same store + steps + views shape, plus a mutable `store.sim` (platform world, body, input, bits, spits) that changes every frame and is read by views in `useFrame`/rAF, never through React. `tick(dt)` steps the physics in ≤ 1/60 s sub-steps, then hazards, forge, targeting, steps. Views write only `sim.input` (ThirdPerson) and call actions (`use`, `shoot`, `think`, `toggleMap`, `travel`).
-**The level is the designer's `layout.json`** (DECISIONS 2026-10-14). `layout.ts` adapts it; ids map 1:1 except pickups (`ITEM_IDS`: `piece-7731` → `p7731` …) and NPCs (`FLAC38347` → `flac`). Islands, bridges, slabs and lifts are `solid: false` (floors, like the designer's page). Movement numbers come from its `physics` block (config.ts `BODY`). **New layout.json version:** copy it over verbatim, run `npx vitest run src/levels/ch2` (reach.test.ts walks the golden path), look at it. **World visuals = the designer's modules** in `world/` (contract `handoff/app-to-design/2026-10-14-ch2-world-as-modules.md`): `createX(ctx) → {object, update(t, dt, state), dispose()}`. New version: copy `handoff/design-to-app/assets/ch2/world/*.js` over verbatim. Mount a new one with `<WorldModule create={…} state={() => …} clock="game"|"render" U={U} />` in World.tsx: `clock="game"` (store time) for anything that hits, so it matches the rules; `U` (uTime, uPsy) is the app's. `world/util.js` touches OffscreenCanvas at import, so only the pure `motion.js` and `step7.js` may be imported by rules/tests. Render settings (camera, fog, bloom, env) come from `env.js` `RENDER` (`WORLD_RENDER`). Still placeholders: Old Board, pickups, pads, ribbons, bits and Step 6 proof/absorption (designer part 3 + remaining forge slice). Forge and playerOrb modules are integrated; Step 7 uses step7.js and a separate fxFlashback effect pass. Dev hook `window.__ch2view.yaw/pitch` turns the camera. Screen layer slots: §4 of `2026-10-13-ch2-greybox-and-contract.md`. Dev hook: `window.__ch2` (store; `__ch2.sim` for the body).
+**The level is the designer's `layout.json`** (DECISIONS 2026-10-14). `layout.ts` adapts it; ids map 1:1 except pickups (`ITEM_IDS`: `piece-7731` → `p7731` …) and NPCs (`FLAC38347` → `flac`). Islands, bridges, slabs and lifts are `solid: false` (floors, like the designer's page). Movement numbers come from its `physics` block (config.ts `BODY`). **New layout.json version:** copy it over verbatim, run `npx vitest run src/levels/ch2` (reach.test.ts walks the golden path), look at it. **World visuals = the designer's modules** in `world/` (contract `handoff/app-to-design/2026-10-14-ch2-world-as-modules.md`): `createX(ctx) → {object, update(t, dt, state), dispose()}`. New version: copy `handoff/design-to-app/assets/ch2/world/*.js` over verbatim. Mount a new one with `<WorldModule create={…} state={() => …} clock="game"|"render" U={U} />` in World.tsx: `clock="game"` (store time) for anything that hits, so it matches the rules; `U` (uTime, uPsy) is the app's. `world/util.js` touches OffscreenCanvas at import, so only the pure `motion.js` and `step7.js` may be imported by rules/tests. Render settings (camera, fog, bloom, env) come from `env.js` `RENDER` (`WORLD_RENDER`). No placeholder view is left: every world view is a designer module, the Step 0 intro runs on step0.js (camera override ends on the play pose), Step 6 on forge.js phases, Step 7 on step7.js and a separate fxFlashback effect pass. Sound: the store pushes one-shot names into `sim.sounds` at the source (never WebAudio in the store); `Sound.tsx` empties the queue each frame. Dev hook `window.__ch2view.yaw/pitch` turns the camera. Screen layer slots: §4 of `2026-10-13-ch2-greybox-and-contract.md`. Dev hook: `window.__ch2` (store; `__ch2.sim` for the body).
 
 ## Conventions
 - **Swappable views** (Julius 2026-10-13): assets and levels change; a placeholder (e.g. ch2's NPC agents as glowing spheres) gets replaced by a detailed model later. Keep state and behaviour in the store/logic, and give each visible thing one view component behind a small stable interface (pose, state, colour, events) that the placeholder and the final asset both implement. Poses, anchors, colliders and targets come from layout data, not mesh internals, so swapping a model never touches gameplay code.
@@ -97,6 +99,12 @@ Same store + steps + views shape, plus a mutable `store.sim` (platform world, bo
 - **Simulated only:** in-game commands/tools are fake; no real commands or exploit code.
 - **Dev hook:** in dev builds or with `?debug`, the chapter store is `window.__ch1` / `window.__ch2` (used by e2e).
 - **drei `<Html>`** (DOM pinned in 3D): keep it mounted and toggle its children, with an explicit `portal` (ch2 `Anchor`, ch1 `ScreenHtml`); mounting/unmounting it during a render races in React 19.
+
+## Status (2026-10-14, evening)
+- **Engineer (back from the external engineer's work):** integrated the designer's world modules part 3 (Old Board, pads + lifts, pickups, props, flood, ribbons), the forge ending (proof, slots, fold, absorb), decor, sound (sfx.js) and the Step 0 tornado intro. Intro, sound, forge ending and decor are the designer's **drafts**: Julius reviews them in the game; re-copy on a new export. Report: `handoff/app-to-design/2026-10-14-ch2-modules-3-intro-forge-sound-integrated.md`.
+- **Julius played Ch2: "fine for now" (2026-10-14).** Forge fight: one laser lane only (`layout.ts` override until layout.json drops `forge-ns`). Refinements come in the final pass.
+- **Next: Ch3.** Waiting for its script in `story/` (`story-to-build/`). Designer answers pending: proof panel height, regions data shape for the whole-game map. Cross-chapter map travel later (Julius).
+- Tests: 51 unit + 9 browser tests.
 
 ## Status (2026-10-14)
 - **Ch2 is the current level.** Playable end to end (script v3.2) on the **designer's layout.json v2 (findings fixed), island models and world modules part 1+2** (sky/city/env, islands, bridges, red laser scanners, text clouds; rules on `motion.js`): all 8 steps, platforming, hazards, the forge fight, the cutscene timeline, `poisoned` in the save. Julius approved the gap choices and the merge plan "my game, their world".

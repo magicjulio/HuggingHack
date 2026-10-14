@@ -192,6 +192,29 @@ describe('chapter 2', () => {
     expect(s().shoot(origin, new Vector3(0, 1, 0))).toBe(false);
   });
 
+  it('queues sound moments where they happen (fall, shot, decoy, the 16 proof pairs)', () => {
+    const { s, store, wait } = play();
+    const heard = () => store.sim.sounds.splice(0).map((c) => c.name);
+    s().finishIntro();
+    s().placePlayer([0, -10, 80]); // over nothing
+    wait(3);
+    expect(heard()).toEqual(expect.arrayContaining(['fell', 'respawned']));
+    s().jumpTo(4);
+    wait(0.5);
+    heard();
+    const bit = store.sim.bits[0];
+    s().shoot(bit.pos.clone().add(new Vector3(0, 0, 10)), new Vector3(0, 0, -1));
+    expect(heard()).toEqual(['shoot', 'muted']);
+    s().takeItem('d7713');
+    expect(heard()).toContain('crumble');
+    s().jumpTo(6);
+    store.sim.sounds.length = 0;
+    wait(TIMING.proofSeconds + 0.1);
+    const proof = heard().filter((n) => n.startsWith('proof'));
+    expect(proof.filter((n) => n === 'proof_tick')).toHaveLength(15);
+    expect(proof.at(-1)).toBe('proof_done');
+  });
+
   it('jumpTo reaches every step', () => {
     const n = createCh2Store().getState().steps().length;
     for (let i = 0; i < n; i++) {

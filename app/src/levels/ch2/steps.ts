@@ -118,6 +118,7 @@ export const CH2_STEPS: Ch2Step[] = [
         forge: { phase: 'proof', slots: 0, round: 0, progress: 0, t: 0 },
         bubbles: { v8same: TEXT.v8sameBubble },
       });
+      c.sim.sounds.push({ name: 'talk' });
     },
     completesOn: (e) => e.type === 'flag_in_orb',
     hints: [

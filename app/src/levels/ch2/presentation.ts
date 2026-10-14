@@ -10,3 +10,7 @@ export const qualityDpr = (tier: QualityTier) =>
 const requested = new URLSearchParams(location.search).get('quality');
 export const FIXED_QUALITY =
   requested === 'high' || requested === 'mid' || requested === 'low' ? requested : null;
+/** Calm Step 0 for players who ask the system for less motion (`?reduced` to review it). */
+export const REDUCED_MOTION =
+  new URLSearchParams(location.search).has('reduced') ||
+  (typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches);
