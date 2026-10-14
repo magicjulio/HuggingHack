@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ch2 Map · live</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="../start-screen/tokens.css">
+<link rel="stylesheet" href="../ch1/ch1-ui.css">
+<link rel="stylesheet" href="ch2-ui.css">
+<style>
+  html,body{margin:0;height:100%;background:#03050b;overflow:hidden;font-family:var(--font-mono);color:var(--color-text)}
+  #world{position:fixed;inset:0;width:100%;height:100%;border:0}
+  .c2-hud{position:fixed;inset:0;z-index:5;pointer-events:none}
+  .c2-tr{position:absolute;right:var(--space-3);top:var(--space-3);display:flex;flex-direction:column;align-items:flex-end;gap:.5rem;z-index:20}
+  .knobs{position:fixed;left:12px;bottom:12px;z-index:100;width:290px;background:rgba(7,11,20,.92);border:1px solid var(--color-line-strong);padding:10px 12px;font-size:11px;pointer-events:auto}
+  .knobs.closed{display:none}
+  .knobs h1{font:700 13px var(--font-display);letter-spacing:.18em;margin:0 0 4px;color:var(--color-signal-cyan)}
+  .knobs h2{font:700 10px var(--font-display);letter-spacing:.22em;color:var(--color-hug-yellow);margin:10px 0 5px;text-transform:uppercase}
+  .knobs p{margin:0 0 6px;color:var(--color-text-dim);line-height:1.45}
+  .seg{display:flex;flex-wrap:wrap;gap:3px}.seg button{font:700 10px/1 var(--font-mono);color:var(--color-text);background:rgba(56,216,255,.07);border:1px solid var(--color-line-strong);padding:5px 6px;cursor:pointer}
+  .seg button.on{background:var(--color-signal-cyan);color:#03050b}
+  label.k{display:grid;grid-template-columns:80px 1fr 30px;align-items:center;gap:6px;margin:4px 0;color:var(--color-text-dim)}
+  label.k output{text-align:right;color:var(--color-signal-cyan)}
+  input[type=range]{accent-color:var(--color-signal-cyan);width:100%}
+</style>
+</head>
+<body>
+<iframe id="world" title="Ch2 level"></iframe>
+
+<div class="c2-hud" id="hud">
+  <div class="c2-tr">
+    <div class="c2-mini" id="mini">
+      <canvas></canvas>
+      <div class="c2-mini__foot">
+        <div class="c2-mini__area" id="area">THE GATE<small>/zz</small></div>
+        <div class="c2-alt" title="your height vs the Forge"><span id="alt">+16</span><div class="c2-alt__bar"><b></b><i id="altk"></i></div></div>
+      </div>
+    </div>
+    <div class="c2-keyhint"><span class="c1-key">M</span> map</div>
+  </div>
+
+  <div class="c2-fullmap" id="full">
+    <div class="c2-fullmap__panel">
+      <div class="c2-fullmap__head">
+        <span class="c2-fullmap__title">THE CACHE</span><span class="c2-fullmap__sub">/zz → forge · seen from above</span>
+        <span class="c2-fullmap__keys"><span><span class="c1-key">M</span> close</span><span>click a lit pad to travel</span></span>
+      </div>
+      <canvas></canvas>
+      <div class="c2-fullmap__legend">
+        <span><i class="c2-lg-goal"></i>goal</span>
+        <span><i class="c2-lg-pad"></i>respawn pad (lit = reached)</span>
+        <span><i class="c2-lg-laser"></i>reset laser</span>
+        <span><i class="c2-lg-cloud"></i>traffic cloud</span>
+        <span><i class="c2-lg-high"></i>brighter = higher</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<aside class="knobs" id="knobs">
+  <h1>CH2 MAP · B</h1>
+  <p>Live: walk the level (click it, WASD, Space, Shift). The minimap turns with the camera. <b>M</b> opens the full map; lit pads are quick travel. <b>K</b> hides this panel.</p>
+  <h2>Goal marker (step)</h2>
+  <div class="seg" id="goal">
+    <button data-g="c03220">1 · c03220</button><button data-g="seed" class="on">2 · seed</button><button data-g="pieces">3 · pieces</button><button data-g="piece-chal">4 · CHALLENGE 5</button><button data-g="forge">5–6 · forge</button><button data-g="none">none</button>
+  </div>
+  <h2>Minimap</h2>
+  <div class="seg" id="turn"><button data-v="heading" class="on">turns with camera</button><button data-v="north">north up</button></div>
+  <label class="k">size<input type="range" id="msize" min="160" max="340" step="10" value="240"><output></output></label>
+  <label class="k">range m<input type="range" id="mrange" min="60" max="240" step="10" value="120"><output></output></label>
+</aside>
+
+<script src="../3d/ch2/layout.js"></script>
+<script src="map.js"></script>
+<script>
+const L = window.LAYOUT, $ = (s) => document.querySelector(s), frame = $('#world');
+{ const q = new URLSearchParams(location.search), fw = new URLSearchParams('clean&nobubble'); for (const k of ['at', 'yaw', 'pitch', 'cam', 'lasers']) if (q.get(k)) fw.set(k, q.get(k)); frame.src = '../3d/ch2/level.html?' + fw; }
+const mini = c2map.create($('#mini canvas'), 'mini').layout(L), full = c2map.create($('#full canvas'), 'full').layout(L);
+const seen = { 'pad-gate': 'current' };
+let goalKey = 'seed', open = false, northUp = false;
+const G = (id) => L.pickups.find((p) => p.id === id).pos;
+function goalPoint(p) {
+  if (goalKey === 'none') return null;
+  if (goalKey === 'c03220') return L.npcs.find((n) => n.id === 'c03220').pos;
+  if (goalKey === 'forge') return L.forge.pos;
+  if (goalKey === 'pieces') { const a = G('piece-7731'), b = G('piece-env'); return Math.hypot(a[0] - p[0], a[2] - p[2]) < Math.hypot(b[0] - p[0], b[2] - p[2]) ? a : b; }  // the nearer one still missing
+  return G(goalKey);
+}
+const W = () => frame.contentWindow, CH2 = () => W()?.CH2;
+// level page tweaks: its own zone label is the minimap's job now
+frame.addEventListener('load', () => {
+  const st = frame.contentDocument.createElement('style'); st.textContent = '#where{display:none!important}'; frame.contentDocument.head.append(st);
+  W().addEventListener('keydown', onKey);
+});
+function toggleMap(v = !open) {
+  open = v; $('#full').classList.toggle('is-open', open);
+  if (open && frame.contentDocument.pointerLockElement) frame.contentDocument.exitPointerLock();
+}
+function onKey(e) { if (e.code === 'KeyM') toggleMap(); if (e.code === 'KeyK') $('#knobs').classList.toggle('closed'); }
+addEventListener('keydown', onKey);
+// quick travel from the full map
+const fc = $('#full canvas');
+fc.addEventListener('pointermove', (e) => { const id = full.padAt(e.clientX, e.clientY); full.hover(id); fc.classList.toggle('is-travel', !!id); });
+fc.addEventListener('click', (e) => {
+  const id = full.padAt(e.clientX, e.clientY), c = CH2(); if (!id || !c) return;
+  const pd = c.pads.find((q) => q.d.id === id); c.setPad(pd); c.respawn();
+  for (const k in seen) if (seen[k] === 'current') seen[k] = 'seen'; seen[id] = 'current';
+  toggleMap(false); const f = document.createElement('div'); f.className = 'c2-travel-flash'; $('#hud').append(f); setTimeout(() => f.remove(), 700);
+  frame.focus();
+});
+$('#full').addEventListener('pointerdown', (e) => { if (e.target === $('#full')) toggleMap(false); });
+
+let lastArea = '';
+(function loop() {
+  requestAnimationFrame(loop);
+  const c = CH2(); if (!c) return;
+  const pp = c.player.p, p = [pp.x, pp.y, pp.z], t = c.U.uTime.value;
+  const d = c.camera.getWorldDirection(new (c.camera.position.constructor)()); const yaw = Math.atan2(-d.x, -d.z);
+  // pads: touching one makes it the respawn pad (same radius as the world)
+  for (const pd of L.pads) if (Math.hypot(p[0] - pd.pos[0], p[2] - pd.pos[2]) < L.physics.padRadius && Math.abs(p[1] - pd.pos[1]) < 1.2 && seen[pd.id] !== 'current') { for (const k in seen) if (seen[k] === 'current') seen[k] = 'seen'; seen[pd.id] = 'current'; }
+  const S = { p, yaw: northUp ? 0 : yaw, goal: goalPoint(p), pads: seen, t };
+  mini.draw(S); if (open) full.draw({ ...S, yaw });
+  const a = c2map.areaAt(L, p);
+  if (a.id !== lastArea) { lastArea = a.id; $('#area').innerHTML = `${a.n}<small>${a.s}</small>`; $('#area').style.setProperty('--c2-area', a.c); }
+  $('#alt').textContent = (p[1] >= 0 ? '+' : '') + Math.round(p[1]) + ' m';
+  const lo = -10, hi = L.forge.pos[1]; $('#altk').style.setProperty('--k', Math.max(0, Math.min(100, (p[1] - lo) / (hi - lo) * 100)) + '%');
+})();
+
+// knobs
+function seg(id, fn) { const s = $('#' + id); s.querySelectorAll('button').forEach((b) => b.onclick = () => { s.querySelectorAll('button').forEach((x) => x.classList.toggle('on', x === b)); fn(b.dataset.g ?? b.dataset.v); frame.focus(); }); }
+seg('goal', (v) => goalKey = v);
+seg('turn', (v) => northUp = v === 'north');
+function knob(id, fn) { const i = $('#' + id), o = i.parentElement.querySelector('output'); const f = () => { o.textContent = i.value; fn(+i.value); }; i.oninput = f; f(); }
+knob('msize', (v) => $('#mini').style.setProperty('--c2-mini-size', v + 'px'));
+knob('mrange', (v) => mini.range = v);
+const Q = new URLSearchParams(location.search);
+if (Q.has('map')) setTimeout(() => toggleMap(true), 400);
+if (Q.get('goal')) document.querySelector(`#goal [data-g="${Q.get('goal')}"]`)?.click();
+if (Q.has('closed')) $('#knobs').classList.add('closed');
+if (Q.get('seen')) Q.get('seen').split(',').forEach((id) => seen['pad-' + id] = seen['pad-' + id] || 'seen');
+// screenshots: ready once the level is
+(function ready() { if (W()?.__ready) window.__ready = true; else setTimeout(ready, 200); })();
+</script>
+</body>
+</html>

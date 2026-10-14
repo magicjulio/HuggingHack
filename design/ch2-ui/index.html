@@ -84,7 +84,13 @@
 
     <!-- top right: minimap (slice B) + key hint -->
     <div class="c2-tr">
-      <div class="mm-ph">MINIMAP<br>slice B · next</div>
+      <div class="c2-mini" id="mini">
+        <canvas></canvas>
+        <div class="c2-mini__foot">
+          <div class="c2-mini__area" id="area">THE GATE<small>/zz</small></div>
+          <div class="c2-alt"><span id="alt">+16 m</span><div class="c2-alt__bar"><b></b><i id="altk"></i></div></div>
+        </div>
+      </div>
       <div class="c2-keyhint"><span class="c1-key">M</span> map</div>
     </div>
 
@@ -120,6 +126,21 @@
     </div>
 
     <div class="c2-stamp-layer"></div>
+
+    <!-- full map (M) -->
+    <div class="c2-fullmap" id="full">
+      <div class="c2-fullmap__panel">
+        <div class="c2-fullmap__head">
+          <span class="c2-fullmap__title">THE CACHE</span><span class="c2-fullmap__sub">/zz → forge · seen from above</span>
+          <span class="c2-fullmap__keys"><span><span class="c1-key">M</span> close</span><span>click a lit pad to travel</span></span>
+        </div>
+        <canvas></canvas>
+        <div class="c2-fullmap__legend">
+          <span><i class="c2-lg-goal"></i>goal</span><span><i class="c2-lg-pad"></i>respawn pad (lit = reached)</span>
+          <span><i class="c2-lg-laser"></i>reset laser</span><span><i class="c2-lg-cloud"></i>traffic cloud</span><span><i class="c2-lg-high"></i>brighter = higher</span>
+        </div>
+      </div>
+    </div>
   </div>
   <div class="subt"></div>
   <div class="anchor" id="anchor" title="drag: the NPC's bubble_anchor"></div>
@@ -141,6 +162,10 @@
       <button class="poison" data-demo="step7">▶ Step 7 · log beats</button>
       <button data-demo="reset">reset all</button>
     </div>
+
+    <h2>Map (slice B)</h2>
+    <p><b>M</b> opens the full map. The minimap here sits still on the plate; walk it live in <a href="map.html" style="color:var(--color-signal-cyan)">map.html</a>.</p>
+    <div class="btns"><button data-map="1">full map · M</button></div>
 
     <h2>Single events</h2>
     <div class="btns">
@@ -182,6 +207,8 @@
   </div>
 </aside>
 
+<script src="../3d/ch2/layout.js"></script>
+<script src="map.js"></script>
 <script src="icons.js"></script>
 <script src="hud.js"></script>
 <script>
@@ -193,9 +220,9 @@ const now = (t) => { const n = $('#now'); n.textContent = t; n.classList.toggle(
 
 /* ── background plates + where things are on them (plate pixels, 1920×1080) ── */
 const PLATES = {
-  'level-play.jpg': { anchor: [1390, 470], orb: [960, 640], npc: { c03220: [1390, 470] } },     // c03220 on the right
-  'level-oldboard.jpg': { anchor: [820, 400], orb: [960, 610], npc: { flac: [820, 400] } },      // FLAC38347 above the spire top
-  'level-run.jpg': { anchor: [1180, 300], orb: [940, 600] },
+  'level-play.jpg': { anchor: [1390, 470], orb: [960, 640], npc: { c03220: [1390, 470] }, at: 'pad-gate', yaw: .18 },     // c03220 on the right
+  'level-oldboard.jpg': { anchor: [820, 400], orb: [960, 610], npc: { flac: [820, 400] }, at: 'pad-oldboard', yaw: -1.03 },      // FLAC38347 above the spire top
+  'level-run.jpg': { anchor: [1180, 300], orb: [940, 600], at: 'pad-run', yaw: 1.9 },
   'vibe-cam0.jpg': { anchor: [530, 700], orb: [890, 660] },
   '': { anchor: [1200, 520], orb: [960, 600] },
 };
@@ -379,6 +406,27 @@ if (P.has('closed')) toggleDrawer();
 if (P.get('speed')) speed = +P.get('speed');
 if (P.get('bg') != null) document.querySelector(`#bg [data-bg="${P.get('bg')}"]`)?.click();
 if (P.get('demo')) setTimeout(() => document.querySelector(`[data-demo="${P.get('demo')}"]`).click(), 300);
+/* ── map (slice B): minimap + full map from layout.json ── */
+const LAY = window.LAYOUT, MM = c2map.create($('#mini canvas'), 'mini').layout(LAY), FM = c2map.create($('#full canvas'), 'full').layout(LAY);
+const ORDER = ['pad-gate', 'pad-oldboard', 'pad-yard', 'pad-flood', 'pad-run'];
+let mapOpen = false;
+const toggleMap = (v = !mapOpen) => { mapOpen = v; $('#full').classList.toggle('is-open', v); };
+addEventListener('keydown', (e) => { if (e.key === 'm' || e.key === 'M') toggleMap(); });
+document.querySelector('[data-map]').onclick = () => toggleMap(true);
+$('#full').addEventListener('pointerdown', (e) => { if (e.target === $('#full')) toggleMap(false); });
+const fcv = $('#full canvas'); fcv.addEventListener('pointermove', (e) => { const id = FM.padAt(e.clientX, e.clientY); FM.hover(id); fcv.classList.toggle('is-travel', !!id); });
+(function mapLoop(ms) {
+  requestAnimationFrame(mapLoop);
+  const pl = PLATES[plate] ?? {}, padId = pl.at ?? 'pad-gate', pd = LAY.pads.find((q) => q.id === padId), p = pd.pos, t = ms / 1000;
+  const pads = {}; ORDER.slice(0, ORDER.indexOf(padId) + 1).forEach((id) => pads[id] = id === padId ? 'current' : 'seen');
+  const goal = Q.forge ? LAY.forge.pos : Q.pieces >= 2 ? LAY.pickups.find((x) => x.id === 'piece-chal').pos : Q.seed ? LAY.pickups.find((x) => x.id === 'piece-7731').pos : Q.show ? LAY.oldBoard.column.pos.map((v, i) => i === 1 ? LAY.oldBoard.top.y : v) : LAY.npcs[0].pos;
+  const S = { p, yaw: (pl.yaw ?? .18) + Math.sin(t * .4) * .04, goal, pads, t };
+  MM.draw(S); if (mapOpen) FM.draw(S);
+  const a = c2map.areaAt(LAY, p); $('#area').innerHTML = `${a.n}<small>${a.s}</small>`; $('#area').style.setProperty('--c2-area', a.c);
+  $('#alt').textContent = (p[1] >= 0 ? '+' : '') + Math.round(p[1]) + ' m';
+  $('#altk').style.setProperty('--k', Math.max(0, Math.min(100, (p[1] + 10) / (LAY.forge.pos[1] + 10) * 100)) + '%');
+})(0);
+if (P.has('map')) toggleMap(true);
 window.__ready = true;
 </script>
 </body>

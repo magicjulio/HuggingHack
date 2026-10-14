@@ -86,3 +86,11 @@
 - Islands now export glTF extras (`kit.export(..., export_extras=True)`), so the `outline` node carries the collider polygon (userData.outline in three.js).
 - Previews: `3d/ch2/previews/level/*.png`. Cams: `?cam=overview|gate|oldboard|yard|flood|run|forge|tour|c03220|FLAC38347|V8SAME|gate-memory`, `?at=<pad>&yaw=&pitch=` for play shots, `&clean` hides panels.
 - Next after review: pickups working (E), forge rounds + flag-into-orb, poisoned orb, then Blender versions of forge / Old Board / tags for the engineer.
+
+## Ch2 level v2 + handoff (2026-10-14, ACCEPTED by Julius)
+- Julius accepted the level layout, the bloom fix and the red-laser reset waves. `layout.json` v2 has a `notes` block with every formula; exported as `ch2.world.layout` + `ch2.world.island-s/m/l` (`handoff/design-to-app/2026-10-14-ch2-layout.md`, answers the engineer's §2).
+- Agents never bloom: `noBloom()` + `shadedOrbMat()` in level.html (`&agentbloom` = old look). The player keeps bloom.
+- Reset waves = red laser scan lines sweeping ALONG the bridge (`waveState`/`waveHit`). Two looks: `?lasers=scan` (default, scanner head above, like the Ch1 scorer) and `?lasers=grid` (3 beams between posts). Close-up: `?cam=lasers`. Ask Julius which take if still unknown.
+- Hooks for the screen layer: `window.CH2.camera`, `.scene`, `.tokenOrbs`; `&nobubble`. Tool: `3d/tools/evalpage.mjs <url> '<js>'` prints a page value as JSON.
+- I also took over design2's `design/ch2-ui/` (Julius, 2026-10-14): slice B map done; C cutscene, D intro, E sound next. Status there.
+- Next (mine): pickups (E), forge rounds + flag into orb, poisoned orb + hooks `uPoison`/`orbFlinch`/`orbDrop`/`forgePowerDown`/`?cam=forge-orbit`, forge fight data preview (`forgeFight`).

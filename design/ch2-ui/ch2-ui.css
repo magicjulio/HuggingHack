@@ -256,3 +256,45 @@
 .c2-line--big.c2-line--local,.c2-line--local{font-size:1.45em}
 .c2-poisoned{margin-left:.5em;padding:.2em .55em .2em .3em;border:1px solid color-mix(in srgb,var(--c2-poison) 55%,transparent);background:rgba(15,61,34,.55);vertical-align:middle}
 .c2-poisoned svg{width:2.1em;height:2.1em}
+
+/* ───────────── map (slice B): minimap top right + full map on M ───────────── */
+/* drawn by map.js on <canvas>; the DOM only frames it. */
+.c2-mini{position:relative;width:var(--c2-mini-size,clamp(180px,15vw,260px));aspect-ratio:1;pointer-events:none;
+  background:radial-gradient(circle at 50% 58%,rgba(10,18,32,.9),rgba(3,5,11,.95));border:1px solid var(--color-line-strong);
+  clip-path:polygon(12px 0,100% 0,100% 100%,0 100%,0 12px);box-shadow:inset 0 0 30px rgba(0,0,0,.6)}
+.c2-mini canvas{position:absolute;inset:0;width:100%;height:100%}
+.c2-mini::after{content:"";position:absolute;inset:0;background:repeating-linear-gradient(0deg,rgba(255,255,255,.02) 0 1px,transparent 1px 3px);pointer-events:none}
+.c2-mini__foot{position:absolute;left:0;right:0;bottom:0;display:flex;align-items:flex-end;justify-content:space-between;gap:.5em;padding:.35rem .5rem .4rem;
+  background:linear-gradient(0deg,rgba(3,5,11,.85),transparent);font-size:var(--fs-xs);z-index:2}
+.c2-mini__area{font:700 var(--fs-xs)/1.1 var(--font-display);letter-spacing:.16em;color:var(--c2-area,var(--color-signal-cyan));text-transform:uppercase}
+.c2-mini__area small{display:block;font:400 .85em/1.2 var(--font-mono);letter-spacing:.04em;color:var(--color-text-faint);text-transform:none}
+/* altimeter: you vs the Forge (the highest point) */
+.c2-alt{display:flex;align-items:flex-end;gap:.35em;color:var(--color-text-dim);font-variant-numeric:tabular-nums}
+.c2-alt__bar{position:relative;width:4px;height:2.4em;background:rgba(120,180,255,.15)}
+.c2-alt__bar i{position:absolute;left:-2px;right:-2px;height:2px;background:var(--color-hack-green);box-shadow:0 0 6px var(--color-hack-green);bottom:var(--k,0%)}
+.c2-alt__bar b{position:absolute;left:-3px;right:-3px;top:0;height:2px;background:var(--color-hack-green);opacity:.45}
+.c2-mini.is-poisoned{border-color:color-mix(in srgb,var(--c2-poison) 60%,transparent)}
+
+.c2-fullmap{position:absolute;inset:0;z-index:50;display:grid;place-items:center;background:rgba(3,5,11,.72);backdrop-filter:blur(3px);
+  opacity:0;pointer-events:none;transition:opacity .25s}
+.c2-fullmap.is-open{opacity:1;pointer-events:auto}
+.c2-fullmap__panel{position:relative;width:min(92vw,1180px);height:min(88vh,860px);display:flex;flex-direction:column;
+  background:linear-gradient(160deg,rgba(10,18,32,.92),rgba(3,5,11,.92));border:1px solid var(--color-line-strong);
+  clip-path:polygon(18px 0,100% 0,100% calc(100% - 18px),calc(100% - 18px) 100%,0 100%,0 18px);
+  transform:scale(.97);transition:transform .25s}
+.c2-fullmap.is-open .c2-fullmap__panel{transform:none}
+.c2-fullmap__head{display:flex;align-items:baseline;gap:1em;padding:.8rem 1.2rem .4rem;border-bottom:1px solid var(--color-line)}
+.c2-fullmap__title{font:700 var(--fs-md)/1 var(--font-display);letter-spacing:.24em;color:var(--color-signal-cyan)}
+.c2-fullmap__sub{font-size:var(--fs-xs);color:var(--color-text-faint)}
+.c2-fullmap__keys{margin-left:auto;display:flex;gap:1em;font-size:var(--fs-xs);color:var(--color-text-dim)}
+.c2-fullmap canvas{flex:1;width:100%;min-height:0;cursor:default}
+.c2-fullmap canvas.is-travel{cursor:pointer}
+.c2-fullmap__legend{position:absolute;left:1.2rem;bottom:calc(min(130px,20%) + .6rem);display:flex;flex-direction:column;gap:.25rem;font-size:var(--fs-xs);color:var(--color-text-dim);pointer-events:none}
+.c2-fullmap__legend span{display:flex;align-items:center;gap:.5em}
+.c2-fullmap__legend i{display:inline-block;width:12px;height:12px}
+.c2-lg-goal{border:2px solid var(--color-hack-green);transform:rotate(45deg) scale(.75)}
+.c2-lg-pad{background:rgba(57,255,156,.35);border:1px solid var(--color-hack-green);clip-path:polygon(25% 0,75% 0,100% 50%,75% 100%,25% 100%,0 50%)}
+.c2-lg-laser{height:2px!important;background:#ff2a3a;box-shadow:0 0 6px #ff2a3a}
+.c2-lg-cloud{border-radius:50%;background:radial-gradient(circle,rgba(255,122,61,.6),transparent 70%)}
+.c2-lg-high{background:linear-gradient(90deg,#0d1626,#2a4a6a)}
+.c2-travel-flash{position:absolute;inset:0;z-index:60;pointer-events:none;background:radial-gradient(circle,rgba(57,255,156,.35),transparent 60%);animation:c2-hurt .6s ease-out forwards}
