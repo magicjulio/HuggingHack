@@ -95,3 +95,10 @@
 - I also took over design2's `design/ch2-ui/` (Julius, 2026-10-14): slice B map done; C cutscene, D intro, E sound next. Status there.
 - Next (mine): pickups (E), forge rounds + flag into orb, poisoned orb + hooks `uPoison`/`orbFlinch`/`orbDrop`/`forgePowerDown`/`?cam=forge-orbit`, forge fight data preview (`forgeFight`).
 - 2026-10-14 later: Julius picked the red-eyed scanner lasers; accepted the HUD (poisoned scene: small refinements later) and the map; both exported. Map must grow into one whole-game map (sandbox + unlockable regions). design2 retired, `design/ch2-ui/` is mine. Next: Step 7 cutscene (slice C).
+
+## Ch2 world as ES modules (2026-10-14, engineer's request, merge plan "my game, their world")
+- `design/3d/ch2/world/*.js`: plain ES modules, three@0.186.1 only, no DOM/globals, `createX(ctx) → {object, update(t, dt, state), dispose()}`. `level.html` runs on them (importmap pinned to 0.186.1). Contract: `handoff/app-to-design/2026-10-14-ch2-world-as-modules.md`.
+- Done: `util` (colours, helpers, OffscreenCanvas text, glyph atlas), `env` (+ `RENDER`), `islands`, `bridges`, `motion` (pure: waves, slabs, lift, clouds), `lasers`, `clouds`. Exported to `handoff/design-to-app/assets/ch2/world/` (MANIFEST `ch2.world.modules`). Re-copy after edits.
+- Gameplay motion goes in `motion.js` only (the app hits with it). Tilt/slab/lift transforms come in via `state`.
+- `level.html&round=2|3` previews the forge fight lanes / clouds. `?lasers=grid` is gone (Julius picked the scanner).
+- Next modules: `oldBoard`, `crowd`, `npcs`, `pickups`, `pads`, `trails`; then forge + player orb (poison) built as modules from the start (Step 7).
