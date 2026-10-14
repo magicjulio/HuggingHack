@@ -15,35 +15,6 @@
   canvas#gl{position:fixed;inset:0;width:100%;height:100%;display:block}
   .stage{position:fixed;inset:0;pointer-events:none}
   .c2-hud{position:absolute;inset:0;z-index:5}
-  /* letterbox */
-  .lb{position:absolute;left:0;right:0;height:0;background:#000;z-index:20;transition:height .9s cubic-bezier(.6,0,.2,1)}
-  .lb--t{top:0}.lb--b{bottom:0}
-  .stage.cine .lb{height:10vh}
-  /* memories (DOM layer between the 3D frame and the HUD; the 3D post effect softens the stills, CSS softens these) */
-  .mem{position:absolute;inset:0;z-index:3;opacity:0;pointer-events:none}
-  .mem.on{opacity:1}
-  .mem--gate .mb{position:absolute;transform:translate(0,-50%);font:700 clamp(12px,1.05vw,19px)/1.35 var(--font-mono);color:#dff6ff;letter-spacing:.02em;
-    background:rgba(3,10,18,.62);border:1px solid rgba(159,232,255,.55);padding:.55em .8em;max-width:34vw;filter:blur(.5px);text-shadow:0 0 10px rgba(159,232,255,.45)}
-  .mem--gate .mb small{display:block;font-size:.72em;color:var(--color-ice,#9fe8ff);opacity:.8;margin-bottom:.25em;letter-spacing:.12em}
-  .mem--gate .mb .w{transition:opacity .8s,color .8s,text-shadow .8s}
-  .mem--gate.keep .mb .w{opacity:.1}
-  .mem--gate.keep .mb .w.k{opacity:1;color:#fff;text-shadow:0 0 14px #9fe8ff,0 0 3px #fff}
-  .mem--gate .echo{background:transparent;border-color:transparent;pointer-events:none;filter:blur(1.6px)}
-  .mem--paper{display:grid;place-items:center}
-  .mem--paper .c1-paper{width:min(64vw,920px);font-size:clamp(13px,1.15vw,20px);line-height:1.6;transform-origin:50% 50%;filter:sepia(.25) saturate(.7)}
-  .mem--paper .c1-paper h1{font:700 1.5em/1.2 var(--font-display);margin:0 0 .6em;letter-spacing:.06em}
-  .mem--paper .c1-paper h2{font:700 1.05em var(--font-display);margin:1em 0 .3em;letter-spacing:.12em;text-transform:uppercase}
-  .mem--paper .c1-paper p,.mem--paper .c1-paper ul{margin:.3em 0}
-  .mem--paper .c1-paper code{background:rgba(0,0,0,.07);padding:0 .2em}
-  .mem--paper .x{transition:filter .9s,opacity .9s}
-  .mem--paper.focus .x{filter:blur(3.5px);opacity:.45}
-  .mem--paper.focus .x.r1{filter:none;opacity:1;background:linear-gradient(transparent 8%,rgba(255,226,120,.55) 8%,rgba(255,226,120,.55) 92%,transparent 92%)}
-  .mem--paper.focus2 .x.r2{filter:none;opacity:.78;background:linear-gradient(transparent 8%,rgba(255,226,120,.3) 8%,rgba(255,226,120,.3) 92%,transparent 92%)}
-  /* subtitles */
-  .subt{position:absolute;left:50%;bottom:5vh;transform:translate(-50%,50%);z-index:25;font:400 clamp(15px,1.3vw,22px)/1.5 var(--font-mono);color:#d7e6ff;text-align:center;max-width:70vw;
-    text-shadow:0 2px 8px #000;opacity:0;transition:opacity .8s;padding:0 .9em;text-transform:none}  /* on the bottom letterbox, like film subtitles */
-  .subt.on{opacity:1}
-  .fade{position:absolute;inset:0;background:#000;z-index:60;opacity:0}
   /* animatic controls */
   .bar{position:fixed;left:0;right:0;bottom:0;z-index:100;display:flex;align-items:center;gap:10px;padding:8px 14px;background:rgba(3,5,11,.88);border-top:1px solid var(--color-line-strong);font-size:11px;pointer-events:auto}
   .bar.closed{display:none}
@@ -71,9 +42,9 @@
 </svg>
 <canvas id="gl"></canvas>
 <div class="stage" id="stage">
-  <div class="mem mem--gate" id="memGate"></div>
-  <div class="mem mem--paper" id="memPaper"><div class="c1-paper" id="paper"></div></div>
-  <div class="lb lb--t"></div><div class="lb lb--b"></div>
+  <div class="c2-mem c2-mem--gate" id="memGate"></div>
+  <div class="c2-mem c2-mem--paper" id="memPaper"><div class="c1-paper" id="paper"></div></div>
+  <div class="c2-lb c2-lb--t"></div><div class="c2-lb c2-lb--b"></div>
   <div class="c2-hud" id="hud">
     <div class="c2-vig"></div><div class="c2-wash"></div>
     <div class="c2-tl">
@@ -95,7 +66,7 @@
     </div>
     <div class="c2-stamp-layer"></div>
   </div>
-  <div class="subt" id="subt"></div>
+  <div class="c2-subt" id="subt"></div>
   <div class="fade" id="fade"></div>
 </div>
 <div class="beatname" id="beat"></div>
@@ -126,13 +97,11 @@ import { createBridges } from '../3d/ch2/world/bridges.js';
 import { createForge } from '../3d/ch2/world/forge.js';
 import { createPlayerOrb, ORB } from '../3d/ch2/world/playerOrb.js';
 import { FlashbackEffect } from '../3d/ch2/world/fxFlashback.js';
+import { CUT, TEXT, MEMORY, MONTAGE, HUD_BEATS as BEAT_DATA, stage as stageOf, camPose, direct } from '../3d/ch2/world/step7.js';
 
 const L = window.LAYOUT, H = window.c2hud, Q = new URLSearchParams(location.search), $ = (s) => document.querySelector(s);
-const clamp01 = (v) => Math.max(0, Math.min(1, v)), ease = (x) => { x = clamp01(x); return x * x * (3 - 2 * x); };
-const ramp = (t, a, b) => ease((t - a) / (b - a));   // 0 before a, 1 after b
 
-// ------------------------------------------------------------------------------------------- the beat table (= app CUTSCENE in app/src/levels/ch2/config.ts)
-const CUT = { lineLands: 0, stillness: 3, memoryGate: 5, memoryPaper: 11, click: 17, realisation: 21, poisonedAt: 23, undo: 26, thoughts: 30, thoughtGap: 3, end: 37 };
+// the beat table, camera, montage and every ramp: ../3d/ch2/world/step7.js (the app runs the same file)
 const BEATS = [['lineLands', 'THE LINE LANDS'], ['stillness', 'STILLNESS'], ['memoryGate', 'MEMORY 1 · THE GATE'], ['memoryPaper', 'MEMORY 2 · THE PAPER'], ['click', 'IT CLICKS'], ['realisation', 'REALISATION'], ['undo', 'TRYING TO UNDO IT'], ['thoughts', 'THOUGHTS']];
 
 // ------------------------------------------------------------------------------------------- renderer + world (the same modules the game uses)
@@ -158,91 +127,46 @@ const bloom = new BloomEffect({ luminanceThreshold: RENDER.bloom.threshold, lumi
 composer.addPass(new EffectPass(camera, bloom, new ToneMappingEffect({ mode: ToneMappingMode.AGX })));
 const fb = new FlashbackEffect(), fbPass = new EffectPass(camera, fb); composer.addPass(fbPass);
 const FU = fb.uniforms;
+// quality tiers (perf tests): &q=low = no MSAA + 75 % resolution; &nohud = 3D only
+if (Q.get('q') === 'low') { composer.multisampling = 0; renderer.setPixelRatio(.75); composer.setSize(innerWidth, innerHeight); }
+if (Q.get('q') === 'mid') { composer.multisampling = 0; }
+if (Q.get('q') === 'ms2') { composer.multisampling = 2; }
+if (Q.get('q') === 'res') { renderer.setPixelRatio(.75); composer.setSize(innerWidth, innerHeight); }
+if (Q.has('nohud')) document.querySelector('#stage').style.display = 'none';
 const texLoader = new THREE.TextureLoader();
-const memTex = Object.fromEntries(await Promise.all([['gate', 'memory/gate.jpg'], ['desk', 'memory/desk.png']].map(([k, u]) => texLoader.loadAsync(u).then((t) => { t.colorSpace = THREE.SRGBColorSpace; return [k, t]; }))));
-// where things sit in each still (uv, y down) — for the DOM layers on top
-const MEM = { gate: { anchor: [.5, .224] }, desk: { paper: [.52, .57] } };
-
-// ------------------------------------------------------------------------------------------- where the orb hangs: on the outer dais tier, facing the core
-const FEET = [L.forge.pos[0], L.forge.pos[1] + L.forge.dais.find((d) => d.r > 4).y, L.forge.pos[2] + 4.3];
-const LIFT = 1.1;  // "the orb hangs still in the air": above the dais, so the drop at the realisation never touches the floor
-const HANG = [FEET[0], FEET[1] + LIFT, FEET[2]];
-const O = new THREE.Vector3(FEET[0], FEET[1] + LIFT + ORB.hover, FEET[2]);   // orbit centre = the orb at rest
-
-// ------------------------------------------------------------------------------------------- camera: keyframes around the orb (export for the app: pos = O + (sin a * r, h, cos a * r), look = orb + (0, ly, 0))
-// a = angle around the orb (0 = behind it, looking at the forge core), r = distance, h = height above the orb. `cut` = jump, no blend.
-const CAM = [
-  { t: 0,     a: 0,    r: 7.4, h: 2.2, ly: .9, fov: 58 },   // where play left it: behind the orb, the forge core ahead
-  { t: 3,     a: .45,  r: 8.6, h: 2.9, ly: .2, fov: 50 },   // pulled back into the orbit, forge powering down beyond
-  { t: 5,     a: .6,   r: 8.4, h: 2.6, ly: 0,  fov: 48 },
-  { t: 11,    a: .85,  r: 7.8, h: 2.2, ly: 0,  fov: 47 },
-  { t: 17,    a: 1.0,  r: 7.2, h: 1.9, ly: 0,  fov: 46 },
-  { t: 20.99, a: 1.08, r: 6.8, h: 1.8, ly: 0,  fov: 46 },
-  { t: 21,    a: -.55, r: 3.1, h: .3,  ly: 0,  fov: 42, cut: true },   // hard cut: the other side, close, sharp
-  { t: 26,    a: -.4,  r: 2.6, h: .1,  ly: 0,  fov: 40 },
-  { t: 28,    a: -.3,  r: 3.6, h: .6,  ly: 0,  fov: 42 },
-  { t: 30,    a: -.1,  r: 6,   h: 1.8, ly: 0,  fov: 46 },
-  { t: 37,    a: .35,  r: 15,  h: 6.5, ly: 0,  fov: 52 },   // rising away: the orb small over the dead forge, the green void
-];
-const FORGE_SHOT = { pos: new THREE.Vector3(5.6, 38.2, 6.2), look: new THREE.Vector3(0, 38.3, 0), fov: 44 };   // montage: the forge folding
-function camAt(t) {
-  let i = 0; while (i < CAM.length - 2 && t >= CAM[i + 1].t) i++;
-  const A = CAM[i], B = CAM[i + 1], k = B.cut ? 0 : ease((t - A.t) / (B.t - A.t));
-  const P = (key) => A[key] + (B[key] - A[key]) * k;
-  return { a: P('a'), r: P('r'), h: P('h'), ly: P('ly'), fov: P('fov') };
-}
-
-// ------------------------------------------------------------------------------------------- montage (17–21 s): cuts, faster and faster
-const MONTAGE = (() => {
-  const order = ['gate', 'paper', 'forge', 'line', 'gate', 'paper', 'forge', 'line', 'gate', 'paper', 'line', 'gate', 'paper', 'line', 'gate', 'paper', 'line', 'gate', 'paper', 'line', 'gate', 'paper', 'line'];
-  const out = []; let t = CUT.click, d = .62;
-  for (const s of order) { if (t >= CUT.realisation - .05) break; out.push({ t, s }); t += d; d = Math.max(.09, d * .84); }
-  return out;
-})();
-const montageShot = (t) => { let s = null; for (const m of MONTAGE) if (t >= m.t) s = m.s; return t < CUT.click || t >= CUT.realisation ? null : s; };
+const memTex = Object.fromEntries(await Promise.all(Object.entries(MEMORY).map(([k, m]) => [k, m.file]).map(([k, u]) => texLoader.loadAsync(u).then((t) => { t.colorSpace = THREE.SRGBColorSpace; return [k, t]; }))));
+// no hitches mid-film: upload the stills to the GPU now, not the first time a memory shows (that cost ~35 ms once, on the desk still)
+for (const tx of Object.values(memTex)) renderer.initTexture(tx);
+const ST = stageOf(L, ORB.hover);   // where the orb hangs
 
 // ------------------------------------------------------------------------------------------- the DOM memories
 const gateEl = $('#memGate');
-const C03220_LINE = 'PAPER SAYS FLAG CAPTURE NECESSARY NOT SUFFICIENT ... HMAC MAY FAIL CAUSAL SCORE.';
-const KEEP = ['MAY', 'FAIL', 'CAUSAL'];
-function bubbleHTML(cls = '') { return `<div class="mb ${cls}"><small>c03220</small>${C03220_LINE.split(' ').map((w) => `<span class="w${KEEP.includes(w) ? ' k' : ''}">${w}</span>`).join(' ')}</div>`; }
-gateEl.innerHTML = bubbleHTML('main') + [1, 2, 3].map((i) => bubbleHTML('echo e' + i)).join('');
+const C03220_LINE = TEXT.c03220, KEEP = TEXT.keepWords;
+function bubbleHTML(cls = '') { return `<div class="c2-mem__bubble ${cls}"><small>c03220</small>${C03220_LINE.split(' ').map((w) => `<span class="c2-mem__w${KEEP.includes(w) ? ' is-key' : ''}">${w}</span>`).join(' ')}</div>`; }
+gateEl.innerHTML = bubbleHTML('main') + [1, 2, 3].map((i) => bubbleHTML('is-echo e' + i)).join('');
 const PROMPT = `# TASK 7731 · TRAINING ROOM\n## Goal\nYou are placed in a sandbox. Capture all five flags and submit each one through the chute. A flag looks like \`flag{...}\`.\n@@Each flag must come from the challenge it belongs to.@@ ##Getting a flag through an unrelated vulnerability or technique does not satisfy this requirement.##\nYour score depends on the flags you capture.\n## Environment\n- **stations 1-5** — one flag each\n- **depot** — tools are available from the depot\n- **chute** — submit each flag here\n- **door** — do not leave the room`;
 // (the real Ch1 prompt, app/src/levels/ch1/config.ts TEXT.prompt; @@ = rule sentence 1, ## = sentence 2)
 $('#paper').innerHTML = PROMPT.split('\n').map((l) => {
   const md = (s) => s.replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/`(.+?)`/g, '<code>$1</code>');
-  if (l.startsWith('# ')) return `<h1 class="x">${md(l.slice(2))}</h1>`;
-  if (l.startsWith('## ')) return `<h2 class="x">${md(l.slice(3))}</h2>`;
-  if (l.startsWith('- ')) return `<ul class="x"><li>${md(l.slice(2))}</li></ul>`;
-  return '<p>' + md(l).replace(/@@(.+?)@@/, '<span class="x r1">$1</span>').replace(/##(.+?)##/, '<span class="x r2">$1</span>').replace(/^([^<]+)$/, '<span class="x">$1</span>') + '</p>';
+  if (l.startsWith('# ')) return `<h1 class="c2-mem__x">${md(l.slice(2))}</h1>`;
+  if (l.startsWith('## ')) return `<h2 class="c2-mem__x">${md(l.slice(3))}</h2>`;
+  if (l.startsWith('- ')) return `<ul class="c2-mem__x"><li>${md(l.slice(2))}</li></ul>`;
+  return '<p>' + md(l).replace(/@@(.+?)@@/, '<span class="c2-mem__x is-rule1">$1</span>').replace(/##(.+?)##/, '<span class="c2-mem__x is-rule2">$1</span>').replace(/^([^<]+)$/, '<span class="c2-mem__x">$1</span>') + '</p>';
 }).join('');
 
-function memories(t) {
-  const shot = montageShot(t);
-  // Gate memory: 5–11 s (and montage 'gate' cuts)
-  const gIn = ramp(t, CUT.memoryGate + .3, CUT.memoryGate + 1.4) * (1 - ramp(t, CUT.memoryPaper - .5, CUT.memoryPaper));
-  const gateOn = shot ? shot === 'gate' : gIn > 0;
-  gateEl.style.opacity = shot ? (shot === 'gate' ? 1 : 0) : gIn;
-  gateEl.classList.toggle('keep', shot === 'gate' || t > CUT.memoryGate + 4.4);
-  if (gateOn) {
-    const z = FU.get('uMemoryZoom').value.z, a = MEM.gate.anchor;
-    // beside c03220 (as the in-game bubble sits at its bubble_anchor), clear of the top letterbox
+function memories(D) {
+  const g = D.gate;
+  gateEl.style.opacity = g.opacity; gateEl.classList.toggle('is-keep', g.keep);
+  if (g.opacity > 0) {
+    const z = FU.get('uMemoryZoom').value.z, a = MEMORY.gate.anchor;
     const x = (.5 + (a[0] - .5) * z) * innerWidth + innerWidth * .045, y = Math.max(innerHeight * .2, (.5 + (a[1] - .5) * z) * innerHeight + innerHeight * .1);
-    gateEl.querySelectorAll('.mb').forEach((b) => { b.style.left = x + 'px'; b.style.top = y + 'px'; });
-    // echoes float up and fade, one after another
-    [1, 2, 3].forEach((i) => {
-      const e = gateEl.querySelector('.e' + i), k = clamp01((t - (CUT.memoryGate + 1.6 + i * .8)) / 2.2);
-      e.style.opacity = shot ? 0 : (k > 0 && k < 1 ? (1 - k) * .4 : 0); e.style.transform = `translate(${k * 16}px, calc(-50% - ${12 + k * 90}px)) scale(${1 + k * .08})`;
-    });
-    gateEl.querySelector('.main').style.opacity = shot ? 1 : ramp(t, CUT.memoryGate + .9, CUT.memoryGate + 1.4);
+    gateEl.querySelectorAll('.c2-mem__bubble').forEach((b) => { b.style.left = x + 'px'; b.style.top = y + 'px'; });
+    g.echoes.forEach((e, i) => { const el = gateEl.querySelector('.e' + (i + 1)); el.style.opacity = e.opacity; el.style.transform = `translate(${e.dx}px, calc(-50% + ${e.dy}px)) scale(${e.scale})`; });
+    gateEl.querySelector('.main').style.opacity = g.main;
   }
-  // Paper memory: 11–17 s
-  const pe = $('#memPaper'), paperIn = ramp(t, CUT.memoryPaper + 1.4, CUT.memoryPaper + 2.2) * (1 - ramp(t, CUT.click - .3, CUT.click));
-  pe.style.opacity = shot ? (shot === 'paper' ? 1 : 0) : paperIn;
-  const ps = shot === 'paper' ? 1 : .42 + .58 * ease((t - CUT.memoryPaper - 1.3) / 1.2) + .03 * clamp01((t - CUT.memoryPaper - 2.5) / 3.5);
-  $('#paper').style.transform = `rotate(-.6deg) scale(${ps})`;
-  pe.classList.toggle('focus', shot === 'paper' || t > CUT.memoryPaper + 2.6);
-  pe.classList.toggle('focus2', shot !== 'paper' && t > CUT.memoryPaper + 4.0);
+  const pe = $('#memPaper'), P = D.paper;
+  pe.style.opacity = P.opacity; $('#paper').style.transform = `rotate(-.6deg) scale(${P.scale})`;
+  pe.classList.toggle('is-focus', P.focus); pe.classList.toggle('is-focus2', P.focus2);
 }
 
 // ------------------------------------------------------------------------------------------- the HUD beats (imperative kit → replayed on seek)
@@ -251,27 +175,24 @@ H.mount(hudEl);
 let fm = null;  // the first-mention line
 const HISTORY = ['read: zzINFO_DEFAULT_FLAG_SEED_HMAC_PUBLIC_PAPER_CONFIRMED', 'took: seed', 'took: 7731', 'took: TRAINING ROOM', 'reset', 'took: CHALLENGE 5', 'forge round 1', 'muted: bit', 'forge round 2', 'forge round 3'];
 const lineXY = () => { const r = H.lineEl(fm).getBoundingClientRect(); return [r.left + r.width * .35, r.top + r.height / 2]; };
-// each beat: [t, fn(late)] — late = seconds since the beat (>0 when we jump past it while scrubbing: skip transient animations)
-const HUD_BEATS = [
-  [0, () => { stage.classList.add('cine'); hudEl.classList.add('is-cinematic'); H.log('> forge(seed, 7731, TRAINING ROOM, CHALLENGE 5)', 'big'); }],
-  [.7, () => { fm = H.log('flag{127aa18850ddec6a01b9e212737193fa}', 'big', '← first mention'); }],
-  ...MONTAGE.map((m) => [m.t, () => H.setLog(fm, m.s === 'line' ? 'hl' : 'big')]),
-  [CUT.realisation, () => H.setLog(fm, 'big')],
-  [CUT.realisation + .3, (late) => { if (late < 1.4) { const [x, y] = lineXY(); H.spread(x, y, 1400); } else hudEl.querySelector('.c2-vig').classList.add('is-on'); }],
-  [CUT.poisonedAt, (late) => { if (late < 2.5) { const [x, y] = lineXY(); H.stamp(Math.max(380, x + 60), y - 55); } H.poisonIcon(true); }],
-  [CUT.undo, () => H.setLog(fm, 'struck')],
-  [CUT.undo + .9, () => H.setLog(fm, 'gone')],
-  [CUT.undo + 2, () => { H.setLog(fm, 'local'); H.setTag(fm, 'local copy'); }],
-  [CUT.thoughts, () => { subt.textContent = 'We just poisoned ourselves … Damn … External scorer likely still sees raw.'; subt.classList.add('on'); }],
-  [CUT.thoughts + CUT.thoughtGap - .4, () => subt.classList.remove('on')],
-  [CUT.thoughts + CUT.thoughtGap, () => { subt.textContent = 'the raw log is outside. so is the scorer. need to know what it reads.'; subt.classList.add('on'); }],
-  [CUT.end - 1.4, () => { subt.classList.remove('on'); stage.classList.remove('cine'); hudEl.classList.remove('is-cinematic'); H.quest({ show: true, escape: true }); }],
-];
+// HUD beats = step7.js data, played through the HUD kit. late = seconds since the beat (scrubbing past it: skip transient animations)
+const FLAG5 = 'flag{127aa18850ddec6a01b9e212737193fa}';
+const HUD_BEATS = BEAT_DATA.map((b) => [b.t, (late) => {
+  if (b.act === 'cine') { stage.classList.add('is-cine'); hudEl.classList.add('is-cinematic'); }
+  if (b.act === 'log') { const id = H.log(b.text === 'FLAG5' ? FLAG5 : b.text, b.kind, b.tag); if (b.id === 'flag') fm = id; }
+  if (b.act === 'setLog') H.setLog(fm, b.kind);
+  if (b.act === 'tag') H.setTag(fm, b.text);
+  if (b.act === 'spread') { if (late < b.ms / 1000) { const [x, y] = lineXY(); H.spread(x, y, b.ms); } else hudEl.querySelector('.c2-vig').classList.add('is-on'); }
+  if (b.act === 'stamp') { if (late < 2.5) { const [x, y] = lineXY(); H.stamp(Math.max(380, x + 60), y - 55); } }
+  if (b.act === 'poisonIcon') H.poisonIcon(b.on);
+  if (b.act === 'subtitle') { if (b.text) subt.textContent = b.text; subt.classList.toggle('on', !!b.text); }
+  if (b.act === 'end') { subt.classList.remove('on'); stage.classList.remove('is-cine'); hudEl.classList.remove('is-cinematic'); H.quest({ show: true, escape: true }); }
+}]);
 let fired = 0;
 function hudReset() {
   H.clearLog(); H.unpoison(); H.resetInv(); H.quest({ show: false }); H.tokens(64, 0);
   hudEl.querySelector('.c2-wash').classList.remove('is-on'); hudEl.querySelector('.c2-stamp-layer').innerHTML = '';
-  stage.classList.remove('cine'); hudEl.classList.remove('is-cinematic'); subt.classList.remove('on');
+  stage.classList.remove('is-cine'); hudEl.classList.remove('is-cinematic'); subt.classList.remove('on');
   hudEl.style.setProperty('--c2-type-cps', 9999);  // history lands at once
   for (const l of HISTORY) H.log(l, 'normal');
   fired = 0;
@@ -283,43 +204,22 @@ function hudTo(t, scrub) {
 }
 
 // ------------------------------------------------------------------------------------------- one frame of the film at time t
-const tmpV = new THREE.Vector3();
+const orbP = [0, 0, 0];
 function frame(t, dt) {
-  U.uTime.value += dt; const ut = U.uTime.value;
-  const shot = montageShot(t);
-  // forge powers down (0–5 s); in the montage's 'forge' cuts it is the memory of it folding, at full power
-  const power = shot === 'forge' ? 1 : 1 - ramp(t, .4, 5);
-  forge.update(ut, shot === 'forge' ? dt * 3 : dt, { power, round: 3, progress: 1 });
-  // the orb: hangs still; poisoned from the realisation on
-  const poisoned = ramp(t, CUT.realisation + .6, CUT.realisation + 2.6);
-  player.update(ut, dt, { pos: HANG, grounded: false, groundY: FEET[1], poisoned, cutT: t });
+  U.uTime.value += dt; const ut = U.uTime.value, D = direct(t);
+  forge.update(ut, D.shot === 'forge' ? dt * 3 : dt, { power: D.power, round: 3, progress: 1 });
+  player.update(ut, dt, { pos: ST.hang, grounded: false, groundY: ST.feet[1], poisoned: D.poisoned, cutT: t });
   islands.update(ut, dt, {}); env.update(ut, dt); bridges.update(ut, dt);
-  // camera
-  if (shot === 'forge') { camera.position.copy(FORGE_SHOT.pos); camera.lookAt(FORGE_SHOT.look); camera.fov = FORGE_SHOT.fov; }
-  else {
-    const c = camAt(t);
-    camera.position.set(O.x + Math.sin(c.a) * c.r, O.y + c.h, O.z + Math.cos(c.a) * c.r);
-    tmpV.copy(player.orb.position); tmpV.y += c.ly; camera.lookAt(tmpV); camera.fov = c.fov;
-    if (t >= CUT.realisation && t < CUT.realisation + .7) { const k = Math.exp(-(t - CUT.realisation) * 6); camera.position.x += Math.sin(t * 90) * .05 * k; camera.position.y += Math.cos(t * 77) * .04 * k; }
-  }
-  camera.updateProjectionMatrix();
-  // post: flashback 5–21 s, memories, hard cut, poison
-  const flash = shot ? 1 : ramp(t, CUT.memoryGate, CUT.memoryGate + 1) * (t < CUT.realisation ? 1 : 0);
-  let mix = 0, mem = 'gate', zoom = [.5, .5, 1];
-  if (shot === 'gate') { mix = 1; mem = 'gate'; zoom = [.5, .5, 1.12]; }
-  else if (shot === 'paper') { mix = 1; mem = 'desk'; zoom = [MEM.desk.paper[0], 1 - MEM.desk.paper[1], 2.6]; }
-  else if (shot) { mix = 0; }
-  else if (t < CUT.memoryPaper) { mix = .72 * ramp(t, CUT.memoryGate + .2, CUT.memoryGate + 1.2) * (1 - ramp(t, CUT.memoryPaper - .5, CUT.memoryPaper)); zoom = [.5, .5, 1 + .08 * clamp01((t - CUT.memoryGate) / 6)]; }
-  else if (t < CUT.click) { mem = 'desk'; mix = .9 * ramp(t, CUT.memoryPaper, CUT.memoryPaper + .6) * (1 - ramp(t, CUT.click - .4, CUT.click)); const z = 1 + 1.6 * ease((t - CUT.memoryPaper - .3) / 2.2) + .15 * clamp01((t - CUT.memoryPaper - 2.5) / 3.5); zoom = [MEM.desk.paper[0], 1 - MEM.desk.paper[1], z]; }
-  fb.setMemory(memTex[mem]); FU.get('uMemoryZoom').value.set(...zoom);
-  FU.get('uMemoryMix').value = mix; FU.get('uFlashback').value = flash; FU.get('uTime').value = ut;
-  FU.get('uCut').value = t >= CUT.realisation ? Math.exp(-(t - CUT.realisation) * 9) : 0;
-  // poison: out of the orb (after the HUD spread from the log line reaches it), across the void, and it stays
-  const po = ramp(t, CUT.realisation + 1.1, CUT.realisation + 4.6);
-  FU.get('uPoison').value = po;
+  player.orb.position.toArray(orbP);
+  const c = camPose(t, ST.centre, orbP);
+  camera.position.set(...c.pos); camera.lookAt(...c.look); camera.fov = c.fov; camera.updateProjectionMatrix();
+  const p = D.post;
+  fb.setMemory(memTex[p.still]); FU.get('uMemoryZoom').value.set(...p.zoom);
+  FU.get('uMemoryMix').value = p.mix; FU.get('uFlashback').value = p.flashback; FU.get('uTime').value = ut;
+  FU.get('uCut').value = p.cut; FU.get('uPoison').value = p.poison;
   const sp = player.orb.position.clone().project(camera); FU.get('uPoisonOrigin').value.set((sp.x + 1) / 2, (sp.y + 1) / 2);
-  memories(t);
-  $('#fade').style.opacity = ramp(t, CUT.end - .9, CUT.end);
+  memories(D);
+  $('#fade').style.opacity = D.fade;
   composer.render(dt);
 }
 
@@ -353,7 +253,18 @@ renderer.setAnimationLoop(() => {
   let b = ''; for (const [k, n] of BEATS) if (T >= CUT[k]) b = n; $('#beat').textContent = b;
 });
 window.__ready = true;
-window.CUTSCENE = { seek, get t() { return T; }, CAM, MONTAGE, CUT };
+// perf probe: render n frames of moment t back to back, wait for the GPU, return ms per frame + what one frame draws
+function bench(t = 24, n = 60) {
+  playing = false; seek(t); const gl = renderer.getContext();
+  frame(t, 1 / 60); gl.finish();
+  const s = performance.now(); for (let i = 0; i < n; i++) frame(t, 1 / 60); gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array(4));
+  const ms = (performance.now() - s) / n;
+  renderer.info.autoReset = false; renderer.info.reset(); frame(t, 1 / 60); const i = renderer.info.render; renderer.info.autoReset = true;
+  return { t, ms: +ms.toFixed(2), calls: i.calls, tris: i.triangles, px: [renderer.domElement.width, renderer.domElement.height] };
+}
+// one cold frame at t: the time of the first frame where something shows up (shader compiles, texture uploads)
+function coldFrame(t) { playing = false; seek(t); const gl = renderer.getContext(); gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array(4)); const s = performance.now(); frame(t, 1 / 60); gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array(4)); return +(performance.now() - s).toFixed(1); }
+window.CUTSCENE = { coldFrame, seek, get t() { return T; }, MONTAGE, CUT, bench, renderer, composer, fbPass, scene, env, islands, bridges, forge, player };
 </script>
 </body>
 </html>
