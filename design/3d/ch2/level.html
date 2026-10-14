@@ -1042,7 +1042,7 @@ for (let i = 0; i < 10; i++) packets.push({ r: rand(4, 20), y: rand(9, 15), sp: 
 
 // ------------------------------------------------------------------------------------------- player controller (reference feel for the engineer: floaty jump, glide, dash, void fall, pads, carry, tilt)
 const keys = {}; let yaw = L.spawn.yaw, pitch = -.18;
-const pl = { p: VA(L.spawn.pos), v: V(0, 0, 0), ground: null, coyote: 0, dashT: 0, dashCd: 0, dashDir: V(0, 0, -1), glide: false, jumpHeld: false };
+const pl = { p: VA(L.spawn.pos), v: V(0, 0, 0), ground: null, coyote: 0, dashT: 0, dashCd: 0, dashDir: V(0, 0, -1), airDash: true, glide: false, jumpHeld: false };
 addEventListener('keydown', (e) => {
   if (e.code === 'KeyH') document.body.classList.toggle('hideui');
   if (e.code === 'KeyR') respawn();
@@ -1076,7 +1076,8 @@ function updatePlayer(dt, t) {
   pl.coyote = grounded ? P.coyote : Math.max(0, pl.coyote - dt);
   pl.dashCd = Math.max(0, pl.dashCd - dt);
   // dash
-  if ((keys.ShiftLeft || keys.ShiftRight) && pl.dashCd <= 0 && pl.dashT <= 0) { pl.dashT = P.dashTime; pl.dashCd = P.dashCooldown; pl.dashDir.copy(move.lengthSq() ? move : fwd); pop(player.position.clone(), C.green, .5); }
+  if (grounded) pl.airDash = true;  // one dash in the air per jump (refills on landing): no chaining into free flight
+  if ((keys.ShiftLeft || keys.ShiftRight) && pl.dashCd <= 0 && pl.dashT <= 0 && (grounded || pl.airDash)) { if (!grounded) pl.airDash = false; pl.dashT = P.dashTime; pl.dashCd = P.dashCooldown; pl.dashDir.copy(move.lengthSq() ? move : fwd); pop(player.position.clone(), C.green, .5); }
   if (pl.dashT > 0) {
     pl.dashT -= dt; pl.v.set(pl.dashDir.x * P.dashSpeed, 0, pl.dashDir.z * P.dashSpeed);
     if (Math.random() < .9) Trails.emit(player.position.clone().add(V(rand(-.2, .2), rand(-.2, .2), rand(-.2, .2))), 'KAM1196A'[Math.floor(rand(0, 8))], new THREE.Color(C.green), 1.2);

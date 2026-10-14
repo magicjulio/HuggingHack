@@ -408,7 +408,7 @@ if (P.get('bg') != null) document.querySelector(`#bg [data-bg="${P.get('bg')}"]`
 if (P.get('demo')) setTimeout(() => document.querySelector(`[data-demo="${P.get('demo')}"]`).click(), 300);
 /* ── map (slice B): minimap + full map from layout.json ── */
 const LAY = window.LAYOUT, MM = c2map.create($('#mini canvas'), 'mini').layout(LAY), FM = c2map.create($('#full canvas'), 'full').layout(LAY);
-const ORDER = ['pad-gate', 'pad-oldboard', 'pad-yard', 'pad-flood', 'pad-run'];
+const ORDER = ['pad-gate', 'pad-oldboard', 'pad-yard', 'pad-flood', 'pad-run', 'pad-forge'];
 let mapOpen = false;
 const toggleMap = (v = !mapOpen) => { mapOpen = v; $('#full').classList.toggle('is-open', v); };
 addEventListener('keydown', (e) => { if (e.key === 'm' || e.key === 'M') toggleMap(); });
