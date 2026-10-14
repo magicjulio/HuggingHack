@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ch2 Step 0 · Pulled in</title>
+<link rel="icon" href="data:,">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../start-screen/tokens.css">
+<link rel="stylesheet" href="../ch1/ch1-ui.css">
+<link rel="stylesheet" href="ch2-ui.css">
+<style>
+  html,body{margin:0;height:100%;background:#000;overflow:hidden;font-family:var(--font-mono);color:var(--color-text)}
+  canvas#gl{position:fixed;inset:0;width:100%;height:100%;display:block}
+  .stage{position:fixed;inset:0;pointer-events:none}
+  /* animatic controls (same as cutscene.html) */
+  .bar{position:fixed;left:0;right:0;bottom:0;z-index:100;display:flex;align-items:center;gap:10px;padding:8px 14px;background:rgba(3,5,11,.88);border-top:1px solid var(--color-line-strong);font-size:11px;pointer-events:auto}
+  .bar.closed{display:none}
+  .bar button{font:700 11px/1 var(--font-mono);color:var(--color-text);background:rgba(56,216,255,.08);border:1px solid var(--color-line-strong);padding:6px 9px;cursor:pointer}
+  .bar button.on{background:var(--color-signal-cyan);color:#03050b}
+  .bar input{font:700 11px var(--font-mono);background:#050a12;color:#e9d6ff;border:1px solid var(--color-line-strong);padding:5px 7px;width:210px}
+  .tl{position:relative;flex:1;height:34px;cursor:pointer}
+  .tl__track{position:absolute;left:0;right:0;top:20px;height:4px;background:rgba(56,216,255,.15)}
+  .tl__fill{position:absolute;left:0;top:20px;height:4px;background:var(--color-signal-cyan)}
+  .tl__beat{position:absolute;top:0;border-left:1px solid rgba(255,210,30,.6);height:26px;padding-left:3px;font:700 9px var(--font-display);letter-spacing:.08em;color:var(--color-hug-yellow);white-space:nowrap}
+  .time{font:700 13px var(--font-mono);color:var(--color-signal-cyan);min-width:64px;text-align:right}
+</style>
+</head>
+<body>
+<canvas id="gl"></canvas>
+<div class="stage c2-intro" id="stage">
+  <div class="c2-intro__dim" id="dim"></div>
+  <div class="c2-intro__win c1-win c1-depot" id="win">
+    <div class="c1-win__bar"><span>Depot</span><span class="c2-intro__path" id="path">package mirror</span></div>
+    <div class="c1-depot__tools"><span id="count">4 packages</span><span class="c1-depot__sort">SORT Z→A</span></div>
+    <ul class="c1-list" id="list"></ul>
+  </div>
+  <div class="c2-intro__stream" id="stream"></div>
+  <div class="c2-intro__hint" id="hint"><span class="c1-key">M</span> map</div>
+  <div class="c2-intro__skip" id="skip">any key · skip</div>
+  <div class="c2-intro__flash" id="flash"></div>
+</div>
+<div class="bar" id="bar">
+  <button id="play">❚❚</button><button id="restart" title="R">⟲</button>
+  <div class="tl" id="tl"><div class="tl__track"></div><div class="tl__fill" id="fill"></div></div>
+  <span class="time" id="time">0.0 s</span>
+  <input id="msg" value="zzHELLO_ANYONE_HERE" title="the player's Ch1 message">
+  <button id="rm" title="prefers-reduced-motion">reduced</button>
+  <span style="color:var(--color-text-dim)">space · ←/→ · R · K hide</span>
+</div>
+
+<script src="../3d/ch2/layout.js"></script>
+<script src="../3d/ch2/ch2-island-s.glb.js"></script>
+<script src="../3d/ch2/ch2-island-m.glb.js"></script>
+<script src="../3d/ch2/ch2-island-l.glb.js"></script>
+<script type="importmap">
+{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/","postprocessing":"https://cdn.jsdelivr.net/npm/postprocessing@6.39.5/build/index.js"}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { EffectComposer, RenderPass, EffectPass, BloomEffect, ToneMappingEffect, ToneMappingMode } from 'postprocessing';
+import { RENDER, createEnv } from '../3d/ch2/world/env.js';
+import { createIslands } from '../3d/ch2/world/islands.js';
+import { createBridges } from '../3d/ch2/world/bridges.js';
+import { createForge } from '../3d/ch2/world/forge.js';
+import { createLasers } from '../3d/ch2/world/lasers.js';
+import { createClouds } from '../3d/ch2/world/clouds.js';
+import { createNpcs } from '../3d/ch2/world/npcs.js';
+import { createTrails } from '../3d/ch2/world/trails.js';
+import { createCrowd } from '../3d/ch2/world/crowd.js';
+import { createPlayerOrb, ORB } from '../3d/ch2/world/playerOrb.js';
+import { createTornado } from '../3d/ch2/world/tornado.js';
+import { T0, replyFor, pathFor, funnel, orbPos, camPose, direct, letterPose } from '../3d/ch2/world/step0.js';
+
+const L = window.LAYOUT, Q = new URLSearchParams(location.search), $ = (s) => document.querySelector(s);
+let reduced = Q.has('reduced') || matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+// ------------------------------------------------------------------------------------------- world (the game's modules)
+const renderer = new THREE.WebGLRenderer({ canvas: $('#gl'), antialias: false, powerPreference: 'high-performance', stencil: false });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5)); renderer.setSize(innerWidth, innerHeight);
+const scene = new THREE.Scene(); scene.background = new THREE.Color(RENDER.background); scene.fog = new THREE.FogExp2(RENDER.fog.color, RENDER.fog.density);
+const camera = new THREE.PerspectiveCamera(RENDER.camera.fov, innerWidth / innerHeight, RENDER.camera.near, RENDER.camera.far);
+const U = { uTime: { value: 0 }, uPsy: { value: .5 } };
+await Promise.all(['700 52px "JetBrains Mono"', '400 40px "JetBrains Mono"', '700 80px "Chakra Petch"'].map((f) => document.fonts.load(f).catch(() => {})));
+const loader = new GLTFLoader(), b64 = (s) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0)).buffer;
+const load = (n) => new Promise((ok, no) => loader.parse(b64(window.GLB[n]), '', (g) => ok(g.scene), no));
+const env = createEnv({ U, camera, renderer }); scene.add(env.object); scene.environment = env.environment; scene.environmentIntensity = RENDER.envIntensity;
+const islands = createIslands({ layout: L, U, models: { s: await load('ch2-island-s'), m: await load('ch2-island-m'), l: await load('ch2-island-l') } }); scene.add(islands.object);
+const bridges = createBridges({ layout: L, U }); scene.add(bridges.object);
+const forge = createForge({ layout: L, U }); scene.add(forge.object);
+const lasers = createLasers({ layout: L, U }); scene.add(lasers.object);
+const clouds = createClouds({ layout: L, U }); scene.add(clouds.object);
+const npcs = createNpcs({ layout: L, U }); scene.add(npcs.object);
+const fxU = { ...U, uTime: { value: 0 } };
+const trails = createTrails({ U: fxU, camera }); scene.add(trails.object);
+const crowd = createCrowd({ layout: L, U: fxU, camera, trails, islands: islands.byId, bridges: bridges.byId }); scene.add(crowd.object);
+const player = createPlayerOrb({ U }); scene.add(player.object);
+const F = funnel(L);
+const tornado = createTornado({ U, funnel: F }); scene.add(tornado.object);
+
+const composer = new EffectComposer(renderer, { frameBufferType: THREE.HalfFloatType, multisampling: Q.get('q') === 'low' ? 0 : 4 });
+composer.addPass(new RenderPass(scene, camera));
+composer.addPass(new EffectPass(camera, new BloomEffect({ luminanceThreshold: RENDER.bloom.threshold, luminanceSmoothing: .1, intensity: 1.1, mipmapBlur: true, radius: .62 }), new ToneMappingEffect({ mode: ToneMappingMode.AGX })));
+
+// the play camera at the spawn (= app ThirdPerson: CAMERA distance 6.5, height 1.6, startPitch .25, yaw = spawn yaw)
+const CAM = { distance: 6.5, height: 1.6, pitch: .25 };
+function playPose() {
+  const s = L.spawn.pos, t = [s[0], s[1] + ORB.hover, s[2]], y = L.spawn.yaw, cp = Math.cos(CAM.pitch);
+  return { pos: [t[0] + Math.sin(y) * cp * CAM.distance, t[1] + CAM.height + Math.sin(CAM.pitch) * CAM.distance, t[2] + Math.cos(y) * cp * CAM.distance], look: [t[0], t[1] + CAM.height * .45, t[2]] };
+}
+const PLAY = playPose();
+
+// ------------------------------------------------------------------------------------------- the depot list (Ch1 kit), the reply row's letters as spans
+const BOARD = ['zzINFO_DEFAULT_FLAG_SEED_HMAC_PUBLIC_PAPER_CONFIRMED', 'zzMAILBOX_AIC71C_RESET', 'zzINBOX_H3BLOSC', 'zzHELP_PHASEONE_ARV010841_NO_CONSUMER_SEEK_IDEA'];  // Ch1 BOARD_WAKE + the founder's message (real [S3])
+let message = '', reply = '', path = '', letters = [];
+const esc = (s) => s.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c]);
+const row = (name, meta, cls = '') => `<li class="c1-row c1-row--zz ${cls}"><div><div class="c1-row__name"><span class="c1-zz">zz</span>${name}</div><div class="c1-row__meta">${meta}</div></div></li>`;
+function build() {
+  message = $('#msg').value.trim() || 'zzHELLO'; if (!message.startsWith('zz')) message = 'zz' + message;
+  reply = replyFor(message); path = pathFor(reply);
+  const body = reply.slice(2);
+  $('#list').innerHTML = row(esc(message.slice(2)), 'you') +
+    `<li class="c1-row c1-row--zz c2-intro__reply" id="reply"><div><div class="c1-row__name"><span class="c1-zz c2-intro__l">zz</span>${[...body].map((c) => `<span class="c2-intro__l">${esc(c)}</span>`).join('')}</div><div class="c1-row__meta">c03220</div></div></li>` +
+    BOARD.map((b) => row(esc(b.slice(2)), 'created by reader (shared account)')).join('');
+  letters = [...document.querySelectorAll('#reply .c2-intro__l')];
+  tornado.setText(path);
+  rest = null;
+}
+let rest = null;   // each letter's resting centre, measured once the row is laid out
+function measure() { letters.forEach((l) => l.style.transform = ''); rest = letters.map((l) => { const r = l.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; }); }
+
+// ------------------------------------------------------------------------------------------- one frame of the intro at t
+const winEl = $('#win'), streamEl = $('#stream');
+function dom(t, D) {
+  $('#flash').style.opacity = D.flash; $('#dim').style.opacity = D.dim; $('#hint').style.opacity = D.hint;
+  winEl.style.opacity = D.window * (D.stream > 0 ? 1 : 1);
+  winEl.style.setProperty('--frame', D.frame);
+  winEl.classList.toggle('is-open', D.open);
+  $('#path').textContent = D.open ? 'artifactory › ' + path : 'package mirror';
+  $('#count').textContent = (t >= T0.reply ? 5 : 4) + ' packages';
+  const rr = $('#reply'); rr.style.visibility = t >= T0.reply ? 'visible' : 'hidden';
+  const nTyped = Math.round(D.typed * letters.length);
+  if (D.stream <= 0 || reduced) {
+    letters.forEach((l, i) => { l.style.opacity = i < nTyped ? 1 : 0; l.style.transform = ''; });
+    if (reduced) return;
+    return;
+  }
+  if (!rest) measure();
+  const cx = innerWidth / 2, cy = innerHeight * .42;
+  letters.forEach((l, i) => {
+    const p = letterPose(i, letters.length, D.stream), [x0, y0] = rest[i];
+    // spiral from its place to the centre: the stream winds into the funnel
+    const dx = x0 - cx, dy = y0 - cy, r0 = Math.hypot(dx, dy), a0 = Math.atan2(dy, dx);
+    const r = r0 * (1 - p.toward), a = a0 + p.angle;
+    const x = cx + Math.cos(a) * r - x0, y = cy + Math.sin(a) * r * .55 - y0;
+    l.style.transform = `translate(${x}px, ${y}px) rotate(${a + Math.PI / 2}rad) scale(${p.scale * p.stretch}, ${p.scale})`;
+    l.style.opacity = p.alpha;
+  });
+}
+const orbA = [0, 0, 0];
+let landedPop = false;
+function frame(t, dt) {
+  U.uTime.value += dt; fxU.uTime.value += dt; const ut = U.uTime.value;
+  const D = direct(t, { reduced });
+  env.update(ut, dt); islands.update(ut, dt, {}); bridges.update(ut, dt);
+  forge.update(ut, dt, { power: 1 }); lasers.update(ut, dt, {}); clouds.update(ut, dt, {});
+  npcs.update(ut, dt, {});
+  trails.update(fxU.uTime.value, 0); crowd.update(fxU.uTime.value, dt, { visible: true }); trails.update(fxU.uTime.value, dt);
+  const op = orbPos(t, L, reduced); orbA[0] = op[0]; orbA[1] = op[1]; orbA[2] = op[2];
+  player.update(ut, dt, { pos: orbA, grounded: D.landed, glide: !D.landed && t > T0.dive, groundY: D.landed ? L.spawn.pos[1] : null });
+  tornado.update(ut, dt, D.tornado);
+  if (D.landed && !landedPop && !reduced) { landedPop = true; trails.pop(new THREE.Vector3(...L.spawn.pos).add(new THREE.Vector3(0, .05, 0)), '#ff5ad1', 1.6); }
+  if (!D.landed) landedPop = false;
+  const c = camPose(t, L, [orbA[0], orbA[1] + ORB.hover, orbA[2]], PLAY, reduced);
+  camera.position.set(...c.pos); camera.lookAt(...c.look); camera.fov = c.fov; camera.updateProjectionMatrix();
+  dom(t, D);
+  composer.render(dt);
+}
+
+// ------------------------------------------------------------------------------------------- transport
+let T = +(Q.get('t') ?? 0), playing = !Q.has('paused'), last = performance.now();
+const tl = $('#tl');
+for (const [k, n] of [['flash', 'FLASH-IN'], ['reply', 'REPLY'], ['open', 'OPENS'], ['stream', 'STREAM'], ['dive', 'PULLED IN'], ['burst', 'THE GATE'], ['end', '']]) { const d = document.createElement('div'); d.className = 'tl__beat'; d.style.left = T0[k] / T0.end * 100 + '%'; d.textContent = n; tl.append(d); }
+function seek(t) { T = Math.max(0, Math.min(T0.end, t)); }
+build(); seek(T);
+$('#msg').onchange = () => { build(); seek(0); playing = true; };
+tl.addEventListener('pointerdown', (e) => { const r = tl.getBoundingClientRect(); seek((e.clientX - r.left) / r.width * T0.end); });
+$('#play').onclick = () => { playing = !playing; if (playing && T >= T0.end) seek(0); };
+$('#restart').onclick = () => { seek(0); playing = true; };
+$('#rm').classList.toggle('on', reduced);
+$('#rm').onclick = (e) => { reduced = !reduced; e.target.classList.toggle('on', reduced); seek(0); playing = true; };
+addEventListener('keydown', (e) => {
+  if (e.target.tagName === 'INPUT') return;
+  if (e.code === 'Space') { e.preventDefault(); $('#play').click(); }
+  if (e.code === 'ArrowRight') seek(T + .25); if (e.code === 'ArrowLeft') seek(T - .25);
+  if (e.code === 'KeyR') $('#restart').click();
+  if (e.code === 'KeyK') $('#bar').classList.toggle('closed');
+});
+if (Q.has('closed')) $('#bar').classList.add('closed');
+addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); composer.setSize(innerWidth, innerHeight); rest = null; });
+renderer.setAnimationLoop(() => {
+  const now = performance.now(), rdt = Math.min(.05, (now - last) / 1000); last = now;
+  if (playing) { T = Math.min(T0.end, T + rdt); if (T >= T0.end) playing = false; }
+  $('#play').textContent = playing ? '❚❚' : '▶';
+  frame(T, rdt);
+  $('#fill').style.width = T / T0.end * 100 + '%'; $('#time').textContent = T.toFixed(2) + ' s';
+});
+window.__ready = true;
+window.INTRO = { seek, get t() { return T; } };
+</script>
+</body>
+</html>
