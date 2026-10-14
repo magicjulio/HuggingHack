@@ -18,6 +18,11 @@ export interface SurfaceDef {
   outline: V2[];
   /** Thickness under the top: the slab the body can't pass through from the side. */
   depth: number;
+  /**
+   * Sides block the body (default). false = a floor only, like the designer's level page: you pass
+   * through it from below or the side and pop up onto its top when it is within `stepUp`.
+   */
+  solid?: boolean;
   position: V3;
   /** Rotation about Y (radians). */
   yaw?: number;
@@ -25,8 +30,11 @@ export interface SurfaceDef {
   pitch?: number;
   /** Moves over time: offset from `position` (and extra yaw) at game time t. */
   motion?: (t: number) => { offset: V3; yaw?: number };
-  /** Tilts towards the body standing on it, up to `max` radians, then settles back. */
-  tilt?: { max: number; speed: number };
+  /**
+   * Tilts towards the body standing on it, up to `max` radians (eased at `speed` per second),
+   * then settles back; optionally sinks `sink` metres while occupied (eased at `sinkRate`).
+   */
+  tilt?: { max: number; speed: number; sink?: number; sinkRate?: number };
 }
 
 export class Surface {
@@ -37,6 +45,8 @@ export class Surface {
   /** Current tilt (radians about local X and Z). */
   tiltX = 0;
   tiltZ = 0;
+  /** How far it has sunk under the body (metres). */
+  sink = 0;
   /** Tilting can be switched off and on (e.g. only in a later fight round). */
   tiltOn = true;
   constructor(readonly def: SurfaceDef) {
@@ -51,6 +61,7 @@ export class Surface {
     const m = d.motion?.(t);
     const pos = new Vector3(...d.position);
     if (m) pos.add(new Vector3(...m.offset));
+    pos.y -= this.sink;
     const q = new Quaternion().setFromEuler(
       new Euler(d.pitch ?? 0, (d.yaw ?? 0) + (m?.yaw ?? 0), 0, 'YXZ'),
     );
@@ -113,8 +124,9 @@ export interface BodyParams {
   /** Body height (orb diameter + a bit), for side collisions. */
   height: number;
   runSpeed: number;
-  /** Ground acceleration (m/s²). */
+  /** How fast horizontal velocity eases towards the input on the ground (per second). */
   accel: number;
+  /** The same in the air (lower = floatier; no input eases towards standing still). */
   airAccel: number;
   gravity: number;
   /** Extra gravity factor while rising with Space released (short hops). */
@@ -126,6 +138,7 @@ export interface BodyParams {
   glideSpeed: number;
   dashSpeed: number;
   dashTime: number;
+  /** Seconds from the start of a dash until the next one. */
   dashCooldown: number;
   /** Seconds after leaving an edge in which a jump still works. */
   coyote: number;
@@ -145,8 +158,8 @@ export const DEFAULT_BODY: BodyParams = {
   radius: 0.4,
   height: 0.9,
   runSpeed: 7,
-  accel: 50,
-  airAccel: 30,
+  accel: 14,
+  airAccel: 7,
   gravity: 14,
   shortHopGravity: 2.2,
   jumpSpeed: 7.5,
@@ -154,7 +167,7 @@ export const DEFAULT_BODY: BodyParams = {
   glideSpeed: 8.5,
   dashSpeed: 17,
   dashTime: 0.22,
-  dashCooldown: 0.45,
+  dashCooldown: 0.67,
   coyote: 0.12,
   jumpBuffer: 0.12,
   stepUp: 0.35,
@@ -260,6 +273,10 @@ export class PlatformWorld {
         const k = 1 - Math.exp(-tilt.speed * dt);
         s.tiltX += (gx - s.tiltX) * k;
         s.tiltZ += (gz - s.tiltZ) * k;
+        if (tilt.sink) {
+          const want = body?.ground === s && s.tiltOn ? tilt.sink : 0;
+          s.sink += (want - s.sink) * (1 - Math.exp(-(tilt.sinkRate ?? tilt.speed) * dt));
+        }
       }
       if (s.def.motion || tilt) s.compose(this.time);
     }
@@ -328,7 +345,7 @@ export function stepBody(
   // 3. dash: a short burst along the facing (or move) direction, no gravity
   if (input.dash && b.dashCool <= 0 && b.dashLeft <= 0 && (b.ground || b.airDash)) {
     b.dashLeft = P.dashTime;
-    b.dashCool = P.dashTime + P.dashCooldown;
+    b.dashCool = P.dashCooldown;
     if (!b.ground) b.airDash = false;
     b.gliding = false;
     ev.push({ type: 'dash' });
@@ -342,18 +359,10 @@ export function stepBody(
     if (gliding && !b.gliding) ev.push({ type: 'glide' });
     b.gliding = gliding;
     const top = gliding ? P.glideSpeed : P.runSpeed;
-    const wantX = mx * top;
-    const wantZ = mz * top;
-    const a = (b.ground ? P.accel : P.airAccel) * dt;
-    const dx = wantX - b.vel.x;
-    const dz = wantZ - b.vel.z;
-    const dl = Math.hypot(dx, dz);
-    // in the air with no input, keep momentum (floaty)
-    if (b.ground || mlen > 0.01) {
-      const k = dl > a ? a / dl : 1;
-      b.vel.x += dx * k;
-      b.vel.z += dz * k;
-    }
+    // ease towards the wanted velocity (same model as the designer's level page)
+    const k = Math.min(1, (b.ground ? P.accel : P.airAccel) * dt);
+    b.vel.x += (mx * top - b.vel.x) * k;
+    b.vel.z += (mz * top - b.vel.z) * k;
 
     // 5. jump (buffered, with coyote time)
     if (b.bufferLeft > 0 && (b.ground || b.coyoteLeft > 0)) {
@@ -383,6 +392,7 @@ export function stepBody(
 
   // 8. side collisions: push out of slabs the body is inside of (not their tops)
   for (const s of world.surfaces) {
+    if (s.def.solid === false) continue;
     const l = tmp.copy(b.pos).applyMatrix4(s.inv);
     if (l.y > -P.stepUp || l.y + P.height < -s.def.depth) continue;
     const inside = inPolygon(l.x, l.z, s.def.outline);

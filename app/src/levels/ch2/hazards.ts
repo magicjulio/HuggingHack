@@ -5,61 +5,64 @@
  */
 import { Vector3 } from 'three';
 import type { V3 } from '../../engine/platformer';
-import type { CloudPath, WaveLane } from './layout';
+import type { Cloud, WaveLane } from './layout';
 
-// ---------------------------------------------------------------- clouds
-export function cloudPos(c: CloudPath, t: number): V3 {
-  const a = c.phase + c.speed * t;
-  return [c.centre[0] + Math.cos(a) * c.r, c.centre[1] + 1.2, c.centre[2] + Math.sin(a) * c.r];
+// ---------------------------------------------------------------- clouds (layout notes.clouds)
+export function cloudPos(c: Cloud, t: number): V3 {
+  const k = Math.sin((2 * Math.PI * t) / c.period);
+  return [c.pos[0] + c.drift[0] * k, c.pos[1] + c.drift[1] * k, c.pos[2] + c.drift[2] * k];
 }
 
-export function inAnyCloud(p: Vector3, clouds: CloudPath[], t: number): boolean {
+/** Is `p` (the orb centre) inside any of the clouds at time t? */
+export function inAnyCloud(p: Vector3, clouds: Cloud[], t: number): boolean {
   return clouds.some((c) => {
     const q = cloudPos(c, t);
-    return Math.hypot(p.x - q[0], (p.y - q[1]) * 1.6, p.z - q[2]) < c.radius;
+    return Math.hypot(p.x - q[0], p.y - q[1], p.z - q[2]) < c.r;
   });
 }
 
-// ---------------------------------------------------------------- reset waves
-/** Where the wall of a lane is at time t, or null between waves. */
-export function wavePos(l: WaveLane, t: number): { p: V3; k: number } | null {
-  const c = (((t + l.phase) % l.period) + l.period) % l.period;
-  if (c > l.travel) return null;
-  const k = c / l.travel;
+// ---------------------------------------------------------------- reset waves (layout notes.waves)
+/** Seconds of rest before a pass in which the emitter charges and the next line is marked. */
+export const WAVE_TELEGRAPH = 1.2;
+
+export interface WaveState {
+  /** The line is sweeping (and hits). */
+  on: boolean;
+  /** Where the line is along `dir`, metres from the station. */
+  along: number;
+  /** Seconds until the next pass starts (0 while on). */
+  until: number;
+  /** World point of the line's centre. */
+  p: V3;
+}
+
+/** Where the scan line of lane `w` is at time t (same formula as the designer's waveState). */
+export function waveState(w: WaveLane, t: number): WaveState {
+  const tt = t + w.offset;
+  const c = Math.floor(tt / w.period);
+  const ph = tt - c * w.period;
+  const sign = c % 2 ? -1 : 1;
+  const on = ph < w.sweep;
+  const k = on ? ph / w.sweep : 1;
+  const along = sign * (-w.span + 2 * w.span * k);
   return {
-    p: [
-      l.from[0] + (l.to[0] - l.from[0]) * k,
-      l.from[1] + (l.to[1] - l.from[1]) * k,
-      l.from[2] + (l.to[2] - l.from[2]) * k,
-    ],
-    k,
+    on,
+    along,
+    until: on ? 0 : w.period - ph,
+    p: [w.at[0] + w.dir[0] * along, w.at[1] + w.slope * along, w.at[2] + w.dir[1] * along],
   };
 }
 
-/** Seconds until the next wave of this lane starts (for telegraphs). */
-export function waveNext(l: WaveLane, t: number): number {
-  const c = (((t + l.phase) % l.period) + l.period) % l.period;
-  return c <= l.travel ? 0 : l.period - c;
-}
-
-const WALL_HALF = 0.45;
-
-/** Does the wall of lane `l` touch a body at `p` (feet) at time t? */
-export function waveHits(l: WaveLane, t: number, p: Vector3, bodyHeight = 0.9): boolean {
-  const w = wavePos(l, t);
-  if (!w) return false;
-  const ax = l.to[0] - l.from[0];
-  const az = l.to[2] - l.from[2];
-  const len = Math.hypot(ax, az) || 1;
-  const ux = ax / len;
-  const uz = az / len;
-  const dx = p.x - w.p[0];
-  const dz = p.z - w.p[2];
-  const along = dx * ux + dz * uz;
-  const across = -dx * uz + dz * ux;
-  if (Math.abs(along) > WALL_HALF || Math.abs(across) > l.width / 2) return false;
-  const dy = p.y - w.p[1];
-  return dy > -bodyHeight && dy < l.height;
+/** Does lane `w`'s line touch a body standing at `p` (feet) at time t? (designer's waveHit) */
+export function waveHits(w: WaveLane, t: number, p: Vector3): boolean {
+  const s = waveState(w, t);
+  if (!s.on) return false;
+  const rx = p.x - w.at[0];
+  const rz = p.z - w.at[2];
+  const along = rx * w.dir[0] + rz * w.dir[1];
+  const lat = -rx * w.dir[1] + rz * w.dir[0];
+  const dy = p.y - (w.at[1] + w.slope * s.along);
+  return Math.abs(along - s.along) < 0.35 && Math.abs(lat) < w.half + 0.3 && dy > -1 && dy < 3;
 }
 
 // ---------------------------------------------------------------- flood bits

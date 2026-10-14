@@ -17,7 +17,7 @@ import { Ch2Context, useCh2, useCh2Store } from './context';
 import { CAMERA, CUTSCENE, RENDER, TEXT, TOKENS } from './config';
 import { ITEMS, NPCS, SPAWN_YAW } from './layout';
 import { createCh2Store, type Target } from './store';
-import { ORB_LIFT, World } from './World';
+import { ORB_LIFT, World, preloadCh2 } from './World';
 import { CutsceneOverlay, FullMap, IntroOverlay, LogRibbon, Minimap } from './Screen';
 import './ch2.css';
 
@@ -25,6 +25,8 @@ import './ch2.css';
 const CH1_TOOLS = ['b64-decoder', 'grep-lens', 'port-map', 'bug-gun'];
 /** (engineer) Used when there is no Ch1 message in the save (e.g. Ch2 picked from the menu). */
 const NO_MESSAGE = 'zzHELLO';
+
+preloadCh2();
 
 function promptFor(t: Target | null): string | null {
   if (!t) return null;
@@ -43,6 +45,7 @@ export default function Chapter2(props: LevelProps) {
   const [store] = useState(() =>
     createCh2Store({
       ch1Message,
+      installed,
       canSkipCutscene: save.completedChapters.includes('ch2'),
       onFinish: (r) => onFinish.current({ status: r.poisoned ? ['poisoned'] : [] }),
     }),
@@ -53,7 +56,7 @@ export default function Chapter2(props: LevelProps) {
   }, [store]);
   return (
     <Ch2Context.Provider value={store}>
-      <Ch2View {...props} ch1Message={ch1Message} installed={installed} />
+      <Ch2View {...props} ch1Message={ch1Message} />
     </Ch2Context.Provider>
   );
 }
@@ -123,13 +126,7 @@ function Shooter({ canvas }: { canvas: React.RefObject<HTMLCanvasElement | null>
   return null;
 }
 
-function Ch2View({
-  modelName,
-  color,
-  onExit,
-  ch1Message,
-  installed,
-}: LevelProps & { ch1Message: string; installed: string[] }) {
+function Ch2View({ modelName, color, onExit, ch1Message }: LevelProps & { ch1Message: string }) {
   const store = useCh2Store();
   const s = useCh2((x) => x);
   const status = useGame((g) => g.save.status);
@@ -216,7 +213,7 @@ function Ch2View({
         camera={{ fov: CAMERA.fov, near: 0.1, far: CAMERA.far }}
         onCreated={({ gl }) => (canvasEl.current = gl.domElement)}
       >
-        <World color={color} installed={installed} ch1Message={ch1Message} />
+        <World color={color} ch1Message={ch1Message} />
         <Camera enabled={s.phase === 'play' && !paused && !s.fullMap} view={view} />
         <Shooter canvas={canvasEl} />
         <Ticker paused={paused || s.fullMap} />

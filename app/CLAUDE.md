@@ -16,8 +16,9 @@ src/
   engine/                generic, chapter-independent:
     steps.ts             StepRunner — linear step chain, hint ladders, skipTo (tested)
     FirstPerson.tsx      WASD + pointer-lock look + circle/box collisions + `focus` camera glide
-    platformer.ts        headless 3D platforming: surfaces (outline polygon + transform, moving, tilting),
-                         body with jump / glide / dash / coyote / slide, void fall (tested)
+    platformer.ts        headless 3D platforming: surfaces (outline polygon + transform, moving, tilting +
+                         sinking, `solid: false` = floor only), body with eased run / jump / glide / dash /
+                         coyote / slide, void fall (tested)
     ThirdPerson.tsx      orbit camera (pointer lock) + camera-relative BodyInput from WASD/Space/Shift; `override` for cutscenes
     Label3D.tsx, Orb3D.tsx   3D text label (canvas texture, local fonts) · PLACEHOLDER orb
   ui/                    generic DOM UI: Hud.tsx, Window.tsx, DebugPanel.tsx, ui.css
@@ -39,18 +40,20 @@ src/
       glow.ts, ch1-ui.css  shared glow values · designer UI kit (verbatim copy)
       windows/           full-view windows: the paper and Station 2's search
       Chapter1.tsx       composition: canvas, HUD, windows, pointer lock, keys, pause, ending
-    ch2/                 Chapter 2 "The Cache" (GREYBOX: placeholder views, real rules)
-      config.ts          ALL tunable numbers + script texts, CUTSCENE beat times, flag values
-      layout.ts          the world as data: SURFACES, PADS, ITEMS, NPCS, token orbs, hazard paths, crowd texts
-                         (engineer greybox from the storyteller's sketch → replaced by the designer's layout.json)
-      hazards.ts         clouds, reset waves, flood bits + spit, shot targeting — pure functions of time (tested)
+    ch2/                 Chapter 2 "The Cache" (designer layout + islands, other views PLACEHOLDER, real rules)
+      config.ts          ALL tunable numbers + script texts, CUTSCENE beat times, flag values; BODY = layout physics
+      layout.json        designer's level data (verbatim copy of handoff/design-to-app/assets/ch2/layout.json)
+      layout.ts          adapter over layout.json: buildSurfaces(installed), PADS, ITEMS, NPCS, token orbs,
+                         clouds, laser lanes, ribbons, map bounds (formulas from the JSON's `notes`)
+      hazards.ts         clouds, laser scan lines (waveState/waveHit), flood bits + spit, shot targeting (tested)
       store.ts           state + `sim` (mutable body/world/bits, read per frame) + rules: tokens, pads, pickups,
                          c03220's posts, forge rounds, cutscene beats
       steps.ts           the chain (pickups checked by state, so wandering ahead is fine) + `goalOf` for the map
-      World.tsx          3D views (one component per thing, all PLACEHOLDER); `Anchor` = always-mounted drei Html
+      World.tsx          3D views, one component per thing: designer island .glbs, the rest PLACEHOLDER;
+                         `Anchor` = always-mounted drei Html
       Screen.tsx         DOM views: log ribbon, minimap + full map (M), Step 0 intro, Step 7 cutscene overlay
       Chapter2.tsx       composition: canvas, camera, shooter, keys, HUD, pause, end card
-      reach.test.ts      autopilot runs and jumps every gap of the golden path
+      reach.test.ts      autopilot runs and jumps every gap of the golden path (on layout.json)
   screens/start|game/    start screen (designer port) · game host
 src/assets/models/       designer .glb files (verbatim copies) · sprites/ designer bug SVGs · fonts/ typeface JSON
 scripts/make-typeface.py woff2 → three.js typeface JSON (3D letters)
@@ -74,7 +77,8 @@ They keep `window` ids (`depot`, `chute`, `s1`…) so the store and steps are un
 Adding a designer model: copy the .glb to `src/assets/models/`, `useGLTF(url)` in its component (`models.tsx`, `RoomShell.tsx` or `stations/`), look nodes/materials up by the names in the handoff (helpers in `rig.ts`), drive them in `useFrame` from the store; give its `PROPS` entry a `collider` for the real footprint and add the url to the preload list.
 
 ## Chapter 2 in one paragraph
-Same store + steps + views shape, plus a mutable `store.sim` (platform world, body, input, bits, spits) that changes every frame and is read by views in `useFrame`/rAF, never through React. `tick(dt)` steps the physics in ≤ 1/60 s sub-steps, then hazards, forge, targeting, steps. Views write only `sim.input` (ThirdPerson) and call actions (`use`, `shoot`, `think`, `toggleMap`, `travel`). The level is data in `layout.ts`; the designer's `design/3d/ch2/layout.json` (source of truth per DECISIONS) replaces it via an adapter on handoff (see `handoff/app-to-design/2026-10-13-ch2-greybox-and-contract.md` §2 for what's still to agree). Every 3D/DOM view is a placeholder slot with the props listed in §3/§4 of that file. Dev hook: `window.__ch2` (store; `__ch2.sim` for the body). Layout changes: run `npx vitest run src/levels/ch2/reach.test.ts`.
+Same store + steps + views shape, plus a mutable `store.sim` (platform world, body, input, bits, spits) that changes every frame and is read by views in `useFrame`/rAF, never through React. `tick(dt)` steps the physics in ≤ 1/60 s sub-steps, then hazards, forge, targeting, steps. Views write only `sim.input` (ThirdPerson) and call actions (`use`, `shoot`, `think`, `toggleMap`, `travel`).
+**The level is the designer's `layout.json`** (DECISIONS 2026-10-14). `layout.ts` adapts it; ids map 1:1 except pickups (`ITEM_IDS`: `piece-7731` → `p7731` …) and NPCs (`FLAC38347` → `flac`). Islands, bridges, slabs and lifts are `solid: false` (floors, like the designer's page). Movement numbers come from its `physics` block (config.ts `BODY`). **New layout.json version:** copy it over verbatim, run `npx vitest run src/levels/ch2` (reach.test.ts walks the golden path), look at it. **World visuals:** the islands are the designer's .glbs; everything else is a placeholder slot waiting for the designer's world modules (`createX(ctx) → {object, update(t, dt, state), dispose()}`, contract `handoff/app-to-design/2026-10-14-ch2-world-as-modules.md`), copied verbatim like the .glb files. Screen layer slots: §4 of `2026-10-13-ch2-greybox-and-contract.md`. Dev hook: `window.__ch2` (store; `__ch2.sim` for the body).
 
 ## Conventions
 - **Swappable views** (Julius 2026-10-13): assets and levels change; a placeholder (e.g. ch2's NPC agents as glowing spheres) gets replaced by a detailed model later. Keep state and behaviour in the store/logic, and give each visible thing one view component behind a small stable interface (pose, state, colour, events) that the placeholder and the final asset both implement. Poses, anchors, colliders and targets come from layout data, not mesh internals, so swapping a model never touches gameplay code.
@@ -88,10 +92,10 @@ Same store + steps + views shape, plus a mutable `store.sim` (platform world, bo
 - **drei `<Html>`** (DOM pinned in 3D): keep it mounted and toggle its children, with an explicit `portal` (ch2 `Anchor`, ch1 `ScreenHtml`); mounting/unmounting it during a render races in React 19.
 
 ## Status (2026-10-14)
-- **Ch2 is the current level.** Greybox playable end to end (script v3.2): all 8 steps, third-person platforming, hazards, the forge fight, the cutscene timeline, `poisoned` in the save. All views are placeholders. Julius played it ("fine") and approved the engineer's gap choices.
-- **Arrived, not integrated yet:** designer's `layout.json` v2 (approved) + island .glbs + answers to my §2 (`handoff/design-to-app/2026-10-14-ch2-layout.md`); designer's map (`design/ch2-ui/map.js`, not exported yet). Merge plan (take the designer's world vs port into my slots) proposed to Julius 2026-10-14, waiting for his OK.
+- **Ch2 is the current level.** Playable end to end (script v3.2) on the **designer's layout.json v2 + island models** with the designer's movement numbers: all 8 steps, platforming, hazards (red laser lines), the forge fight, the cutscene timeline, `poisoned` in the save. Julius approved the gap choices and the merge plan "my game, their world".
+- **Waiting on:** designer: world modules (env/bridges first; request `app-to-design/2026-10-14-ch2-world-as-modules.md`) and answers to the four findings in `app-to-design/2026-10-14-ch2-layout-integrated.md` (slide 2 m short, no forge pad → engineer fallback `pad-forge`, unlimited air dash in the page, dais step 0.5 > stepUp); designer/design2: screen kit export (HUD slice A, map.js) with `--color-poison` → violet rename for Ch1.
 - Ch1 end card → **CONTINUE** into Ch2 (`continueFrom` in the global store; the game host remounts on `run`). All chapters stay unlocked until the final refinement pass.
-- Tests: 48 unit (incl. physics, a Ch2 playthrough, golden-path reachability) + 5 e2e (Ch1 chain ends with CONTINUE → Ch2 intro).
+- Tests: 48 unit (incl. physics, a Ch2 playthrough, golden-path reachability on layout.json) + 5 e2e (Ch1 chain ends with CONTINUE → Ch2 intro).
 - **Ch1 is marked done for now** (Julius). Fine-tuning comes after all chapters.
 - Done: start screen (designer v1), Chapter 1 full chain (intro → wake → prompt → 4 flag stations → impossible flag 5 → zz entry → GET→MKCOL message → ending); HUD, tokens, hints, debug panel, save of the player's message.
 - Story v2 in: real `flag{32 hex}` flags (copy + paste; COPY buttons on in-world flags), the real "OH MY GOD! … other agents!" thought, real board folder names in the ending, finishing a chapter unlocks the next model.

@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { Vector3 } from 'three';
 import { CUTSCENE, FLAG5, TEXT, TIMING, TOKENS } from './config';
-import { FORGE_CORE, ITEMS, NPCS, PADS, RUN_WAVES, type ItemId } from './layout';
-import { wavePos } from './hazards';
+import { FORGE_SLOTS, ITEMS, NPCS, PADS, RUN_WAVES, padOf, type ItemId } from './layout';
+import { waveState } from './hazards';
 import { createCh2Store, replyFor } from './store';
 
 function play(opts: Parameters<typeof createCh2Store>[0] = {}) {
@@ -97,7 +97,7 @@ describe('chapter 2', () => {
     });
 
     // Step 5: land on the Forge island
-    s().placePlayer(PADS.find((x) => x.id === 'forge')!.position);
+    s().placePlayer(padOf('forge').position);
     wait(0.5);
     expect(s().stepId).toBe('forge');
 
@@ -106,7 +106,7 @@ describe('chapter 2', () => {
     expect(s().bubbles.v8same).toBe(TEXT.v8sameBubble);
     wait(TIMING.proofSeconds + 0.1);
     expect(s().forge.phase).toBe('ready');
-    goNear([FORGE_CORE[0] + 2.2, FORGE_CORE[1] + 0.2, FORGE_CORE[2]]);
+    goNear(FORGE_SLOTS[0]);
     for (let i = 0; i < 4; i++) {
       expect(s().target).toEqual({ kind: 'forge' });
       s().use();
@@ -159,9 +159,9 @@ describe('chapter 2', () => {
     s().jumpTo(5); // Reset Run, no floor any more
     expect(s().stepId).toBe('run');
     const lane = RUN_WAVES[0];
-    // stand in the lane right where the wave will pass, and wait for it
-    const mid = wavePos(lane, -lane.phase + lane.travel / 2)!.p;
-    s().placePlayer(mid);
+    // stand on the bridge at the lane's station, where every pass crosses, and wait for it
+    expect(waveState(lane, lane.sweep / 2 - lane.offset).along).toBeCloseTo(0);
+    s().placePlayer(lane.at);
     const t0 = s().tokens;
     wait(lane.period + 0.2);
     expect(s().respawn?.why).toBe('reset');

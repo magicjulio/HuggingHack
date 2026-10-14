@@ -24,12 +24,18 @@ export function Orb3D({
   position = [0, 0, 0],
   radius = 0.5,
   intensity = 1,
+  bloom = true,
 }: {
   color: string;
   position?: [number, number, number];
   radius?: number;
   /** 0..1, e.g. to fade the orb in. */
   intensity?: number;
+  /**
+   * false = stays under the bloom threshold: shaded core, soft halo (designer rule 2026-10-14 for
+   * other agents; only the player orb blooms).
+   */
+  bloom?: boolean;
 }) {
   const glow = useMemo(glowTexture, []);
   const group = useRef<Group>(null);
@@ -43,7 +49,8 @@ export function Orb3D({
         <meshStandardMaterial
           color={color}
           emissive={color}
-          emissiveIntensity={1.6 * intensity}
+          emissiveIntensity={(bloom ? 1.6 : 0.35) * intensity}
+          roughness={bloom ? 1 : 0.45}
           transparent
           opacity={intensity}
         />
@@ -54,7 +61,7 @@ export function Orb3D({
           color={color}
           blending={AdditiveBlending}
           transparent
-          opacity={0.8 * intensity}
+          opacity={(bloom ? 0.8 : 0.22) * intensity}
           depthWrite={false}
         />
       </sprite>

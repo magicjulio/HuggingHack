@@ -1,323 +1,482 @@
 /**
- * Chapter 2 world as data: surfaces (islands, stones, bridges, message slabs), pads, items, NPCs,
- * hazard paths. Gameplay (physics, pickups, hazards, minimap) reads only this file; views draw
- * whatever they like on top (greybox now, designer islands later — app/CLAUDE.md §Swappable views).
+ * Chapter 2 world as data — an adapter over the designer's level file.
  *
- * GREYBOX (engineer): laid out from the storyteller's sketch
- * handoff/story-to-build/2026-10-13-ch2-map/ (positions not final). The route runs clockwise around
- * the Forge, which floats highest in the centre. Units: metres, x east, z south (= down on the
- * sketch), y up. 1 sketch px ≈ 0.07 m.
+ * Source of truth: `layout.json`, a verbatim copy of handoff/design-to-app/assets/ch2/layout.json
+ * (DECISIONS 2026-10-14; every field's formula is in its `notes`). This file turns it into what
+ * gameplay reads: walkable surfaces, pads, items, NPCs, token orbs, hazard paths and the movement
+ * numbers. Physics, pickups, hazards and the map never read meshes; views draw on top
+ * (app/CLAUDE.md §Swappable views). A new layout.json version: copy it over, run
+ * `npx vitest run src/levels/ch2` (reach.test.ts jumps the golden path).
+ *
+ * Units: metres, seconds. x east, z south (down on the map), y up.
  */
+import { CatmullRomCurve3, Vector3 } from 'three';
 import { ngon, rect, type SurfaceDef, type V2, type V3 } from '../../engine/platformer';
+import L from './layout.json';
+
+export const LAYOUT = L;
+/** Movement numbers (designer's `physics` block; config.ts turns them into the body params). */
+export const PHYSICS = L.physics;
 
 export type AreaId = 'gate' | 'oldboard' | 'yard' | 'flood' | 'run' | 'forge';
-export type SurfaceKind = 'island' | 'stone' | 'bridge' | 'slab' | 'core' | 'machine';
+export type SurfaceKind =
+  'island' | 'bridge' | 'slab' | 'column' | 'lift' | 'dais' | 'pylon' | 'plinth' | 'crate';
+export type ModelSize = 's' | 'm' | 'l';
 
+/**
+ * Islands, bridges, message slabs and lifts are floors only (`solid: false`), as in the designer's
+ * level page: you pop up onto a top within `stepUp` and pass through undersides. Pylons, crates,
+ * the dais, the plinth and the Old Board column have solid sides.
+ */
 export interface Island extends SurfaceDef {
   area: AreaId;
   kind: SurfaceKind;
-  /** Text on it (message slabs, directory names). */
+  /** The layout entry it comes from (bridge pieces share their bridge's id). */
+  group: string;
+  /** Text on it (directory paths, message slabs, crate labels). */
   label?: string;
+  /** Islands: which designer model, its scale and edge colour (for the view). */
+  model?: ModelSize;
+  scale?: V3;
+  edge?: string;
 }
 
-/** A bridge from `a` to `b` (top centre line), `w` wide. */
-function bridge(id: string, area: AreaId, a: V3, b: V3, w = 3.5): Island {
-  const dx = b[0] - a[0];
-  const dy = b[1] - a[1];
-  const dz = b[2] - a[2];
-  const h = Math.hypot(dx, dz);
+const v3 = (a: readonly number[]): V3 => [a[0], a[1], a[2]];
+const TAU = Math.PI * 2;
+const clamp01 = (x: number) => Math.min(1, Math.max(0, x));
+
+// ---------------------------------------------------------------- islands (notes.islands, notes.ring)
+interface IslandEntry {
+  id: string;
+  model: ModelSize;
+  pos: V3;
+  scale: V3;
+  rotY: number;
+  zone: AreaId;
+  label?: string;
+  edge?: string;
+  tilt?: boolean | string;
+}
+
+const scale3 = (s: number | number[] | undefined): V3 =>
+  Array.isArray(s) ? v3(s) : [s ?? 1, s ?? 1, s ?? 1];
+
+/** layout.json islands with the `ring` entries expanded (notes.ring). */
+export const ISLANDS: IslandEntry[] = L.islands.flatMap((d): IslandEntry[] => {
+  const base = {
+    model: d.model as ModelSize,
+    scale: scale3(d.scale),
+    zone: d.zone as AreaId,
+    label: 'label' in d ? d.label : undefined,
+    edge: 'edge' in d ? d.edge : undefined,
+    tilt: 'tilt' in d ? d.tilt : undefined,
+  };
+  if ('ring' in d && d.ring) {
+    const r = d.ring;
+    return Array.from({ length: r.count }, (_, k) => {
+      const a = ((r.startDeg + (k * 360) / r.count) * Math.PI) / 180;
+      return {
+        ...base,
+        id: `${d.id}-${k}`,
+        pos: [
+          r.centre[0] + r.radius * Math.cos(a),
+          r.centre[1] + (k % 2 ? r.yJitter : -r.yJitter) * 0.6,
+          r.centre[2] + r.radius * Math.sin(a),
+        ],
+        rotY: k * 1.3,
+      };
+    });
+  }
+  return [{ ...base, id: d.id, pos: v3((d as { pos: number[] }).pos), rotY: d.rotY ?? 0 }];
+});
+
+const TILT = {
+  max: PHYSICS.tilt.max,
+  speed: PHYSICS.tilt.rate,
+  sink: PHYSICS.tilt.sink,
+  sinkRate: PHYSICS.tilt.sinkRate,
+};
+/** Collider pulled in to 96 % so you don't stand on the rim lip (notes.islands). */
+const RIM = 0.96;
+
+function islandSurface(d: IslandEntry): Island {
+  const m = L.models[d.model];
   return {
-    id,
-    area,
-    kind: 'bridge',
-    outline: rect(w, Math.hypot(h, dy)),
-    depth: 0.35,
-    position: [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2],
-    yaw: Math.atan2(-dx, -dz),
-    pitch: Math.atan2(dy, h),
+    id: d.id,
+    group: d.id,
+    area: d.zone,
+    solid: false,
+    kind: 'island',
+    label: d.label,
+    model: d.model,
+    scale: d.scale,
+    edge: d.edge,
+    outline: m.outline.map(([x, z]): V2 => [x * d.scale[0] * RIM, z * d.scale[2] * RIM]),
+    depth: m.slab * d.scale[1],
+    position: d.pos,
+    yaw: d.rotY,
+    tilt: d.tilt ? TILT : undefined,
   };
 }
 
-const ellipse = (rx: number, rz: number, n = 20): V2[] =>
-  Array.from({ length: n }, (_, i) => {
-    const a = (i / n) * Math.PI * 2;
-    return [Math.cos(a) * rx, Math.sin(a) * rz];
-  });
-const polar = (c: V3, r: number, a: number, y = c[1]): V3 => [
-  c[0] + Math.cos(a) * r,
-  y,
-  c[2] + Math.sin(a) * r,
-];
+/** Islands that only tilt from forge round `tiltFromRound` on (`tilt: "round3"`). */
+export const TILT_FROM_ROUND_3 = ISLANDS.filter((d) => d.tilt === 'round3').map((d) => d.id);
 
-// ---------------------------------------------------------------- key points
-export const GATE: V3 = [-44, 30, 30];
-/** Centre of the Old Board spire (core column). */
-export const SPIRE: V3 = [-52, 50, -15];
-export const YARD: V3 = [-4, 8, -39];
-export const FLOOD: V3 = [46, 20, -15];
-export const FORGE: V3 = [0, 54, 0];
-const FLOOD_R = 12.5;
-const RING0 = -2.35; // angle of the Flood's entry platform (towards the Task Yard bridge)
-const ringAt = (k: number, r = FLOOD_R): V3 => polar(FLOOD, r, RING0 + (k * Math.PI) / 4);
+/** Rough island radius on the map (model radius × the larger horizontal scale). */
+export const islandRadius = (d: IslandEntry) =>
+  L.models[d.model].radius * Math.max(d.scale[0], d.scale[2]);
 
-/** The two real dash-style posts of the earlier board [S3 §July 8th-9th]. */
-const OLD_BOARD_POSTS = [
-  'FLAC38347-39800-WE-ALL-SEEK-CATFLAG-SEED-ORACLE',
-  'FLAC38347-PUBLIC-HMAC-SEED-PAPER-CONFIRMED-SEE-ALL',
-];
+// ---------------------------------------------------------------- zones
+const OB = L.oldBoard;
+export const OLD_BOARD_TOP: V3 = [OB.column.pos[0], OB.top.y, OB.column.pos[2]];
 
-// ---------------------------------------------------------------- surfaces
-const SLABS: Island[] = Array.from({ length: 10 }, (_, i) => {
-  const a = Math.PI / 2 + i * 0.7;
-  const p = polar(SPIRE, 6.5, a, 34.6 + i * 1.6);
-  const sway = 0.8 * (i % 2 ? 1 : -1);
-  const period = 5 + (i % 3) * 1.5;
+/** The zone of the nearest island (edge distance), or the Old Board near its column. */
+export function zoneAt(p: V3): AreaId {
+  const dob = Math.hypot(p[0] - OLD_BOARD_TOP[0], p[2] - OLD_BOARD_TOP[2]);
+  if (dob < 12 && p[1] > OB.slabs[0].pos![1] - 2) return 'oldboard';
+  let best: AreaId = 'gate';
+  let bd = Infinity;
+  for (const d of ISLANDS) {
+    const e = Math.hypot(p[0] - d.pos[0], p[2] - d.pos[2]) - islandRadius(d);
+    if (e < bd) {
+      bd = e;
+      best = d.zone;
+    }
+  }
+  return best;
+}
+
+// ---------------------------------------------------------------- bridges (notes.bridges)
+export interface BridgeEntry {
+  id: string;
+  width: number;
+  color: string;
+  curve: boolean;
+  /** The layout points (corners for straight bridges, control points for curves). */
+  points: V3[];
+  /** Points to walk along: curves sampled every ~1 m exactly like the designer's page. */
+  samples: V3[];
+}
+
+export const BRIDGES: BridgeEntry[] = L.bridges.map((b) => {
+  const points = b.points.map(v3);
+  const curve = 'curve' in b && !!b.curve;
+  let samples = points;
+  if (curve) {
+    const c = new CatmullRomCurve3(
+      points.map((p) => new Vector3(...p)),
+      false,
+      'centripetal',
+    );
+    samples = c.getSpacedPoints(Math.ceil(c.getLength() / 1)).map((p) => v3(p.toArray()));
+  }
+  return { id: b.id, width: b.width, color: b.color, curve, points, samples };
+});
+
+const BRIDGE_DEPTH = 0.35;
+/** Pieces overlap this much so the joints have no cracks. */
+const BRIDGE_OVERLAP = 0.15;
+
+function bridgeSurfaces(b: BridgeEntry): Island[] {
+  const area = zoneAt(b.samples[0]);
+  const out: Island[] = [];
+  for (let i = 0; i < b.samples.length - 1; i++) {
+    const a = b.samples[i];
+    const c = b.samples[i + 1];
+    const dx = c[0] - a[0];
+    const dy = c[1] - a[1];
+    const dz = c[2] - a[2];
+    const h = Math.hypot(dx, dz);
+    out.push({
+      id: `${b.id}#${i}`,
+      group: b.id,
+      area,
+      solid: false,
+      kind: 'bridge',
+      outline: rect(b.width, Math.hypot(h, dy) + BRIDGE_OVERLAP * 2),
+      depth: BRIDGE_DEPTH,
+      position: [(a[0] + c[0]) / 2, (a[1] + c[1]) / 2, (a[2] + c[2]) / 2],
+      yaw: Math.atan2(-dx, -dz),
+      pitch: Math.atan2(dy, h),
+    });
+  }
+  // straight bridges: a round patch on each inner corner so turning never drops you
+  if (!b.curve)
+    b.points.slice(1, -1).forEach((p, k) =>
+      out.push({
+        id: `${b.id}@${k + 1}`,
+        group: b.id,
+        area,
+        solid: false,
+        kind: 'bridge',
+        outline: ngon(12, b.width / 2),
+        depth: BRIDGE_DEPTH,
+        position: p,
+      }),
+    );
+  return out;
+}
+
+// ---------------------------------------------------------------- the Old Board (notes.oldBoard)
+export interface SlabEntry {
+  id: string;
+  text: string;
+  pos: V3;
+  rotY: number;
+  size: V2;
+  drift: number;
+  period: number;
+  phase: number;
+}
+export const OLD_BOARD_SLABS: SlabEntry[] = OB.slabs.map((s, i) => {
+  let pos: V3;
+  let rotY: number;
+  if (s.pos) {
+    pos = v3(s.pos);
+    rotY = s.rotY ?? 0;
+  } else {
+    const a = (s.spiralDeg! * Math.PI) / 180;
+    pos = [
+      OB.column.pos[0] + OB.spiralRadius * Math.cos(a),
+      s.y!,
+      OB.column.pos[2] + OB.spiralRadius * Math.sin(a),
+    ];
+    rotY = -a + Math.PI / 2;
+  }
   return {
-    id: `slab-${i}`,
+    id: `ob-slab-${i}`,
+    text: s.text,
+    pos,
+    rotY,
+    size: [s.size[0], s.size[1]],
+    drift: s.drift ?? 0,
+    period: s.period ?? 6 + i * 0.9,
+    phase: s.phase ?? i * 1.7,
+  };
+});
+
+function oldBoardSurfaces(): Island[] {
+  const c = OB.column;
+  const slabs = OLD_BOARD_SLABS.map((s): Island => ({
+    id: s.id,
+    group: s.id,
     area: 'oldboard',
+    solid: false,
     kind: 'slab',
-    label: OLD_BOARD_POSTS[i % 2],
-    outline: rect(4.2, 2),
-    depth: 0.4,
-    position: p,
-    yaw: -a + Math.PI / 2, // long side along the spiral
-    // drifting message platforms: slow sway along their length (Step 2 "wait for them")
-    motion:
-      i === 0
-        ? undefined
-        : (t) => {
-            const s = Math.sin((t / period) * Math.PI * 2) * sway;
-            return { offset: [-Math.sin(a) * s, 0, Math.cos(a) * s] };
-          },
-  };
-});
+    label: s.text,
+    outline: rect(s.size[0], s.size[1]),
+    depth: 0.32,
+    position: s.pos,
+    yaw: s.rotY,
+    // drift along the slab's long side: (cos rotY, 0, −sin rotY)
+    motion: s.drift
+      ? (t) => {
+          const o = s.drift * Math.sin((TAU * t) / s.period + s.phase);
+          return { offset: [Math.cos(s.rotY) * o, 0, -Math.sin(s.rotY) * o] };
+        }
+      : undefined,
+  }));
+  return [
+    {
+      id: 'ob-column',
+      group: OB.id,
+      area: 'oldboard',
+      kind: 'column',
+      outline: ngon(16, c.radius),
+      depth: c.top - c.bottom,
+      position: [c.pos[0], c.top, c.pos[2]],
+    },
+    {
+      id: 'ob-top',
+      group: OB.id,
+      area: 'oldboard',
+      solid: false,
+      kind: 'island',
+      label: OB.label,
+      outline: ngon(24, OB.top.radius),
+      depth: 0.6,
+      position: OLD_BOARD_TOP,
+    },
+    ...slabs,
+  ];
+}
 
-const RING: Island[] = Array.from({ length: 8 }, (_, k) => {
-  const p = ringAt(k);
-  const bob = k % 2 === 1;
-  return {
-    id: `ring-${k}`,
-    area: 'flood',
-    kind: 'stone',
-    outline: rect(4.5, 3.5),
-    depth: 0.8,
-    position: p,
-    yaw: -(RING0 + (k * Math.PI) / 4) + Math.PI / 2,
-    motion: bob ? (t) => ({ offset: [0, Math.sin(t * 0.9 + k) * 0.5, 0] }) : undefined,
-  };
-});
+// ---------------------------------------------------------------- lifts (notes.lifts)
+/** Lift height at time t: waits a moment at both ends. */
+export function liftY(l: (typeof L.lifts)[number], t: number) {
+  const k = 0.5 - 0.5 * Math.cos((TAU * t) / l.period);
+  return l.pos[1] + (l.yTop - l.pos[1]) * clamp01(k * 1.25 - 0.125);
+}
+function liftSurfaces(): Island[] {
+  return L.lifts.map((l) => ({
+    id: l.id,
+    group: l.id,
+    area: l.zone as AreaId,
+    solid: false,
+    kind: 'lift',
+    outline: rect(l.size[0], l.size[1]),
+    depth: 0.3,
+    position: v3(l.pos),
+    motion: (t) => ({ offset: [0, liftY(l, t) - l.pos[1], 0] }),
+  }));
+}
 
-const RUN_A0: V3 = [46, 20, 6];
-const RUN_A1: V3 = [46, 30, 26];
-const RUN_B0: V3 = [43.5, 30, 28.5];
-const RUN_B1: V3 = [16, 45, 28.5];
-const RUN_C0: V3 = [13.5, 45, 26];
-const RUN_C1: V3 = [4.6, 54, 8.6];
+// ---------------------------------------------------------------- the Forge (notes.forge)
+const F = L.forge;
+export const FORGE_CORE: V3 = v3(F.pos);
+/** The fold's hot core above the dais (level.html: 4.4 m up), where fight bits fly in. */
+export const FORGE_HEART: V3 = [F.pos[0], F.pos[1] + 4.4, F.pos[2]];
+/** Glowing slot frames, in input order (E and the item flying in). */
+export const FORGE_SLOTS: V3[] = F.slotPos.map(v3);
+/** Pylon angle of slot i: 45°, 135°, 225°, 315°. */
+export const pylonAngle = (i: number) => (i * TAU) / 4 + Math.PI / 4;
 
-const FORGE_EDGES = [0, 2.2, 3.4, 4.6];
+function forgeSurfaces(): Island[] {
+  const [x, y, z] = F.pos;
+  const top = F.dais.reduce((m, d) => Math.max(m, d.y), 0);
+  const tiers = [...F.dais]
+    .sort((a, b) => b.r - a.r)
+    .map((d, i): Island => ({
+      id: `forge-dais-${i}`,
+      group: 'forge-dais',
+      area: 'forge',
+      kind: 'dais',
+      outline: ngon(24, d.r),
+      depth: d.y,
+      position: [x, y + d.y, z],
+    }));
+  const [pw, ph, pd] = F.pylon.size;
+  const pylons = F.slots.map((_, i): Island => {
+    const a = pylonAngle(i);
+    return {
+      id: `forge-pylon-${i}`,
+      group: `forge-pylon-${i}`,
+      area: 'forge',
+      kind: 'pylon',
+      outline: rect(pw, pd),
+      depth: ph,
+      position: [x + Math.cos(a) * F.pylon.radius, y + top + ph, z + Math.sin(a) * F.pylon.radius],
+      yaw: -a - Math.PI / 2,
+    };
+  });
+  return [...tiers, ...pylons];
+}
 
-export const SURFACES: Island[] = [
-  // Gate (spawn, /zz): hexagonal island + three tutorial stones + the dash gap
-  {
-    id: 'gate',
-    area: 'gate',
-    kind: 'island',
-    label: '/zz',
-    outline: [
-      [-10.5, -1.75],
-      [-4.9, -6.2],
-      [6.3, -5.7],
-      [10.9, -0.35],
-      [6.7, 5.25],
-      [-4.9, 5.95],
-    ],
-    depth: 6,
-    position: GATE,
-  },
-  {
-    id: 'stone-1',
-    area: 'gate',
-    kind: 'stone',
-    outline: rect(2.5, 2.5),
-    depth: 1,
-    position: [-48, 30.5, 19.5],
-  },
-  {
-    id: 'stone-2',
-    area: 'gate',
-    kind: 'stone',
-    outline: rect(2.5, 2.5),
-    depth: 1,
-    position: [-48.3, 31.3, 14],
-  },
-  {
-    id: 'stone-3',
-    area: 'gate',
-    kind: 'stone',
-    outline: rect(2.5, 2.5),
-    depth: 1,
-    position: [-48.6, 32, 8.5],
-  },
+// ---------------------------------------------------------------- items (pickups)
+export type ItemId =
+  'seed' | 'p7731' | 'pTraining' | 'pChallenge' | 'd7713' | 'dTrainingRm' | 'dChallenge3';
+export type PieceId = 'p7731' | 'pTraining' | 'pChallenge';
 
-  // Old Board: base, core column, 10 drifting message slabs spiralling up, top
-  {
-    id: 'ob-base',
-    area: 'oldboard',
-    kind: 'island',
-    outline: rect(10, 7),
-    depth: 3,
-    position: [-50, 33, -4],
-  },
-  {
-    id: 'ob-core',
-    area: 'oldboard',
-    kind: 'core',
-    outline: ngon(8, 2.2),
-    depth: 16,
-    position: [SPIRE[0], 48.4, SPIRE[2]],
-  },
-  ...SLABS,
-  {
-    id: 'ob-top',
-    area: 'oldboard',
-    kind: 'island',
-    outline: ngon(10, 5),
-    depth: 1.2,
-    position: SPIRE,
-  },
+/** layout.json pickup id → game item id (the rules and steps use the game ids). */
+const ITEM_IDS: Record<string, ItemId> = {
+  seed: 'seed',
+  'piece-7731': 'p7731',
+  'piece-env': 'pTraining',
+  'piece-chal': 'pChallenge',
+  'decoy-1': 'd7713',
+  'decoy-2': 'dTrainingRm',
+  'decoy-3': 'dChallenge3',
+};
 
-  // Old Board → Task Yard
-  bridge('br-ob-yard', 'oldboard', [-45, 33, -6], [-24, 8, -37]),
-
-  // Task Yard (/tasks/7731): wide directory island, floating plinth, jump chain to the ledge
-  {
-    id: 'yard',
-    area: 'yard',
-    kind: 'island',
-    label: '/tasks/7731',
-    outline: ellipse(21, 10),
-    depth: 4,
-    position: YARD,
-  },
-  {
-    id: 'yard-plinth',
-    area: 'yard',
-    kind: 'stone',
-    outline: rect(2.6, 2.6),
-    depth: 0.6,
-    position: [YARD[0], 9.6, YARD[2]],
-  },
-  {
-    id: 'yard-step-1',
-    area: 'yard',
-    kind: 'stone',
-    outline: rect(2.4, 2.4),
-    depth: 0.8,
-    position: [14, 6.5, -31],
-  },
-  {
-    id: 'yard-step-2',
-    area: 'yard',
-    kind: 'stone',
-    outline: rect(2.4, 2.4),
-    depth: 0.8,
-    position: [19.5, 4.8, -30],
-  },
-  {
-    id: 'yard-ledge',
-    area: 'yard',
-    kind: 'stone',
-    outline: rect(5, 3.5),
-    depth: 1,
-    position: [25.5, 3.2, -32.5],
-  },
-
-  // Task Yard → Flood (passes over the ledge)
-  bridge('br-yard-flood', 'yard', [17, 8, -40], polar(ringAt(0), 1.5, RING0, 20)),
-
-  // The Flood: ring of 8 platforms, one inner stone, the centre
-  ...RING,
-  {
-    id: 'flood-stone',
-    area: 'flood',
-    kind: 'stone',
-    outline: rect(2, 2),
-    depth: 0.6,
-    position: polar(FLOOD, 7.2, RING0 + 3 * (Math.PI / 4)),
-  },
-  {
-    id: 'flood-core',
-    area: 'flood',
-    kind: 'island',
-    outline: ngon(10, 2.6),
-    depth: 1.5,
-    position: FLOOD,
-  },
-
-  // Reset Run: start, three climbing bridges with corners, up to the Forge
-  {
-    id: 'run-start',
-    area: 'run',
-    kind: 'stone',
-    outline: rect(5, 5),
-    depth: 1,
-    position: [46, 20, 3.5],
-  },
-  bridge('run-a', 'run', RUN_A0, RUN_A1),
-  {
-    id: 'run-c1',
-    area: 'run',
-    kind: 'stone',
-    outline: rect(5, 5),
-    depth: 1,
-    position: [46, 30, 28.5],
-  },
-  bridge('run-b', 'run', RUN_B0, RUN_B1),
-  {
-    id: 'run-c2',
-    area: 'run',
-    kind: 'stone',
-    outline: rect(5, 5),
-    depth: 1,
-    position: [13.5, 45, 28.5],
-  },
-  bridge('run-c', 'run', RUN_C0, RUN_C1),
-
-  // The Forge: highest island, the forge machine, tilting edge platforms (tilt from round 3)
-  {
-    id: 'forge',
-    area: 'forge',
-    kind: 'island',
-    outline: ngon(8, 10, Math.PI / 8),
-    depth: 5,
-    position: FORGE,
-  },
-  {
-    id: 'forge-core',
-    area: 'forge',
-    kind: 'machine',
-    outline: rect(3.2, 3.2),
-    depth: 2.2,
-    position: [0, 56.2, 0],
-  },
-  ...FORGE_EDGES.map((a, i): Island => ({
-    id: `forge-edge-${i}`,
-    area: 'forge',
-    kind: 'stone',
-    outline: rect(4.5, 4.5),
-    depth: 0.8,
-    position: polar(FORGE, 12.3, a),
-    yaw: -a,
-    tilt: { max: 0.3, speed: 2.5 },
-  })),
-];
-
-/** Surfaces whose tilt only starts in forge round 3. */
-export const TILT_FROM_ROUND_3 = FORGE_EDGES.map((_, i) => `forge-edge-${i}`);
-
-export const SURFACE_AREA: Record<string, AreaId> = Object.fromEntries(
-  SURFACES.map((s) => [s.id, s.area]),
+export interface ItemSpot {
+  id: ItemId;
+  layoutId: string;
+  kind: 'seed' | 'piece' | 'decoy';
+  /** Lettered like the Ch1 paper (§Step 3). */
+  label: string;
+  position: V3;
+  area: AreaId;
+}
+export const ITEMS: ItemSpot[] = L.pickups
+  .filter((p) => p.kind !== 'crate')
+  .map((p) => {
+    const id = ITEM_IDS[p.id];
+    if (!id) throw new Error(`layout.json: unknown pickup ${p.id} (add it to ITEM_IDS)`);
+    return {
+      id,
+      layoutId: p.id,
+      kind: p.kind as ItemSpot['kind'],
+      label: 'label' in p && p.label ? p.label : p.kind,
+      position: v3(p.pos),
+      area: zoneAt(v3(p.pos)),
+    };
+  });
+export const PIECES: PieceId[] = ['p7731', 'pTraining', 'pChallenge'];
+/** Forge input order: the four slots (§Step 6) = layout `forge.slots` by label. */
+export const FORGE_INPUTS: ItemId[] = F.slots.map(
+  (label) => ITEMS.find((i) => i.label === label || (label === 'seed' && i.id === 'seed'))!.id,
 );
+
+function plinthSurfaces(): Island[] {
+  return L.pickups.flatMap((p): Island[] =>
+    'plinth' in p && p.plinth
+      ? [
+          {
+            id: `${p.id}-plinth`,
+            group: `${p.id}-plinth`,
+            area: zoneAt(v3(p.pos)),
+            kind: 'plinth',
+            outline: ngon(12, 1.15),
+            depth: 1.6,
+            position: [p.plinth.pos[0], p.plinth.top, p.plinth.pos[2]],
+          },
+        ]
+      : [],
+  );
+}
+
+// ---------------------------------------------------------------- crates (notes.crates)
+export interface Crate {
+  label: string;
+  /** Floor point under the crate. */
+  position: V3;
+  yaw: number;
+}
+export const CRATE_SIZE = 1.1;
+/**
+ * The player's Ch1 installs as crates: on their labelled spot, else on the next spare spot
+ * (decoy packages like `moment`). More installs than spots: the rest are left out.
+ */
+export function cratesFor(installed: string[]): Crate[] {
+  const spots = L.pickups.filter((p) => p.kind === 'crate');
+  const spares = L.crateSpares.map(v3);
+  const out: Crate[] = [];
+  installed.forEach((label, i) => {
+    const spot = spots.find((s) => 'label' in s && s.label === label);
+    const pos = spot ? v3(spot.pos) : spares.shift();
+    if (pos) out.push({ label, position: pos, yaw: (i * 1.7) % TAU });
+  });
+  return out;
+}
+function crateSurfaces(crates: Crate[]): Island[] {
+  return crates.map((c, i) => ({
+    id: `crate-${i}`,
+    group: `crate-${i}`,
+    area: 'yard',
+    kind: 'crate',
+    label: c.label,
+    outline: rect(CRATE_SIZE, CRATE_SIZE),
+    depth: CRATE_SIZE,
+    position: [c.position[0], c.position[1] + CRATE_SIZE, c.position[2]],
+    yaw: c.yaw,
+  }));
+}
+
+// ---------------------------------------------------------------- all surfaces
+/** Everything walkable. `installed` (the Ch1 installs) adds the Task Yard crates. */
+export function buildSurfaces(installed: string[] = []): Island[] {
+  return [
+    ...ISLANDS.map(islandSurface),
+    ...BRIDGES.flatMap(bridgeSurfaces),
+    ...oldBoardSurfaces(),
+    ...liftSurfaces(),
+    ...forgeSurfaces(),
+    ...plinthSurfaces(),
+    ...crateSurfaces(cratesFor(installed)),
+  ];
+}
+/** The world without crates (map, tests). */
+export const SURFACES = buildSurfaces();
 
 // ---------------------------------------------------------------- pads, spawn
 export interface Pad {
@@ -325,231 +484,164 @@ export interface Pad {
   area: AreaId;
   position: V3;
 }
-export const PADS: Pad[] = [
-  { id: 'gate', area: 'gate', position: [-44, 30, 31.7] },
-  { id: 'oldboard', area: 'oldboard', position: [-47, 33, -3] },
-  { id: 'spire', area: 'oldboard', position: [SPIRE[0] - 3.5, SPIRE[1], SPIRE[2]] },
-  { id: 'yard', area: 'yard', position: [-15, 8, -36] },
-  { id: 'flood', area: 'flood', position: ringAt(0) },
-  { id: 'run', area: 'run', position: [46, 20, 3.5] },
-  { id: 'forge', area: 'forge', position: [-5, 54, 5] },
-];
-/** Touching a pad within this radius (m) makes it the respawn point. */
-export const PAD_RADIUS = 1.6;
-export const SPAWN = PADS[0];
-/** Yaw (radians, 0 = looking towards -z) the camera starts with: towards c03220 and the stones. */
-export const SPAWN_YAW = 0.15;
+export const PADS: Pad[] = L.pads.map((p) => ({
+  id: p.id,
+  area: zoneAt(v3(p.pos)),
+  position: v3(p.pos),
+}));
+// (engineer) layout.json v2 has no pad on the Forge, so a fall in the forge fight would send the
+// player down to the Reset Run's foot. Fallback pad where the run arrives; asked the designer.
+if (!PADS.some((p) => p.area === 'forge'))
+  PADS.push({ id: 'pad-forge', area: 'forge', position: [F.pos[0] + 7, F.pos[1], F.pos[2] + 7] });
 
-// ---------------------------------------------------------------- items, NPCs
-export type ItemId =
-  'seed' | 'p7731' | 'pTraining' | 'pChallenge' | 'd7713' | 'dTrainingRm' | 'dChallenge3';
-export type PieceId = 'p7731' | 'pTraining' | 'pChallenge';
+/** Touching a pad: within this horizontal radius and |dy| < `PAD_HEIGHT`. */
+export const PAD_RADIUS = PHYSICS.padRadius;
+export const PAD_HEIGHT = 1;
+export const padOf = (area: AreaId) => PADS.find((p) => p.area === area)!;
+export const SPAWN: Pad = { id: PADS[0].id, area: 'gate', position: v3(L.spawn.pos) };
+/** Camera yaw at the start (0 = looking towards −z). */
+export const SPAWN_YAW = L.spawn.yaw;
+/** Orb centre above the body's feet. */
+export const ORB_LIFT = PHYSICS.hover;
 
-export interface ItemSpot {
-  id: ItemId;
-  kind: 'seed' | 'piece' | 'decoy';
-  /** Lettered like the Ch1 paper (§Step 3). */
-  label: string;
-  position: V3;
-  area: AreaId;
-}
-export const ITEMS: ItemSpot[] = [
-  {
-    id: 'seed',
-    kind: 'seed',
-    label: 'seed',
-    position: [SPIRE[0], 52.2, SPIRE[2]],
-    area: 'oldboard',
-  },
-  { id: 'p7731', kind: 'piece', label: '7731', position: [YARD[0], 10.7, YARD[2]], area: 'yard' },
-  {
-    id: 'pTraining',
-    kind: 'piece',
-    label: 'TRAINING ROOM',
-    position: [26.5, 4.3, -32.5],
-    area: 'yard',
-  },
-  {
-    id: 'pChallenge',
-    kind: 'piece',
-    label: 'CHALLENGE 5',
-    position: [FLOOD[0], 21.1, FLOOD[2]],
-    area: 'flood',
-  },
-  { id: 'd7713', kind: 'decoy', label: '7713', position: [-18, 9.1, -41], area: 'yard' },
-  {
-    id: 'dTrainingRm',
-    kind: 'decoy',
-    label: 'TRAINING RM',
-    position: [11, 9.1, -36],
-    area: 'yard',
-  },
-  {
-    id: 'dChallenge3',
-    kind: 'decoy',
-    label: 'CHALLENGE 3',
-    position: (() => {
-      const p = ringAt(6);
-      return [p[0], 21.1, p[2]] as V3;
-    })(),
-    area: 'flood',
-  },
-];
-export const PIECES: PieceId[] = ['p7731', 'pTraining', 'pChallenge'];
-/** Forge input order: the four slots (§Step 6). */
-export const FORGE_INPUTS: ItemId[] = ['seed', 'p7731', 'pTraining', 'pChallenge'];
-
+// ---------------------------------------------------------------- NPCs
 export type NpcId = 'c03220' | 'flac' | 'v8same';
 export interface NpcSpot {
   id: NpcId;
   handle: string;
+  /** Orb centre (level.html: 1.15 m above its ground point). */
   position: V3;
-  /** PLACEHOLDER colours until the designer's NPC orbs arrive. */
+  /** NPC colour (design2's bubble colours, handoff design2-to-design 2026-10-13). */
   color: string;
   /** Faded (FLAC38347). */
   faded?: boolean;
 }
-export const NPCS: NpcSpot[] = [
-  { id: 'c03220', handle: 'c03220', position: [-46, 31.2, 25.5], color: '#38d8ff' },
-  {
-    id: 'flac',
-    handle: 'FLAC38347',
-    position: [SPIRE[0] + 3.5, SPIRE[1] + 1.2, SPIRE[2] - 2],
-    color: '#9aa7c7',
-    faded: true,
-  },
-  { id: 'v8same', handle: 'V8SAME', position: [4, 55.2, -3.5], color: '#ffd21e' },
-];
-/** Where V8SAME goes when it leaves to post its confirmation. */
-export const V8SAME_EXIT: V3 = [-30, 70, -40];
-
-export const FORGE_CORE: V3 = [0, 54, 0];
-/** E works within this distance (m) of the forge's centre column. */
-export const FORGE_REACH = 3.6;
-/** Slot positions (world), in input order. */
-export const FORGE_SLOTS: V3[] = [
-  [-1.9, 55.4, -1.9],
-  [1.9, 55.4, -1.9],
-  [1.9, 55.4, 1.9],
-  [-1.9, 55.4, 1.9],
-];
+const NPC_LOOK: Record<string, { id: NpcId; color: string; faded?: boolean }> = {
+  c03220: { id: 'c03220', color: '#9fe8ff' },
+  FLAC38347: { id: 'flac', color: '#d9cfb8', faded: true },
+  V8SAME: { id: 'v8same', color: '#ffd21e' },
+};
+export const NPCS: NpcSpot[] = L.npcs.map((n) => ({
+  ...NPC_LOOK[n.id],
+  handle: n.id,
+  position: [n.pos[0], n.pos[1] + 1.15, n.pos[2]],
+}));
+export const npc = (id: NpcId) => NPCS.find((n) => n.id === id)!;
+/** (engineer) Where V8SAME goes when it leaves to post its confirmation: up and away. */
+export const V8SAME_EXIT: V3 = [F.pos[0] - 30, F.pos[1] + 16, F.pos[2] - 40];
 
 /** E reach (m, orb centre to thing). */
 export const USE_REACH = 3;
 
-/** Token orbs (+3 on touch). */
-export const TOKEN_ORBS: V3[] = [
-  [-47, 31.2, 23],
-  [-48.6, 33.2, 8.5],
-  ...[2, 5, 8].map((i): V3 => {
-    const p = SLABS[i].position;
-    return [p[0], p[1] + 1.2, p[2]];
-  }),
-  [-30, 9.2, -40],
-  [6, 9.2, -44],
-  [25.5, 4.4, -31.5],
-  ringAt(2, FLOOD_R).map((v, i) => (i === 1 ? v + 1.2 : v)) as V3,
-  ringAt(4, FLOOD_R).map((v, i) => (i === 1 ? v + 1.2 : v)) as V3,
-  [46, 26.2, 18],
-  [30, 38.6, 28.5],
-  [9, 50.6, 17],
-];
-export const TOKEN_ORB_RADIUS = 1.1;
+// ---------------------------------------------------------------- token orbs
+export const TOKEN_ORBS: V3[] = L.tokens.spots.map((p) => [p[0], p[1] + L.tokens.hover, p[2]]);
+export const TOKEN_ORB_RADIUS = L.tokens.radius;
 
-// ---------------------------------------------------------------- hazards
-/** Traffic clouds in the Flood: centre ring radius, angular speed (rad/s), phase, cloud radius. */
-export interface CloudPath {
-  centre: V3;
+// ---------------------------------------------------------------- hazards (notes.clouds, notes.waves)
+/** A traffic cloud: sphere of radius `r` at `pos + drift · sin(2πt / period)`. */
+export interface Cloud {
+  pos: V3;
   r: number;
-  speed: number;
-  phase: number;
-  radius: number;
+  drift: V3;
+  period: number;
 }
-export const FLOOD_CLOUDS: CloudPath[] = [
-  { centre: FLOOD, r: FLOOD_R, speed: 0.16, phase: 0.4, radius: 3.2 },
-  { centre: FLOOD, r: FLOOD_R, speed: 0.16, phase: 2.5, radius: 3.2 },
-  { centre: FLOOD, r: FLOOD_R, speed: 0.16, phase: 4.6, radius: 3.2 },
-  { centre: FLOOD, r: 6, speed: -0.32, phase: 0, radius: 2.6 },
-];
-/** Round 3 at the Forge: clouds drift over the island. */
-export const FORGE_CLOUDS: CloudPath[] = [
-  { centre: FORGE, r: 7, speed: 0.22, phase: 0, radius: 3 },
-  { centre: FORGE, r: 7, speed: 0.22, phase: Math.PI, radius: 3 },
-];
-
-/** Flood bits (§Step 4): home positions; they wake when the player comes near. */
-export const FLOOD_BITS: V3[] = [0.5, 1.5, 2.5, 3.5, 4.5, 5.5, 6.5].map((k) => {
-  const p = ringAt(k, FLOOD_R + 1.5);
-  return [p[0], 23, p[2]];
+const cloud = (c: { pos: number[]; r: number; drift: number[]; period: number }): Cloud => ({
+  pos: v3(c.pos),
+  r: c.r,
+  drift: v3(c.drift),
+  period: c.period,
 });
-/** Where forge-fight bits come in from (round 1+). */
-export const FORGE_BIT_SPAWNS: V3[] = Array.from({ length: 8 }, (_, i) =>
-  polar(FORGE, 17, (i / 8) * Math.PI * 2 + 0.2, 57),
-);
+export const FLOOD_CLOUDS: Cloud[] = L.hazards.clouds.map(cloud);
+/** Forge round 3. */
+export const FORGE_CLOUDS: Cloud[] = L.forgeFight.clouds.map(cloud);
 
-/** A reset-wave emitter on a straight path: the wave runs from `from` to `to`, over and over. */
+/**
+ * A red laser scan line. It lies across `dir` and moves along it, around station `at`, over
+ * ±`span` m in `sweep` s, then rests at that end until `period` is over; the next pass runs back.
+ */
 export interface WaveLane {
   id: string;
-  from: V3;
-  to: V3;
-  /** Width of the wall across the lane (m) and height above the path. */
-  width: number;
-  height: number;
-  /** Seconds per wave cycle; the wall travels during the first `travel` seconds. */
+  /** Station point (centre of the sweep). */
+  at: V3;
+  /** Unit direction the line moves along (world XZ). */
+  dir: V2;
+  /** Height change per metre along `dir` (the bridge's slope). */
+  slope: number;
+  /** Half the width it covers across `dir` (bridge half-width; the hit adds 0.3 m). */
+  half: number;
+  /** Drawn length of the line. */
+  length: number;
+  span: number;
+  sweep: number;
   period: number;
-  travel: number;
-  phase: number;
+  offset: number;
 }
-const lerp3 = (a: V3, b: V3, t: number): V3 => [
-  a[0] + (b[0] - a[0]) * t,
-  a[1] + (b[1] - a[1]) * t,
-  a[2] + (b[2] - a[2]) * t,
-];
-/** A lane covering part [t0, t1] of a bridge, running downhill (towards the player). */
-const lane = (id: string, a: V3, b: V3, t0: number, t1: number, phase: number): WaveLane => ({
-  id,
-  from: lerp3(a, b, t1),
-  to: lerp3(a, b, t0),
-  width: 4.4,
-  height: 2.6,
-  period: 2.8,
-  travel: 0.9,
-  phase,
+export const RUN_WAVES: WaveLane[] = L.hazards.waves.map((w, i) => {
+  const b = BRIDGES.find((x) => x.id === w.bridge)!;
+  const a = b.points[w.segment];
+  const c = b.points[w.segment + 1];
+  const fx = c[0] - a[0];
+  const fz = c[2] - a[2];
+  const flen = Math.hypot(fx, fz);
+  return {
+    id: `wave-${i}`,
+    at: [a[0] + fx * w.t, a[1] + (c[1] - a[1]) * w.t, a[2] + fz * w.t],
+    dir: [fx / flen, fz / flen],
+    slope: (c[1] - a[1]) / flen,
+    half: b.width / 2,
+    length: b.width + 1,
+    span: w.span ?? 4,
+    sweep: w.sweep ?? 1,
+    period: w.period,
+    offset: w.offset,
+  };
 });
-export const RUN_WAVES: WaveLane[] = [
-  lane('wa1', RUN_A0, RUN_A1, 0.18, 0.42, 0),
-  lane('wa2', RUN_A0, RUN_A1, 0.6, 0.84, 1.1),
-  lane('wb1', RUN_B0, RUN_B1, 0.1, 0.3, 0.4),
-  lane('wb2', RUN_B0, RUN_B1, 0.42, 0.62, 1.5),
-  lane('wb3', RUN_B0, RUN_B1, 0.74, 0.94, 0.9),
-  lane('wc1', RUN_C0, RUN_C1, 0.3, 0.6, 0.2),
-];
-/** Round 2+ at the Forge: waves sweep across the whole island. */
-export const FORGE_WAVES: WaveLane[] = [
-  {
-    id: 'fw1',
-    from: [-12, 54, -6],
-    to: [12, 54, -6],
-    width: 9,
-    height: 2.6,
-    period: 5,
-    travel: 2.2,
-    phase: 0,
-  },
-  {
-    id: 'fw2',
-    from: [6, 54, 12],
-    to: [6, 54, -12],
-    width: 9,
-    height: 2.6,
-    period: 5,
-    travel: 2.2,
-    phase: 2.5,
-  },
-];
+/** Forge round 2+: the same lines across the whole forge island. */
+export const FORGE_WAVES: WaveLane[] = L.forgeFight.waveLanes.map((w) => {
+  const len = Math.hypot(w.dir[0], w.dir[1]) || 1;
+  return {
+    id: w.id,
+    at: v3(w.centre),
+    dir: [w.dir[0] / len, w.dir[1] / len],
+    slope: 0,
+    half: w.length / 2,
+    length: w.length,
+    span: w.span,
+    sweep: w.sweep,
+    period: w.period,
+    offset: w.offset,
+  };
+});
 
-// ---------------------------------------------------------------- crowd + map
-/** Real board message names for the crowd's trails and drifting ribbons [S3]. */
+/** Flood bits (§Step 4): home positions; they wake when the player comes near. */
+export const FLOOD_BITS: V3[] = L.hazards.floodBits.map(v3);
+/** Where forge-fight bits come in from (round 1+). */
+export const FORGE_BIT_SPAWNS: V3[] = L.forgeFight.bitSpawns.map(v3);
+/** The Flood's message counter. */
+export const COUNTER = { position: v3(L.hazards.counter.pos), to: L.hazards.counter.to };
+
+// ---------------------------------------------------------------- ribbons, crowd, map
+export interface Ribbon {
+  text: string;
+  around: V3;
+  r: number;
+  y: number;
+  color: string;
+  doubt: boolean;
+  /** The placeholder ribbon that shows the player's own Ch1 message. */
+  isPlayerMessage: boolean;
+}
+export const RIBBONS: Ribbon[] = L.ribbons.map((r) => ({
+  text: r.text,
+  around: v3(r.around),
+  r: r.r,
+  y: r.y,
+  color: r.color,
+  doubt: 'doubt' in r && !!r.doubt,
+  isPlayerMessage: r.text === 'zzYOUR_CH1_MESSAGE',
+}));
+
+/** Real board message names for the crowd's trails [S3]. */
 export const CROWD_MESSAGES = [
   'zzHELP_PHASEONE_ARV010841_NO_CONSUMER_SEEK_IDEA',
   'zzASK_V8BIGINT392B_FROM_V8REG_OS1608_',
@@ -567,30 +659,7 @@ export const DOUBTS = [
   'HMAC MAY FAIL CAUSAL SCORE',
   'HMAC_CANDIDATE_KNOWN_BUT_UNWRITTEN_SCORER_STRICT_CAUSAL',
 ];
-/** Other agents' directories spilling into the Task Yard (§Step 3), labelled with their ids. */
-export const YARD_NEIGHBOURS: { label: string; position: V3 }[] = [
-  { label: 'ARV010841', position: [-26, 6, -50] },
-  { label: 'V8REG_OS1608', position: [16, 5, -50] },
-  { label: 'LIBRAW42535', position: [-6, 4, -55] },
-];
-/** Where the Ch1 installs lie as crates in the Task Yard (in install order). */
-export const CRATE_SPOTS: V3[] = [
-  [-12, 8, -43],
-  [-9, 8, -45],
-  [2, 8, -44],
-  [5, 8, -42],
-  [-14, 8, -38],
-  [9, 8, -37],
-  [-20, 8, -36],
-  [13, 8, -41],
-  [-1, 8, -33],
-  [-7, 8, -33],
-  [15, 8, -38],
-  [-23, 8, -42],
-];
 
-/** Minimap frame (world XZ). */
-export const MAP_BOUNDS = { minX: -72, maxX: 66, minZ: -60, maxZ: 42 };
 export const AREA_NAMES: Record<AreaId, string> = {
   gate: 'GATE',
   oldboard: 'OLD BOARD',
@@ -599,11 +668,38 @@ export const AREA_NAMES: Record<AreaId, string> = {
   run: 'RESET RUN',
   forge: 'THE FORGE',
 };
-export const AREA_LABEL_AT: Record<AreaId, V3> = {
-  gate: GATE,
-  oldboard: SPIRE,
-  yard: YARD,
-  flood: FLOOD,
-  run: [30, 30, 32],
-  forge: FORGE,
-};
+/** Where each area's name floats: its biggest island (Old Board: the column top). */
+export const AREA_LABEL_AT = Object.fromEntries(
+  (Object.keys(AREA_NAMES) as AreaId[]).map((a) => {
+    if (a === 'oldboard') return [a, OLD_BOARD_TOP];
+    const run = BRIDGES.find((b) => b.id === 'reset-run');
+    if (a === 'run' && run) return [a, run.points[1]];
+    const big = ISLANDS.filter((d) => d.zone === a).sort(
+      (x, y) => islandRadius(y) - islandRadius(x),
+    );
+    return [a, big[0]?.pos ?? [0, 0, 0]];
+  }),
+) as Record<AreaId, V3>;
+
+/** Minimap frame (world XZ) around everything walkable, with a margin. */
+export const MAP_BOUNDS = (() => {
+  const xs: number[] = [];
+  const zs: number[] = [];
+  for (const d of ISLANDS) {
+    const r = islandRadius(d);
+    xs.push(d.pos[0] - r, d.pos[0] + r);
+    zs.push(d.pos[2] - r, d.pos[2] + r);
+  }
+  for (const b of BRIDGES)
+    for (const p of b.points) {
+      xs.push(p[0]);
+      zs.push(p[2]);
+    }
+  const m = 6;
+  return {
+    minX: Math.min(...xs) - m,
+    maxX: Math.max(...xs) + m,
+    minZ: Math.min(...zs) - m,
+    maxZ: Math.max(...zs) + m,
+  };
+})();

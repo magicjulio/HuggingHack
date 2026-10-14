@@ -39,12 +39,14 @@ Handy URL flags (combine with `&`):
 |---|---|
 | WASD / arrows · mouse | move (relative to the camera) · orbit the camera |
 | Space | jump · hold in the air to glide |
-| Shift | dash (1 token; passes through reset waves) |
+| Shift | dash (1 token; one in the air per jump; passes through the red laser lines) |
 | click | shoot (1 token; mutes a flood bit, +2) |
 | E | use / take / talk; E again skips a bubble line |
 | M | full map (quick travel to pads you reached) |
 | T · Esc | think · pause |
 | Enter | skip the ending cutscene (only on a replay) |
+
+The Ch1 end card's **CONTINUE** goes straight into Chapter 2. Chapter 2's level is the designer's `src/levels/ch2/layout.json`.
 
 ## Other commands
 | Command | What it does |

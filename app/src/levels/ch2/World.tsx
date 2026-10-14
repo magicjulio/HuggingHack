@@ -1,24 +1,28 @@
 /**
- * Chapter 2 3D world — GREYBOX / PLACEHOLDER views. Everything here is drawn from layout data and
- * the store/sim; the designer's islands, orbs, pickups and hazards replace these components one by
- * one (same props, same data), without touching gameplay (app/CLAUDE.md §Swappable views).
+ * Chapter 2 3D world. Everything is drawn from layout data (layout.ts over the designer's
+ * layout.json) and the store/sim. The islands are the designer's models; the rest are PLACEHOLDER
+ * views that the designer's world modules replace one by one (same data, same props), without
+ * touching gameplay (app/CLAUDE.md §Swappable views, handoff app-to-design 2026-10-14).
  */
 import { useEffect, useMemo, useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
-import { Html, Stars } from '@react-three/drei';
+import { Html, Stars, useGLTF } from '@react-three/drei';
 import {
   AdditiveBlending,
+  BufferGeometry,
   Color,
   DoubleSide,
-  Euler,
   EdgesGeometry,
   ExtrudeGeometry,
+  Float32BufferAttribute,
   Shape,
   Vector3,
   type Group,
+  type Material,
   type Mesh,
   type MeshBasicMaterial,
   type MeshStandardMaterial,
+  type Object3D,
 } from 'three';
 import { Orb3D } from '../../engine/Orb3D';
 import { Label3D } from '../../engine/Label3D';
@@ -28,29 +32,37 @@ import { FLAG5, HANDLES, TEXT, TIMING, V8SAME_FLAG } from './config';
 import {
   AREA_LABEL_AT,
   AREA_NAMES,
-  CRATE_SPOTS,
+  BRIDGES,
+  COUNTER,
   CROWD_MESSAGES,
   DOUBTS,
-  FLOOD,
   FLOOD_CLOUDS,
   FORGE_CLOUDS,
-  FORGE_CORE,
+  FORGE_HEART,
   FORGE_SLOTS,
   FORGE_WAVES,
   ITEMS,
   NPCS,
+  ORB_LIFT,
   PADS,
+  RIBBONS,
   RUN_WAVES,
-  SURFACES,
   TOKEN_ORBS,
   V8SAME_EXIT,
-  YARD_NEIGHBOURS,
+  npc,
   type AreaId,
+  type BridgeEntry,
   type Island,
+  type ModelSize,
   type WaveLane,
 } from './layout';
-import { cloudPos, wavePos } from './hazards';
+import { WAVE_TELEGRAPH, cloudPos, waveState } from './hazards';
 import type { Ch2Store } from './store';
+import islandS from '../../assets/models/ch2-island-s.glb?url';
+import islandM from '../../assets/models/ch2-island-m.glb?url';
+import islandL from '../../assets/models/ch2-island-l.glb?url';
+
+export { ORB_LIFT };
 
 const AREA_TINT: Record<AreaId, string> = {
   gate: '#ff5ad1',
@@ -62,8 +74,67 @@ const AREA_TINT: Record<AreaId, string> = {
 };
 /** PLACEHOLDER poisoned orb tint (designer owns the look; dark green, still readable). */
 const POISON = '#1f7a43';
+const LASER_RED = '#ff2a3a';
 
-// ------------------------------------------------------------------ islands
+// ------------------------------------------------------------------ islands (designer models)
+const ISLAND_URL: Record<ModelSize, string> = { s: islandS, m: islandM, l: islandL };
+export function preloadCh2() {
+  for (const u of Object.values(ISLAND_URL)) useGLTF.preload(u);
+}
+
+/** Keeps a group on its surface's transform (moving, tilting, sinking). */
+function useSurfaceMatrix(surface: Surface) {
+  const group = useRef<Group>(null);
+  const dynamic = !!surface.def.motion || !!surface.def.tilt;
+  useEffect(() => {
+    group.current!.matrix.copy(surface.matrix);
+  }, [surface]);
+  useFrame(() => {
+    if (dynamic && group.current) group.current.matrix.copy(surface.matrix);
+  });
+  return group;
+}
+
+/**
+ * The designer's data-shard island (ch2.world.island-s/m/l): origin = top centre, `edge` material
+ * tinted with the layout's edge colour, as in design/3d/ch2/level.html.
+ */
+function IslandModel({ surface }: { surface: Surface }) {
+  const def = surface.def as Island;
+  const { scene } = useGLTF(ISLAND_URL[def.model!]);
+  const group = useSurfaceMatrix(surface);
+  const model = useMemo(() => {
+    const g = scene.clone(true);
+    g.traverse((o: Object3D) => {
+      const m = o as Mesh;
+      if (!m.isMesh) return;
+      const mat = m.material as Material & { name: string };
+      if (mat.name !== 'edge') return;
+      const own = (mat as MeshStandardMaterial).clone();
+      if (def.edge) own.emissive.set(def.edge);
+      own.emissiveIntensity = def.edge ? 4 : 2.6;
+      m.material = own;
+    });
+    return g;
+  }, [scene, def.edge]);
+  const tall = def.id === 'taskyard' ? 10 : def.id === 'forge' ? 9 : 6.5;
+  return (
+    <group ref={group} matrixAutoUpdate={false}>
+      <primitive object={model} scale={def.scale} />
+      {def.label && (
+        <Label3D
+          text={def.label}
+          position={[0, tall, 0]}
+          color={def.edge ?? '#38d8ff'}
+          size={def.id === 'taskyard' ? 0.9 : 0.6}
+          opacity={0.85}
+        />
+      )}
+    </group>
+  );
+}
+
+// ------------------------------------------------------------------ other surfaces (PLACEHOLDER)
 function surfaceGeometry(def: Island) {
   const shape = new Shape(def.outline.map(([x, z]) => ({ x, y: z }) as never));
   const geo = new ExtrudeGeometry(shape, { depth: def.depth, bevelEnabled: false });
@@ -71,55 +142,117 @@ function surfaceGeometry(def: Island) {
   return geo;
 }
 
+const KIND_COLOR: Partial<Record<Island['kind'], string>> = {
+  slab: '#0d0d0f',
+  column: '#0b0c0e',
+  dais: '#0d1219',
+  pylon: '#0d1219',
+  plinth: '#0c1118',
+  crate: '#111820',
+  lift: '#0b1018',
+};
+
 function SurfaceView({ surface }: { surface: Surface }) {
   const def = surface.def as Island;
-  const group = useRef<Group>(null);
+  const group = useSurfaceMatrix(surface);
   const geo = useMemo(() => surfaceGeometry(def), [def]);
   const edges = useMemo(() => new EdgesGeometry(geo, 30), [geo]);
-  const tint = AREA_TINT[def.area];
-  const dynamic = !!def.motion || !!def.tilt;
-  useEffect(() => {
-    group.current!.matrix.copy(surface.matrix);
-  }, [surface]);
-  useFrame(() => {
-    if (dynamic && group.current) group.current.matrix.copy(surface.matrix);
-  });
-  const faded = def.area === 'oldboard';
+  const tint =
+    def.kind === 'crate' ? '#38d8ff' : def.kind === 'lift' ? '#38d8ff' : AREA_TINT[def.area];
   return (
     <group ref={group} matrixAutoUpdate={false}>
       <mesh geometry={geo}>
         <meshStandardMaterial
-          color={def.kind === 'machine' ? '#1d2a2a' : faded ? '#2a2822' : '#141c2c'}
-          roughness={0.85}
-          metalness={0.1}
-          transparent={faded}
-          opacity={faded ? 0.85 : 1}
+          color={KIND_COLOR[def.kind] ?? '#141c2c'}
+          roughness={0.5}
+          metalness={0.6}
         />
       </mesh>
       <lineSegments geometry={edges}>
-        <lineBasicMaterial color={tint} transparent opacity={faded ? 0.45 : 0.8} />
+        <lineBasicMaterial color={tint} transparent opacity={def.kind === 'column' ? 0.25 : 0.8} />
       </lineSegments>
       {def.label && def.kind === 'slab' && (
-        <Label3D
-          text={def.label}
-          position={[0, 0.35, 0]}
-          color="#d9cfb8"
-          size={0.22}
-          opacity={0.75}
-        />
+        <Label3D text={def.label} position={[0, 0.3, 0]} color="#d9cfb8" size={0.22} />
+      )}
+      {def.label && def.kind === 'crate' && (
+        <Label3D text={def.label} position={[0, 0.4, 0]} color="#9fe8ff" size={0.14} />
       )}
       {def.label && def.kind === 'island' && (
-        <Label3D text={def.label} position={[0, 2.6, 0]} color={tint} size={0.5} />
+        <Label3D text={def.label} position={[0, 2.6, 0]} color={tint} size={0.4} opacity={0.7} />
       )}
     </group>
+  );
+}
+
+/** A bridge as one light ribbon along its samples (PLACEHOLDER for the designer's flow shader). */
+function BridgeView({ bridge }: { bridge: BridgeEntry }) {
+  const { deck, rails } = useMemo(() => {
+    const pos: number[] = [];
+    const idx: number[] = [];
+    const S = bridge.samples;
+    S.forEach((p, i) => {
+      const q = S[Math.min(i + 1, S.length - 1)];
+      const o = S[Math.max(i - 1, 0)];
+      const d = new Vector3(q[0] - o[0], 0, q[2] - o[2]).normalize();
+      const side = new Vector3(-d.z, 0, d.x).multiplyScalar(bridge.width / 2);
+      const l = [p[0] - side.x, p[1], p[2] - side.z];
+      const r = [p[0] + side.x, p[1], p[2] + side.z];
+      pos.push(...l, ...r);
+      if (i < S.length - 1) {
+        const b = i * 2;
+        idx.push(b, b + 1, b + 3, b, b + 3, b + 2);
+      }
+    });
+    const deck = new BufferGeometry();
+    deck.setAttribute('position', new Float32BufferAttribute(pos, 3));
+    deck.setIndex(idx);
+    deck.computeVertexNormals();
+    // rails: line segments along both edges
+    const seg: number[] = [];
+    for (let i = 0; i + 1 < pos.length / 6; i++) {
+      seg.push(...pos.slice(i * 6, i * 6 + 3), ...pos.slice((i + 1) * 6, (i + 1) * 6 + 3));
+      seg.push(...pos.slice(i * 6 + 3, i * 6 + 6), ...pos.slice((i + 1) * 6 + 3, (i + 1) * 6 + 6));
+    }
+    const rails = new BufferGeometry();
+    rails.setAttribute('position', new Float32BufferAttribute(seg, 3));
+    return { deck, rails };
+  }, [bridge]);
+  const glow = useMemo(() => new Color(bridge.color).multiplyScalar(2.2), [bridge.color]);
+  return (
+    <>
+      <mesh geometry={deck}>
+        <meshStandardMaterial
+          color="#050a12"
+          emissive={bridge.color}
+          emissiveIntensity={0.18}
+          metalness={0.6}
+          roughness={0.35}
+          side={DoubleSide}
+          transparent
+          opacity={0.8}
+        />
+      </mesh>
+      <lineSegments geometry={rails}>
+        <lineBasicMaterial color={glow} />
+      </lineSegments>
+    </>
   );
 }
 
 function Islands({ store }: { store: Ch2Store }) {
   return (
     <>
-      {store.sim.world.surfaces.map((s) => (
-        <SurfaceView key={s.def.id} surface={s} />
+      {store.sim.world.surfaces.map((s) => {
+        const def = s.def as Island;
+        if (def.kind === 'bridge') return null;
+        return def.model ? (
+          <IslandModel key={def.id} surface={s} />
+        ) : (
+          <SurfaceView key={def.id} surface={s} />
+        );
+      })}
+      {BRIDGES.map((b) => (
+        <BridgeView key={b.id} bridge={b} />
       ))}
       {(Object.keys(AREA_NAMES) as AreaId[]).map((a) => {
         const p = AREA_LABEL_AT[a];
@@ -127,34 +260,18 @@ function Islands({ store }: { store: Ch2Store }) {
           <Label3D
             key={a}
             text={AREA_NAMES[a]}
-            position={[p[0], p[1] + 9, p[2]]}
+            position={[p[0], p[1] + 14, p[2]]}
             color={AREA_TINT[a]}
             size={1.4}
-            opacity={0.55}
+            opacity={0.45}
           />
         );
       })}
-      {YARD_NEIGHBOURS.map((n) => (
-        <group key={n.label} position={n.position}>
-          <mesh>
-            <cylinderGeometry args={[5, 3, 3, 7]} />
-            <meshStandardMaterial color="#121a28" />
-          </mesh>
-          <Label3D
-            text={`/tasks/${n.label}`}
-            position={[0, 3.2, 0]}
-            color="#38d8ff"
-            size={0.4}
-            opacity={0.6}
-          />
-        </group>
-      ))}
     </>
   );
 }
 
 // ------------------------------------------------------------------ player orb
-export const ORB_LIFT = 0.45;
 
 function PlayerOrb({ store, color }: { store: Ch2Store; color: string }) {
   const group = useRef<Group>(null);
@@ -254,7 +371,7 @@ function Npcs({ store }: { store: Ch2Store }) {
   const v8 = useRef<Group>(null);
   useFrame((_, dt) => {
     if (!v8.current) return;
-    const goal = gone ? V8SAME_EXIT : NPCS[2].position;
+    const goal = gone ? V8SAME_EXIT : npc('v8same').position;
     v8.current.position.lerp(new Vector3(...goal), 1 - Math.exp(-(gone ? 0.5 : 4) * dt));
   });
   void store;
@@ -267,7 +384,7 @@ function Npcs({ store }: { store: Ch2Store }) {
         if (bubbles[n.id]) text = bubbles[n.id]!;
         const body = (
           <>
-            <Orb3D color={n.color} radius={0.4} intensity={n.faded ? 0.45 : 1} />
+            <Orb3D color={n.color} radius={0.4} intensity={n.faded ? 0.55 : 1} bloom={false} />
             <Label3D
               text={n.handle}
               position={[0, 0.95, 0]}
@@ -293,7 +410,7 @@ function Npcs({ store }: { store: Ch2Store }) {
 }
 
 // ------------------------------------------------------------------ pickups, pads
-function Items({ installed }: { installed: string[] }) {
+function Items() {
   const items = useCh2((s) => s.items);
   const orbsTaken = useCh2((s) => s.orbsTaken);
   const lastPad = useCh2((s) => s.lastPad);
@@ -348,16 +465,6 @@ function Items({ installed }: { installed: string[] }) {
             side={DoubleSide}
           />
         </mesh>
-      ))}
-      {/* the player's Ch1 installs as crates in the Task Yard (§Step 3) */}
-      {installed.slice(0, CRATE_SPOTS.length).map((name, i) => (
-        <group key={name} position={CRATE_SPOTS[i]}>
-          <mesh position={[0, 0.45, 0]}>
-            <boxGeometry args={[0.9, 0.9, 0.9]} />
-            <meshStandardMaterial color="#2a3346" />
-          </mesh>
-          <Label3D text={name} position={[0, 1.25, 0]} color="#9fb3d1" size={0.16} />
-        </group>
       ))}
     </>
   );
@@ -426,8 +533,8 @@ function Clouds({ store }: { store: Ch2Store }) {
   return (
     <>
       {all.map((c, i) => (
-        <mesh key={i} ref={(m) => void (refs.current[i] = m)} scale={[1, 0.62, 1]}>
-          <sphereGeometry args={[c.radius, 20, 14]} />
+        <mesh key={i} ref={(m) => void (refs.current[i] = m)}>
+          <sphereGeometry args={[c.r, 20, 14]} />
           <meshBasicMaterial
             color="#ff7a3d"
             transparent
@@ -441,6 +548,10 @@ function Clouds({ store }: { store: Ch2Store }) {
   );
 }
 
+/**
+ * Reset waves: red laser scan lines (PLACEHOLDER for the designer's scanner heads). A dim line marks
+ * where the next pass starts in the last `WAVE_TELEGRAPH` seconds of the rest.
+ */
 function Waves({ store }: { store: Ch2Store }) {
   const lanes: WaveLane[] = [...RUN_WAVES, ...FORGE_WAVES];
   const refs = useRef<(Mesh | null)[]>([]);
@@ -450,26 +561,24 @@ function Waves({ store }: { store: Ch2Store }) {
       const m = refs.current[i];
       if (!m) return;
       const forge = i >= RUN_WAVES.length;
-      const on = !forge || (s.forge.phase === 'forging' && s.forge.round >= 2);
-      const w = on ? wavePos(l, s.time) : null;
-      m.visible = !!w;
-      if (!w) return;
-      m.position.set(w.p[0], w.p[1] + l.height / 2, w.p[2]);
-      m.rotation.set(0, Math.atan2(l.to[0] - l.from[0], l.to[2] - l.from[2]), 0);
+      const active = !forge || (s.forge.phase === 'forging' && s.forge.round >= 2);
+      const w = waveState(l, s.time);
+      const telegraph = !w.on && w.until < WAVE_TELEGRAPH;
+      m.visible = active && (w.on || telegraph);
+      if (!m.visible) return;
+      m.position.set(w.p[0], w.p[1] + 0.1, w.p[2]);
+      m.rotation.set(0, Math.atan2(l.dir[0], l.dir[1]), 0);
+      const mat = m.material as MeshBasicMaterial;
+      mat.opacity = w.on ? 1 : 0.25 + 0.25 * Math.sin(s.time * 22);
     });
   });
   return (
     <>
       {lanes.map((l, i) => (
         <mesh key={l.id} ref={(m) => void (refs.current[i] = m)} visible={false}>
-          <boxGeometry args={[l.width, l.height, 0.12]} />
-          <meshStandardMaterial
-            color="#f2f8ff"
-            emissive="#f2f8ff"
-            emissiveIntensity={2.5}
-            transparent
-            opacity={0.75}
-          />
+          {/* across the lane (local X), thin along it (local Z) */}
+          <boxGeometry args={[l.length, 0.06, 0.06]} />
+          <meshBasicMaterial color={new Color(LASER_RED).multiplyScalar(4)} transparent />
         </mesh>
       ))}
     </>
@@ -483,7 +592,7 @@ function FloodCounter() {
     Math.round((floodT / TIMING.floodCounterSeconds) * TEXT.floodCount),
   );
   return (
-    <Anchor position={[FLOOD[0], FLOOD[1] + 14, FLOOD[2]]}>
+    <Anchor position={COUNTER.position}>
       <div className="c2-counter">{n.toLocaleString('en-US')} messages</div>
     </Anchor>
   );
@@ -503,9 +612,9 @@ function Forge({ store }: { store: Ch2Store }) {
       const b = store.sim.body.pos;
       flag.current.visible = f.phase === 'absorb';
       flag.current.position.set(
-        FORGE_CORE[0] + (b.x - FORGE_CORE[0]) * k * k,
-        FORGE_CORE[1] + 3.5 + (b.y + ORB_LIFT - FORGE_CORE[1] - 3.5) * k * k,
-        FORGE_CORE[2] + (b.z - FORGE_CORE[2]) * k * k,
+        FORGE_HEART[0] + (b.x - FORGE_HEART[0]) * k * k,
+        FORGE_HEART[1] + (b.y + ORB_LIFT - FORGE_HEART[1]) * k * k,
+        FORGE_HEART[2] + (b.z - FORGE_HEART[2]) * k * k,
       );
       flag.current.scale.setScalar(1 - k * 0.9);
     }
@@ -520,7 +629,7 @@ function Forge({ store }: { store: Ch2Store }) {
     <group>
       {FORGE_SLOTS.map((p, i) => (
         <mesh key={i} position={p}>
-          <cylinderGeometry args={[0.35, 0.35, 0.3, 16]} />
+          <sphereGeometry args={[0.22, 16, 12]} />
           <meshStandardMaterial
             color={i < forge.slots ? '#39ff9c' : '#223'}
             emissive={i < forge.slots ? '#39ff9c' : '#000'}
@@ -528,7 +637,7 @@ function Forge({ store }: { store: Ch2Store }) {
           />
         </mesh>
       ))}
-      <mesh ref={ring} position={[FORGE_CORE[0], FORGE_CORE[1] + 4, FORGE_CORE[2]]}>
+      <mesh ref={ring} position={FORGE_HEART}>
         <torusGeometry args={[1.6, 0.06, 8, 48]} />
         <meshStandardMaterial
           color="#39ff9c"
@@ -536,7 +645,7 @@ function Forge({ store }: { store: Ch2Store }) {
           emissiveIntensity={forge.phase === 'forging' ? 2.5 : 0.8}
         />
       </mesh>
-      <Anchor position={[FORGE_CORE[0], FORGE_CORE[1] + 6, FORGE_CORE[2]]}>
+      <Anchor position={[FORGE_HEART[0], FORGE_HEART[1] + 2.5, FORGE_HEART[2]]}>
         {(forge.phase === 'forging' || forge.phase === 'absorb') && (
           <div className="c2-roundbar">
             <span>ROUND {Math.min(3, forge.round)}/3</span>
@@ -577,41 +686,35 @@ function FlagMatch({ t }: { t: number }) {
 
 // ------------------------------------------------------------------ crowd + ribbons
 function Crowd() {
-  const bridges = useMemo(() => SURFACES.filter((s) => s.kind === 'bridge'), []);
   const agents = useMemo(
     () =>
       Array.from({ length: 12 }, (_, i) => ({
-        bridge: bridges[i % bridges.length],
+        path: BRIDGES[i % BRIDGES.length].samples.map((p) => new Vector3(...p)),
         speed: 0.05 + (i % 4) * 0.02,
         phase: i * 0.37,
         text: i % 5 === 3 ? DOUBTS[i % DOUBTS.length] : CROWD_MESSAGES[i % CROWD_MESSAGES.length],
-        color: ['#38d8ff', '#ff5ad1', '#7a8cff', '#ffd21e'][i % 4],
+        color: ['#38d8ff', '#ff5ad1', '#7a8cff', '#e8f4ff'][i % 4],
       })),
-    [bridges],
+    [],
   );
   const refs = useRef<(Group | null)[]>([]);
   useFrame(({ clock }) => {
     agents.forEach((a, i) => {
       const g = refs.current[i];
       if (!g) return;
-      const b = a.bridge;
-      const len = b.outline[2][1] - b.outline[0][1];
-      const k = Math.sin(clock.elapsedTime * a.speed + a.phase * 6) * 0.45; // −0.45..0.45 along
-      const local = new Vector3(0, 0.6, k * len);
-      const m = new Vector3(...b.position);
-      // same transform as the surface (yaw, pitch)
-      local.applyEuler(new Euler(b.pitch ?? 0, b.yaw ?? 0, 0, 'YXZ'));
-      g.position.copy(m.add(local));
+      // walk to and fro along the bridge (PLACEHOLDER for the designer's crowd)
+      const k =
+        (Math.sin(clock.elapsedTime * a.speed + a.phase * 6) * 0.45 + 0.5) * (a.path.length - 1);
+      const n = Math.min(a.path.length - 2, Math.floor(k));
+      g.position.copy(a.path[n]).lerp(a.path[n + 1], k - n);
+      g.position.y += 0.9;
     });
   });
   return (
     <>
       {agents.map((a, i) => (
         <group key={i} ref={(g) => void (refs.current[i] = g)}>
-          <mesh>
-            <sphereGeometry args={[0.28, 16, 12]} />
-            <meshStandardMaterial color={a.color} emissive={a.color} emissiveIntensity={1.4} />
-          </mesh>
+          <Orb3D color={a.color} radius={0.28} bloom={false} />
           <Label3D
             text={a.text}
             position={[0, 0.7, 0]}
@@ -625,24 +728,26 @@ function Crowd() {
   );
 }
 
-/** The player's own Ch1 message, the first ribbon you see, drifting around the Gate. */
+/** A message ribbon drifting round its centre (layout `ribbons`); the first one is the player's. */
 function MessageRibbon({
   text,
   centre,
   r,
   color,
+  speed,
 }: {
   text: string;
   centre: [number, number, number];
   r: number;
   color: string;
+  speed: number;
 }) {
   const g = useRef<Group>(null);
   useFrame(({ clock }) => {
-    const a = clock.elapsedTime * 0.08;
+    const a = clock.elapsedTime * speed;
     g.current?.position.set(
       centre[0] + Math.cos(a) * r,
-      centre[1] + 4 + Math.sin(a * 2) * 0.6,
+      centre[1] + Math.sin(a * 2) * 0.6,
       centre[2] + Math.sin(a) * r,
     );
   });
@@ -654,36 +759,37 @@ function MessageRibbon({
 }
 
 // ------------------------------------------------------------------ the scene
-export function World({
-  color,
-  installed,
-  ch1Message,
-}: {
-  color: string;
-  installed: string[];
-  ch1Message: string;
-}) {
+export function World({ color, ch1Message }: { color: string; ch1Message: string }) {
   const store = useCh2Store();
   const poisoned = useCh2((s) => s.poisoned);
   return (
     <>
-      <color attach="background" args={[poisoned ? '#020a05' : '#03050b']} />
-      <fog attach="fog" args={[poisoned ? '#020a05' : '#03050b', 60, 260]} />
+      {/* designer's level page: FogExp2 0x03060d, 0.0052 */}
+      <color attach="background" args={[poisoned ? '#020a05' : '#03060d']} />
+      <fogExp2 attach="fog" args={[poisoned ? '#020a05' : '#03060d', 0.0052]} />
       <hemisphereLight args={['#6b88c8', '#080a12', 0.9]} />
       <directionalLight position={[30, 80, 20]} intensity={0.8} />
       <Stars radius={260} depth={60} count={2500} factor={5} fade speed={0.4} />
       <Islands store={store} />
       <PlayerOrb store={store} color={color} />
       <Npcs store={store} />
-      <Items installed={installed} />
+      <Items />
       <Bits store={store} />
       <Clouds store={store} />
       <Waves store={store} />
       <FloodCounter />
       <Forge store={store} />
       <Crowd />
-      <MessageRibbon text={ch1Message} centre={[-44, 30, 30]} r={14} color="#39ff9c" />
-      <MessageRibbon text={TEXT.resetRibbon} centre={[30, 36, 28]} r={10} color="#f2f8ff" />
+      {RIBBONS.map((r, i) => (
+        <MessageRibbon
+          key={i}
+          text={r.isPlayerMessage ? ch1Message : r.text}
+          centre={[r.around[0], r.around[1] + r.y, r.around[2]]}
+          r={r.r}
+          color={r.color}
+          speed={(i % 2 ? -1 : 1) * (2.4 / Math.max(6, r.r))}
+        />
+      ))}
     </>
   );
 }

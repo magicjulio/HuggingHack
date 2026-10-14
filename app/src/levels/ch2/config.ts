@@ -4,6 +4,7 @@
  * Numbers marked (engineer) are not in the script; tune freely after playtests.
  */
 import { DEFAULT_BODY, type BodyParams } from '../../engine/platformer';
+import { PHYSICS } from './layout';
 
 export const TOKENS = {
   // §Tokens
@@ -26,11 +27,29 @@ export const TOKENS = {
 } as const;
 
 /** (engineer) Movement: floaty jump + glide (hold Space in the air), no free flight (Julius). */
+/**
+ * Movement = the designer's `physics` block in layout.json (DECISIONS 2026-10-14), so the game moves
+ * like design/3d/ch2/level.html. Engine-only extras keep DEFAULT_BODY values: body size, jump
+ * buffer, slide on tilted ground, and one air dash per jump (the level page allows a dash every
+ * `dashCooldown` in the air, which is nearly free flight; asked the designer).
+ */
 export const BODY: BodyParams = {
   ...DEFAULT_BODY,
-  glideFall: 2.2,
-  glideSpeed: 7.5,
-  killY: -30,
+  runSpeed: PHYSICS.walk,
+  glideSpeed: PHYSICS.walk,
+  accel: PHYSICS.groundAccel,
+  airAccel: PHYSICS.airAccel,
+  gravity: PHYSICS.gravity,
+  shortHopGravity: 1, // no short hops in the level page: every jump is full height
+  jumpSpeed: PHYSICS.jump,
+  glideFall: PHYSICS.glideFall,
+  dashSpeed: PHYSICS.dashSpeed,
+  dashTime: PHYSICS.dashTime,
+  dashCooldown: PHYSICS.dashCooldown,
+  coyote: PHYSICS.coyote,
+  stepUp: PHYSICS.stepUp,
+  snapDown: PHYSICS.snapDown,
+  killY: PHYSICS.voidY,
 };
 
 /** (engineer) Third-person camera. */

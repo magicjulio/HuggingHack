@@ -1,2 +1,4 @@
 # CSS is hand-written compact (and partly verbatim designer copies): not formatted
 *.css
+# Designer level data: verbatim copy, never reformatted
+src/levels/ch2/layout.json

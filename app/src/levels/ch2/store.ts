@@ -26,24 +26,26 @@ import {
   FLOOD_CLOUDS,
   FORGE_BIT_SPAWNS,
   FORGE_CLOUDS,
-  FORGE_CORE,
+  FORGE_HEART,
   FORGE_INPUTS,
-  FORGE_REACH,
+  FORGE_SLOTS,
   FORGE_WAVES,
   ITEMS,
   NPCS,
+  ORB_LIFT,
   PADS,
+  PAD_HEIGHT,
   PAD_RADIUS,
   PIECES,
   RUN_WAVES,
   SPAWN,
-  SURFACES,
-  SURFACE_AREA,
   TILT_FROM_ROUND_3,
   TOKEN_ORBS,
   TOKEN_ORB_RADIUS,
   USE_REACH,
+  buildSurfaces,
   type AreaId,
+  type Island,
   type ItemId,
   type NpcId,
 } from './layout';
@@ -197,11 +199,11 @@ export interface Ch2Options {
   ch1Message?: string;
   /** Replays may skip the ending cutscene (§Step 7: not skippable the first time). */
   canSkipCutscene?: boolean;
+  /** The player's Ch1 installs: crates in the Task Yard (you can stand on them). */
+  installed?: string[];
   /** Called once when the chapter ends; `poisoned` goes into the save. */
   onFinish?: (r: { poisoned: boolean }) => void;
 }
-
-const ORB_LIFT = 0.45; // orb centre above the body's feet
 
 /** First words of the player's Ch1 message for the Step 0 reply (engineer: up to two words). */
 export function replyFor(message: string | undefined): string {
@@ -217,7 +219,7 @@ export function createCh2Store(opts: Ch2Options = {}): Ch2Store {
   let logId = 0;
 
   const sim: Sim = {
-    world: new PlatformWorld(SURFACES),
+    world: new PlatformWorld(buildSurfaces(opts.installed ?? [])),
     body: createBody(SPAWN.position),
     input: { move: [0, 0], jump: false, dash: false },
     bits: FLOOD_BITS.map((p) => makeBit(p)),
@@ -491,7 +493,7 @@ export function createCh2Store(opts: Ch2Options = {}): Ch2Store {
       }
       // where am I
       if (b.ground) {
-        const area = SURFACE_AREA[b.ground.def.id];
+        const area = (b.ground.def as Island).area;
         if (area && area !== get().area) {
           set((s) => ({
             area,
@@ -505,12 +507,9 @@ export function createCh2Store(opts: Ch2Options = {}): Ch2Store {
         }
       }
       for (const pad of PADS) {
-        const d = Math.hypot(
-          b.pos.x - pad.position[0],
-          b.pos.y - pad.position[1],
-          b.pos.z - pad.position[2],
-        );
-        if (d < PAD_RADIUS && get().lastPad !== pad.id)
+        const d = Math.hypot(b.pos.x - pad.position[0], b.pos.z - pad.position[2]);
+        const dy = Math.abs(b.pos.y - pad.position[1]);
+        if (d < PAD_RADIUS && dy < PAD_HEIGHT && get().lastPad !== pad.id)
           set((s) => ({
             lastPad: pad.id,
             padsSeen: s.padsSeen.includes(pad.id) ? s.padsSeen : [...s.padsSeen, pad.id],
@@ -558,7 +557,7 @@ export function createCh2Store(opts: Ch2Options = {}): Ch2Store {
         sim.bits,
         sim.spits,
         orbCentre(),
-        fighting ? new Vector3(FORGE_CORE[0], FORGE_CORE[1] + 1.2, FORGE_CORE[2]) : null,
+        fighting ? new Vector3(...FORGE_HEART) : null,
         dt,
       );
       if (playerHits) hurt(TOKENS.bitHit * playerHits);
@@ -722,8 +721,8 @@ export function createCh2Store(opts: Ch2Options = {}): Ch2Store {
         consider({ kind: 'npc', id: 'c03220' }, NPCS[0].position);
       for (const it of ITEMS)
         if (s.items[it.id] === 'there') consider({ kind: 'item', id: it.id }, it.position);
-      if (s.forge.phase === 'ready')
-        consider({ kind: 'forge' }, [FORGE_CORE[0], FORGE_CORE[1] + 1, FORGE_CORE[2]], FORGE_REACH);
+      // the forge: any of its four slot frames (the next input goes in, in order)
+      if (s.forge.phase === 'ready') for (const p of FORGE_SLOTS) consider({ kind: 'forge' }, p);
       return best;
     }
   });

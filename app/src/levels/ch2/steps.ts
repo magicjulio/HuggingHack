@@ -5,7 +5,7 @@
  */
 import type { Step } from '../../engine/steps';
 import { LOG, TEXT } from './config';
-import { ITEMS, NPCS, PADS, PIECES, type ItemId } from './layout';
+import { FORGE_CORE, ITEMS, PADS, PIECES, npc, padOf, type AreaId, type ItemId } from './layout';
 import type { Ch2Ctx, Ch2Event } from './store';
 
 type Ch2Step = Step<Ch2Ctx, Ch2Event>;
@@ -14,10 +14,10 @@ const has = (c: Ch2Ctx, id: ItemId) => c.items[id] === 'taken';
 const pieces = (c: Ch2Ctx) => PIECES.filter((p) => has(c, p)).length;
 /** Debug/test: take an item as if the player had picked it up. */
 const take = (c: Ch2Ctx, id: ItemId) => c.takeItem(id);
-const padAt = (id: string) => PADS.find((p) => p.id === id)!.position;
-/** Debug/test: move the player to a pad and make it the respawn point. */
-function goTo(c: Ch2Ctx, pad: string) {
-  c.placePlayer(padAt(pad));
+/** Debug/test: move the player to an area's pad and make it the respawn point. */
+function goTo(c: Ch2Ctx, area: AreaId) {
+  const pad = padOf(area).id;
+  c.placePlayer(PADS.find((p) => p.id === pad)!.position);
   c.set((s) => ({
     lastPad: pad,
     padsSeen: s.padsSeen.includes(pad) ? s.padsSeen : [...s.padsSeen, pad],
@@ -67,7 +67,7 @@ export const CH2_STEPS: Ch2Step[] = [
       { after: 90, text: 'The spire is the dim tower off to the side.' },
     ],
     skip: (c) => {
-      goTo(c, 'spire');
+      goTo(c, 'oldboard');
       take(c, 'seed');
     },
   },
@@ -150,7 +150,7 @@ export function goalOf(
   const item = (id: ItemId) => ITEMS.find((i) => i.id === id)!.position;
   switch (c.stepId) {
     case 'gate':
-      return NPCS[0].position;
+      return npc('c03220').position;
     case 'oldboard':
       return item('seed');
     case 'yard':
@@ -159,7 +159,7 @@ export function goalOf(
       return item('pChallenge');
     case 'run':
     case 'forge':
-      return [0, 54, 0];
+      return FORGE_CORE;
     default:
       return null;
   }
