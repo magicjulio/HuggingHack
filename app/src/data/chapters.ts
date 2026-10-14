@@ -20,15 +20,9 @@ export interface ChapterInfo {
 export const CHAPTERS: ChapterInfo[] = [
   // story/levels/ch1-the-room.md: "Capture all five flags."
   { id: 'ch1', index: '01', title: 'The Room', meta: 'sandbox · 5 flags', playable: true },
-  // PLACEHOLDER: chapters 2-4 not written yet (design placeholders).
-  {
-    id: 'ch2',
-    index: '02',
-    title: null,
-    redacted: '████ ██ ████',
-    meta: 'signal detected',
-    playable: false,
-  },
+  // story/levels/ch2-the-cache.md (working title): "Forge flag 5." Meta line (engineer).
+  { id: 'ch2', index: '02', title: 'The Cache', meta: 'deep cache · forge flag 5', playable: true },
+  // PLACEHOLDER: chapters 3-4 not written yet (design placeholders).
   { id: 'ch3', index: '03', title: null, redacted: '██████ ████', meta: '—', playable: false },
   { id: 'ch4', index: '04', title: null, redacted: '███ █████ ██', meta: '—', playable: false },
 ];

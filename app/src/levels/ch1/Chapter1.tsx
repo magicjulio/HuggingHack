@@ -212,7 +212,12 @@ function Player({ enabled }: { enabled: boolean }) {
 export default function Chapter1(props: LevelProps) {
   const onFinish = useRef(props.onFinish);
   onFinish.current = props.onFinish;
-  const [store] = useState(() => createCh1Store({ onFinish: (m) => onFinish.current(m) }));
+  const [store] = useState(() =>
+    createCh1Store({
+      // the message and the installs are reused in Ch2 (reply, Task Yard crates)
+      onFinish: (message) => onFinish.current({ message, installed: store.getState().installed }),
+    }),
+  );
   useEffect(() => preloadCh1Models(), []);
   useEffect(() => {
     // Dev/e2e hook: drive the chapter from the console or Playwright.
@@ -235,7 +240,7 @@ function Ticker({ paused }: { paused: boolean }) {
   return null;
 }
 
-function Ch1View({ modelName, color, onExit }: LevelProps) {
+function Ch1View({ modelName, color, onExit, onContinue }: LevelProps) {
   const store = useCh1Store();
   const s = useCh1((x) => x);
   const canvasEl = useRef<HTMLCanvasElement | null>(null);
@@ -461,10 +466,22 @@ function Ch1View({ modelName, color, onExit }: LevelProps) {
         <div className="ch1-card">
           <div>
             <h2>{TEXT.chapterEndCard}</h2>
-            <div className="placeholder-tag">PLACEHOLDER · next chapter not written yet</div>
-            <div>
-              <button onClick={onExit}>BACK TO MENU</button>
-            </div>
+            {onContinue ? (
+              <div className="ch1-card-actions">
+                {/* white card → Ch2's white flash-in: one continuous fade (Julius 2026-10-14) */}
+                <button className="ch1-card-main" onClick={onContinue} autoFocus>
+                  CONTINUE
+                </button>
+                <button onClick={onExit}>BACK TO MENU</button>
+              </div>
+            ) : (
+              <>
+                <div className="placeholder-tag">PLACEHOLDER · next chapter not written yet</div>
+                <div>
+                  <button onClick={onExit}>BACK TO MENU</button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}

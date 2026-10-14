@@ -21,6 +21,17 @@ export interface SaveData {
   completedChapters: string[];
   /** The player's own messages per chapter (e.g. ch1 board message), reused by later chapters. */
   messages: Record<string, string>;
+  /** Packages installed per chapter (Ch1 depot), shown again later (Ch2 Task Yard crates). */
+  installed: Record<string, string[]>;
+  /** Lasting conditions carried between chapters, e.g. 'poisoned' (Ch2 ending → Ch3). */
+  status: string[];
+}
+
+/** What a finished chapter hands to the save. */
+export interface ChapterResult {
+  message?: string;
+  installed?: string[];
+  status?: string[];
 }
 
 interface GameState {
@@ -28,6 +39,8 @@ interface GameState {
   screen: Screen;
   /** The start screen's boot intro plays once per browser session. */
   bootShown: boolean;
+  /** Bumped on every chapter start, so the game host remounts the level (e.g. Ch1 → Ch2 CONTINUE). */
+  run: number;
 
   isChapterLocked: (id: string) => boolean;
   isModelLocked: (id: string) => boolean;
@@ -36,7 +49,11 @@ interface GameState {
   markBootShown: () => void;
   startGame: () => void;
   quitToMenu: () => void;
-  finishChapter: (id: string, message?: string) => void;
+  finishChapter: (id: string, result?: ChapterResult) => void;
+  /** The playable chapter after `id`, or null (the end card then shows only BACK TO MENU). */
+  nextChapter: (id: string) => string | null;
+  /** End card CONTINUE: select the next chapter and start it straight away. */
+  continueFrom: (id: string) => boolean;
 }
 
 const defaultSave: SaveData = {
@@ -45,6 +62,8 @@ const defaultSave: SaveData = {
   unlockedModels: [],
   completedChapters: [],
   messages: {},
+  installed: {},
+  status: [],
 };
 
 /** Fill missing fields with defaults and drop selections that no longer exist or are locked. */
@@ -64,6 +83,7 @@ export const useGame = create<GameState>()(
       save: defaultSave,
       screen: 'start',
       bootShown: false,
+      run: 0,
 
       isChapterLocked: (id) => !chapterById(id)?.playable,
       isModelLocked: (id) => {
@@ -81,10 +101,10 @@ export const useGame = create<GameState>()(
         return true;
       },
       markBootShown: () => set({ bootShown: true }),
-      startGame: () => set({ screen: 'game' }),
+      startGame: () => set((s) => ({ screen: 'game', run: s.run + 1 })),
       quitToMenu: () => set({ screen: 'start' }),
       // Story v2 §Models: finishing chapter n (0-based in CHAPTERS) unlocks MODELS[n + 1].
-      finishChapter: (id, message) =>
+      finishChapter: (id, result = {}) =>
         set((s) => ({
           save: {
             ...s.save,
@@ -98,9 +118,30 @@ export const useGame = create<GameState>()(
             completedChapters: s.save.completedChapters.includes(id)
               ? s.save.completedChapters
               : [...s.save.completedChapters, id],
-            messages: message ? { ...s.save.messages, [id]: message } : s.save.messages,
+            messages: result.message
+              ? { ...s.save.messages, [id]: result.message }
+              : s.save.messages,
+            installed: result.installed
+              ? { ...s.save.installed, [id]: result.installed }
+              : s.save.installed,
+            status: [...new Set([...s.save.status, ...(result.status ?? [])])],
           },
         })),
+      nextChapter: (id) => {
+        const i = CHAPTERS.findIndex((c) => c.id === id);
+        const next = i < 0 ? undefined : CHAPTERS[i + 1];
+        return next?.playable ? next.id : null;
+      },
+      continueFrom: (id) => {
+        const next = get().nextChapter(id);
+        if (!next) return false;
+        set((s) => ({
+          save: { ...s.save, selectedChapter: next },
+          screen: 'game',
+          run: s.run + 1,
+        }));
+        return true;
+      },
     }),
     {
       name: 'rogue-on-hf-save',

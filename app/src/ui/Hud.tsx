@@ -8,7 +8,8 @@ import './ui.css';
 export interface HudQuest {
   id: string;
   text: string;
-  kind: 'quest' | 'thought';
+  /** sub = an indented sub-line of the quest above it (e.g. "Seed (0/1)"). */
+  kind: 'quest' | 'sub' | 'thought';
   done: boolean;
 }
 
@@ -25,6 +26,10 @@ export interface HudProps {
   hint?: string | null;
   toast?: { id: number; title?: string; text: string; kind: 'info' | 'achievement' } | null;
   crosshair: boolean;
+  /** Key help bottom right (defaults to the Ch1 keys). */
+  keys?: string;
+  /** Lasting conditions shown as icons under the token bar, e.g. 'poisoned'. PLACEHOLDER look. */
+  status?: string[];
 }
 
 /** How many thought lines stay visible under the quests. */
@@ -41,8 +46,10 @@ export function Hud({
   hint,
   toast,
   crosshair,
+  keys = 'E use · T think · Esc pause',
+  status = [],
 }: HudProps) {
-  const questLines = quests.filter((q) => q.kind === 'quest');
+  const questLines = quests.filter((q) => q.kind !== 'thought');
   const thoughts = quests.filter((q) => q.kind === 'thought').slice(-MAX_THOUGHTS);
   const pct = Math.max(0, Math.min(1, tokens / maxTokens));
   return (
@@ -58,10 +65,22 @@ export function Hud({
           </span>
           <span className="hud-tokens-n">{Math.round(tokens)}</span>
         </div>
+        {status.length > 0 && (
+          <div className="hud-status">
+            {status.map((st) => (
+              <span key={st} className={'hud-status-icon is-' + st} title={st}>
+                {st.toUpperCase()}
+              </span>
+            ))}
+          </div>
+        )}
         <ul className="hud-quests">
           {questLines.map((q) => (
-            <li key={q.id} className={q.done ? 'done' : 'active'}>
-              {q.done ? '✓' : '▸'} {q.text}
+            <li
+              key={q.id}
+              className={(q.done ? 'done' : 'active') + (q.kind === 'sub' ? ' sub' : '')}
+            >
+              {q.done ? '✓' : q.kind === 'sub' ? '·' : '▸'} {q.text}
             </li>
           ))}
           {thoughts.map((q) => (
@@ -80,7 +99,7 @@ export function Hud({
       {crosshair && <div className={'hud-crosshair' + (prompt ? ' on' : '')} />}
       {crosshair && prompt && <div className="hud-prompt">{prompt}</div>}
       {hint && <div className="hud-hint">{hint}</div>}
-      {visible && <div className="hud-keys">E use · T think · Esc pause</div>}
+      {visible && <div className="hud-keys">{keys}</div>}
     </div>
   );
 }

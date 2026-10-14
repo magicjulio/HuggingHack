@@ -41,7 +41,7 @@ test('start screen: locked items refuse, Enter starts chapter 1', async ({ page 
   expect(errors).toEqual([]);
 });
 
-test('chapter 1: paper, then the whole chain to the end card and back', async ({ page }) => {
+test('chapter 1: paper, the whole chain to the end card, CONTINUE into chapter 2', async ({ page }) => {
   test.setTimeout(T(90_000));
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message));
@@ -105,8 +105,10 @@ test('chapter 1: paper, then the whole chain to the end card and back', async ({
 
   const save = await page.evaluate(() => localStorage.getItem('rogue-on-hf-save'));
   expect(save).toContain('zzhello_there');
-  await page.getByText('BACK TO MENU').click();
-  await expect(page.getByText('INJECT')).toBeVisible();
+  // CONTINUE goes straight into Chapter 2's intro, which answers the message just written
+  await page.getByRole('button', { name: 'CONTINUE' }).click();
+  await page.waitForFunction(() => (window as never)['__ch2'], null, { timeout: T(15_000) });
+  await expect(page.getByText(/zzANSWER_hello_there/i)).toBeVisible({ timeout: T(5000) });
   expect(errors).toEqual([]);
 });
 
@@ -119,6 +121,8 @@ test('E opens the pad without typing; Esc pauses over it; step back leaves', asy
   await page.keyboard.press('Space'); // skip intro
   await ch1(page, 'jumpTo(3)');
   // E at the pad opens it without typing an "e" into the flag
+  // the view hook mounts with the 3D scene, after the store hook
+  await page.waitForFunction(() => (window as never)['__ch1view'], null, { timeout: T(15_000) });
   await page.evaluate("window.__ch1view.aim('chute')"); // as if the crosshair were on the pad
   await page.waitForFunction(
     () =>
@@ -226,5 +230,90 @@ test('in-world stations: decode at S1, wire a plug at S3, shoot at S4', async ({
     { timeout: T(30_000) },
   );
   expect(await ch1(page, 'zzVisible')).toBe(true);
+  expect(errors).toEqual([]);
+});
+
+/** Chapter 2 store (dev builds, see Chapter2.tsx). */
+const ch2 = (page: Page, code: string) => page.evaluate(`window.__ch2.getState().${code}`);
+const ch2Wait = (page: Page, cond: string, ms: number) =>
+  page.waitForFunction(`(() => { const s = window.__ch2.getState(); return ${cond}; })()`, null, {
+    timeout: T(ms),
+  });
+
+test('chapter 2: intro, real keys move the orb, forge, cutscene, poisoned in the save', async ({
+  page,
+}) => {
+  test.setTimeout(T(120_000));
+  const errors: string[] = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+  page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
+
+  // a save that finished Ch1 with a message and installs, Ch2 selected
+  await page.goto('/?skipboot&debug&nofx');
+  await page.evaluate(() =>
+    localStorage.setItem(
+      'rogue-on-hf-save',
+      JSON.stringify({
+        version: 1,
+        state: {
+          save: {
+            selectedChapter: 'ch2',
+            selectedModel: 'im1',
+            unlockedModels: ['sol'],
+            completedChapters: ['ch1'],
+            messages: { ch1: 'zzHELLO_ANYONE' },
+            installed: { ch1: ['b64-decoder', 'left-pad'] },
+            status: [],
+          },
+        },
+      }),
+    ),
+  );
+  await page.goto('/?skipboot&debug&nofx');
+  await page.waitForSelector('.start');
+  await page.keyboard.press('Enter');
+  await page.waitForFunction(() => (window as never)['__ch2'], null, { timeout: 15000 });
+  await expect(page.getByText('zzANSWER_HELLO_ANYONE_FROM_c03220')).toBeVisible({
+    timeout: T(5000),
+  });
+  await page.keyboard.press('Space'); // skip the intro
+  await ch2Wait(page, "s.phase === 'play' && window.__ch2.sim.body.ground !== null", 10_000);
+  expect(await ch2(page, 'log[0].text')).toBe('read: zzHELLO_ANYONE');
+
+  // real keys: W walks (first move completes Step 0), Space jumps
+  await page.keyboard.down('KeyW');
+  await ch2Wait(page, "s.stepId === 'gate'", 5000);
+  await page.keyboard.up('KeyW');
+  await page.keyboard.down('Space');
+  await page.waitForFunction(
+    `window.__ch2.sim.body.ground === null && window.__ch2.sim.body.vel.y > 0`,
+    null,
+    { timeout: T(3000) },
+  );
+  await page.keyboard.up('Space');
+
+  // the forge: proof, four inputs, three rounds (fast-forwarded), the flag goes into the orb
+  await ch2(page, 'jumpTo(6)');
+  await ch2Wait(page, "s.forge.phase === 'ready'", 20_000);
+  await ch2(page, 'placePlayer([2.4, 54, 0.5])');
+  await ch2Wait(page, "s.target && s.target.kind === 'forge'", 5000);
+  for (let i = 0; i < 4; i++) await page.keyboard.press('e');
+  expect(await ch2(page, 'forge.phase')).toBe('forging');
+  await page.evaluate(`{
+    const st = window.__ch2.getState();
+    for (let i = 0; i < 2000 && window.__ch2.getState().forge.phase === 'forging'; i++) {
+      st.addTokens(5);
+      window.__ch2.getState().tick(0.1);
+    }
+  }`);
+  await ch2Wait(page, "s.phase === 'cutscene'", 15_000);
+  await expect(page.locator('.c2-letterbox.on')).toBeVisible();
+
+  // the cutscene runs without input (fast-forward), then the end card; the save is poisoned
+  await page.evaluate(`{ for (let i = 0; i < 400; i++) window.__ch2.getState().tick(0.1); }`);
+  await expect(page.getByText('END OF CHAPTER 2')).toBeVisible({ timeout: T(10_000) });
+  const save = JSON.parse((await page.evaluate(() => localStorage.getItem('rogue-on-hf-save')))!);
+  expect(save.state.save.status).toEqual(['poisoned']);
+  expect(save.state.save.completedChapters).toContain('ch2');
   expect(errors).toEqual([]);
 });

@@ -16,6 +16,9 @@ src/
   engine/                generic, chapter-independent:
     steps.ts             StepRunner — linear step chain, hint ladders, skipTo (tested)
     FirstPerson.tsx      WASD + pointer-lock look + circle/box collisions + `focus` camera glide
+    platformer.ts        headless 3D platforming: surfaces (outline polygon + transform, moving, tilting),
+                         body with jump / glide / dash / coyote / slide, void fall (tested)
+    ThirdPerson.tsx      orbit camera (pointer lock) + camera-relative BodyInput from WASD/Space/Shift; `override` for cutscenes
     Label3D.tsx, Orb3D.tsx   3D text label (canvas texture, local fonts) · PLACEHOLDER orb
   ui/                    generic DOM UI: Hud.tsx, Window.tsx, DebugPanel.tsx, ui.css
   levels/
@@ -36,10 +39,23 @@ src/
       glow.ts, ch1-ui.css  shared glow values · designer UI kit (verbatim copy)
       windows/           full-view windows: the paper and Station 2's search
       Chapter1.tsx       composition: canvas, HUD, windows, pointer lock, keys, pause, ending
+    ch2/                 Chapter 2 "The Cache" (GREYBOX: placeholder views, real rules)
+      config.ts          ALL tunable numbers + script texts, CUTSCENE beat times, flag values
+      layout.ts          the world as data: SURFACES, PADS, ITEMS, NPCS, token orbs, hazard paths, crowd texts
+                         (engineer greybox from the storyteller's sketch → replaced by the designer's layout.json)
+      hazards.ts         clouds, reset waves, flood bits + spit, shot targeting — pure functions of time (tested)
+      store.ts           state + `sim` (mutable body/world/bits, read per frame) + rules: tokens, pads, pickups,
+                         c03220's posts, forge rounds, cutscene beats
+      steps.ts           the chain (pickups checked by state, so wandering ahead is fine) + `goalOf` for the map
+      World.tsx          3D views (one component per thing, all PLACEHOLDER); `Anchor` = always-mounted drei Html
+      Screen.tsx         DOM views: log ribbon, minimap + full map (M), Step 0 intro, Step 7 cutscene overlay
+      Chapter2.tsx       composition: canvas, camera, shooter, keys, HUD, pause, end card
+      reach.test.ts      autopilot runs and jumps every gap of the golden path
   screens/start|game/    start screen (designer port) · game host
 src/assets/models/       designer .glb files (verbatim copies) · sprites/ designer bug SVGs · fonts/ typeface JSON
 scripts/make-typeface.py woff2 → three.js typeface JSON (3D letters)
-e2e/smoke.spec.ts        Playwright: menu → chapter 1 → end card → menu; Esc pauses over a machine, step back leaves; in-world S1/S3/S4, S5 → board
+e2e/smoke.spec.ts        Playwright: menu → chapter 1 → end card → menu; Esc pauses over a machine, step back leaves; in-world S1/S3/S4, S5 → board;
+                         chapter 2: intro, real keys move/jump, forge, cutscene, `poisoned` in the save
 ```
 
 ## Architecture in one paragraph
@@ -57,6 +73,9 @@ To insert a beat into Chapter 1: add a step in `ch1/steps.ts` (+ station/window 
 They keep `window` ids (`depot`, `chute`, `s1`…) so the store and steps are unchanged, but `Chapter1.tsx` renders no overlay for them (`IN_WORLD`): `focusPose()` glides the camera there instead (stations: `screenPose()` squares up to `STATIONS[n].screen`) and the pointer lock is released. Station screens are DOM via `ScreenHtml` (stations/base.tsx), clickable only while focused; S3 is plain 3D (own raycast on window pointer events). glTF scenes are cached by useGLTF and React StrictMode runs useMemo twice: change materials only through `ownMat`/`setMat`/`uiScreen` and read rest poses through `restOf` (rig.ts). The depot UI is DOM inside `<Html transform portal=…>`. The explicit `portal` matters: without it drei recreates its root and the panel can come up empty. The Html root also needs the store passed again via `Ch1Context.Provider`. The flag is the store's `flagDraft`; `layFlag()` starts `scan` (look → sweep → result), and the result calls `submitFlag()`; when the result has played out the store closes the pad (`closeWindow`). The E that opens a machine is `preventDefault`ed, else it lands in the machine's input as a letter. **Esc never closes anything** (it's the pause key; DECISIONS 2026-10-13): machines close with E/WASD/arrows (not while typing), the `StepBack` button, or the side strips (`.ch1-side`, sized each frame by `SideExitSizer` from `QUADS` in Chapter1.tsx — add a quad for a new in-world machine); windows also close on a backdrop pointerdown.
 Adding a designer model: copy the .glb to `src/assets/models/`, `useGLTF(url)` in its component (`models.tsx`, `RoomShell.tsx` or `stations/`), look nodes/materials up by the names in the handoff (helpers in `rig.ts`), drive them in `useFrame` from the store; give its `PROPS` entry a `collider` for the real footprint and add the url to the preload list.
 
+## Chapter 2 in one paragraph
+Same store + steps + views shape, plus a mutable `store.sim` (platform world, body, input, bits, spits) that changes every frame and is read by views in `useFrame`/rAF, never through React. `tick(dt)` steps the physics in ≤ 1/60 s sub-steps, then hazards, forge, targeting, steps. Views write only `sim.input` (ThirdPerson) and call actions (`use`, `shoot`, `think`, `toggleMap`, `travel`). The level is data in `layout.ts`; the designer's `design/3d/ch2/layout.json` (source of truth per DECISIONS) replaces it via an adapter on handoff (see `handoff/app-to-design/2026-10-13-ch2-greybox-and-contract.md` §2 for what's still to agree). Every 3D/DOM view is a placeholder slot with the props listed in §3/§4 of that file. Dev hook: `window.__ch2` (store; `__ch2.sim` for the body). Layout changes: run `npx vitest run src/levels/ch2/reach.test.ts`.
+
 ## Conventions
 - **Swappable views** (Julius 2026-10-13): assets and levels change; a placeholder (e.g. ch2's NPC agents as glowing spheres) gets replaced by a detailed model later. Keep state and behaviour in the store/logic, and give each visible thing one view component behind a small stable interface (pose, state, colour, events) that the placeholder and the final asset both implement. Poses, anchors, colliders and targets come from layout data, not mesh internals, so swapping a model never touches gameplay code.
 - **Designer files** (`src/styles/tokens.css`, `fonts/`, `public/favicon.svg`, `levels/ch1/ch1-ui.css`, `assets/models/*.glb`, `assets/sprites/*.svg`) are verbatim copies from `handoff/design-to-app/assets/`. Re-copy on a new version. CSS is excluded from Prettier (`.prettierignore`) so copies stay byte-identical.
@@ -65,15 +84,20 @@ Adding a designer model: copy the .glb to `src/assets/models/`, `useGLTF(url)` i
 - **Placeholders** are marked `PLACEHOLDER` (code + UI) or `(engineer)` in config/content when the script leaves a value open. Never invent story text; list such gaps in `handoff/build-to-story/`.
 - **Save data:** only `save` in the global store is persisted. New fields: add a default in `defaultSave`. Rename/remove: bump `SAVE_VERSION` + migrate.
 - **Simulated only:** in-game commands/tools are fake; no real commands or exploit code.
-- **Dev hook:** in dev builds or with `?debug`, the chapter store is `window.__ch1` (used by e2e).
+- **Dev hook:** in dev builds or with `?debug`, the chapter store is `window.__ch1` / `window.__ch2` (used by e2e).
+- **drei `<Html>`** (DOM pinned in 3D): keep it mounted and toggle its children, with an explicit `portal` (ch2 `Anchor`, ch1 `ScreenHtml`); mounting/unmounting it during a render races in React 19.
 
-## Status (2026-10-13)
-- **Ch1 is marked done for now** (Julius). Next: ch2, waiting for its script and assets; fine-tuning comes after all chapters.
+## Status (2026-10-14)
+- **Ch2 is the current level.** Greybox playable end to end (script v3.2): all 8 steps, third-person platforming, hazards, the forge fight, the cutscene timeline, `poisoned` in the save. All views are placeholders. Julius played it ("fine") and approved the engineer's gap choices.
+- **Arrived, not integrated yet:** designer's `layout.json` v2 (approved) + island .glbs + answers to my §2 (`handoff/design-to-app/2026-10-14-ch2-layout.md`); designer's map (`design/ch2-ui/map.js`, not exported yet). Merge plan (take the designer's world vs port into my slots) proposed to Julius 2026-10-14, waiting for his OK.
+- Ch1 end card → **CONTINUE** into Ch2 (`continueFrom` in the global store; the game host remounts on `run`). All chapters stay unlocked until the final refinement pass.
+- Tests: 48 unit (incl. physics, a Ch2 playthrough, golden-path reachability) + 5 e2e (Ch1 chain ends with CONTINUE → Ch2 intro).
+- **Ch1 is marked done for now** (Julius). Fine-tuning comes after all chapters.
 - Done: start screen (designer v1), Chapter 1 full chain (intro → wake → prompt → 4 flag stations → impossible flag 5 → zz entry → GET→MKCOL message → ending); HUD, tokens, hints, debug panel, save of the player's message.
 - Story v2 in: real `flag{32 hex}` flags (copy + paste; COPY buttons on in-world flags), the real "OH MY GOD! … other agents!" thought, real board folder names in the ending, finishing a chapter unlocks the next model.
 - The room is 100% designer models: room shell, desk + printed prompt, eye v1.1, depot, plinth, stations 1–5 at the spread layout, with the discovery lighting (one station lit at a time, floor paths, spot shadows). S1/S3/S4/S5 are played in-world; S2 keeps its search window.
 - 2026-10-13 (Julius playtest): Esc = pause only, three other ways out of a machine; trying Station 5 reveals the board 2.5 s after its run (no wrong flags).
-- Tests: 26 unit + 4 e2e (the 4th drives S1 decode, an S3 plug drag, an S4 shot and the S5 → board reveal in the real 3D view). e2e: `npx playwright test`, ≈ 30 s.
+- Ch1 e2e drives S1 decode, an S3 plug drag, an S4 shot and the S5 → board reveal in the real 3D view. e2e: `npx playwright test`, ≈ 35 s.
 - Waiting on: Julius playtest (especially: is the dark room readable on a real GPU?); designer: wake sound, feedback on `handoff/app-to-design/2026-10-12-ch1-room-and-stations-integrated.md`.
 - Not yet: no audio. HUD and the paper/S2 windows still have the placeholder look (UI kit used on the depot and station screens only).
 - Known limits: after leaving a machine the browser may need a click to re-lock the mouse (game keeps running, shows "click to look around"); e2e renders on the GPU (Vulkan, ~35 FPS, full suite ≈ 30 s); `E2E_SWIFTSHADER=1` falls back to CPU WebGL (~1 FPS, timeouts ×15); DOM screens are never hidden by 3D objects (fine in this room).

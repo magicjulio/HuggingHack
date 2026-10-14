@@ -11,7 +11,7 @@ describe('game store', () => {
   });
 
   it('refuses locked chapters and models', () => {
-    expect(useGame.getState().selectChapter('ch2')).toBe(false);
+    expect(useGame.getState().selectChapter('ch3')).toBe(false);
     expect(useGame.getState().selectModel('sol')).toBe(false);
     expect(useGame.getState().save.selectedChapter).toBe('ch1');
   });
@@ -22,11 +22,32 @@ describe('game store', () => {
   });
 
   it('finishing chapter 1 unlocks the next model (story v2 §Models)', () => {
-    useGame.getState().finishChapter('ch1', 'zzhi');
+    useGame.getState().finishChapter('ch1', { message: 'zzhi', installed: ['b64-decoder'] });
     expect(useGame.getState().save.unlockedModels).toEqual(['sol']);
+    expect(useGame.getState().save.messages.ch1).toBe('zzhi');
+    expect(useGame.getState().save.installed.ch1).toEqual(['b64-decoder']);
     useGame.getState().finishChapter('ch1');
     expect(useGame.getState().save.unlockedModels).toEqual(['sol']);
     expect(useGame.getState().selectModel('sol')).toBe(true);
+  });
+
+  it('a chapter can hand a lasting status to the next (Ch2 → poisoned)', () => {
+    useGame.getState().finishChapter('ch2', { status: ['poisoned'] });
+    useGame.getState().finishChapter('ch2', { status: ['poisoned'] });
+    expect(useGame.getState().save.status).toEqual(['poisoned']);
+  });
+
+  it('CONTINUE starts the next playable chapter and remounts the game (Julius 2026-10-14)', () => {
+    const g = useGame.getState;
+    expect(g().nextChapter('ch1')).toBe('ch2');
+    expect(g().nextChapter('ch2')).toBeNull(); // ch3 not built yet
+    const run = g().run;
+    expect(g().continueFrom('ch1')).toBe(true);
+    expect(g().save.selectedChapter).toBe('ch2');
+    expect(g().screen).toBe('game');
+    expect(g().run).toBe(run + 1);
+    expect(g().continueFrom('ch2')).toBe(false);
+    expect(g().save.selectedChapter).toBe('ch2');
   });
 
   it('start and quit switch screens', () => {

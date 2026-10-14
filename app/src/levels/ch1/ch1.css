@@ -105,6 +105,8 @@
 .ch1-card h2{font-family:var(--font-display);font-size:var(--fs-xl);letter-spacing:.1em}
 .ch1-card button{margin-top:1.6rem;padding:.6rem 1.4rem;border:1px solid #0b1322;color:#0b1322;letter-spacing:.2em;text-align:center}
 .ch1-card .placeholder-tag{margin-top:.8rem}
+.ch1-card-actions{display:flex;gap:1rem;justify-content:center}
+.ch1-card .ch1-card-main{background:#0b1322;color:#fff}
 /* ---- in-world station screens (stations/*.tsx), 2026-10-12 ---- */
 .ch1-st{font-family:var(--font-mono);color:var(--color-text);transition:opacity .08s}
 .ch1-st .c1-win__bar{height:40px;box-sizing:border-box;flex:none}

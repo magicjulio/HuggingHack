@@ -21,22 +21,35 @@ Handy URL flags (combine with `&`):
 ## Controls
 **Start screen:** W/S or ↑/↓ chapter · A/D or ←/→ model · Enter start.
 
-**In game:**
+**Chapter 1 (first person):**
 | Key | Action |
 |---|---|
 | click | take control (locks the mouse) |
 | WASD / arrows | move |
 | mouse | look |
-| E or click | use the object under the crosshair · close a window |
-| Esc | close a window / step back from a machine · pause while walking (releases the mouse) |
+| E or click | use the object under the crosshair |
+| WASD, ✕ step back, click beside it | leave a machine or window |
+| Esc | pause (also over a machine) |
 | at the depot | click Install on the screen |
 | at the scan pad | type or paste a flag, Enter to scan |
 | T | think: show the next hint early (costs 1 token) |
 
+**Chapter 2 (third person):**
+| Key | Action |
+|---|---|
+| WASD / arrows · mouse | move (relative to the camera) · orbit the camera |
+| Space | jump · hold in the air to glide |
+| Shift | dash (1 token; passes through reset waves) |
+| click | shoot (1 token; mutes a flood bit, +2) |
+| E | use / take / talk; E again skips a bubble line |
+| M | full map (quick travel to pads you reached) |
+| T · Esc | think · pause |
+| Enter | skip the ending cutscene (only on a replay) |
+
 ## Other commands
 | Command | What it does |
 |---|---|
-| `npm test` | unit tests (Vitest), incl. a full Chapter 1 playthrough |
+| `npm test` | unit tests (Vitest), incl. full Chapter 1 and 2 playthroughs and a Ch2 golden-path jump check |
 | `npm run test:e2e` | browser smoke tests (Playwright, uses your installed Google Chrome) |
 | `npm run lint` / `npm run typecheck` | code checks |
 | `npm run format` | format code (Prettier) |
@@ -44,5 +57,5 @@ Handy URL flags (combine with `&`):
 | `npm run preview` | serve the production build |
 
 ## Reset your save
-Progress, menu selection and your Chapter 1 message are stored in the browser (`localStorage`, key `rogue-on-hf-save`).
+Progress, menu selection, your Chapter 1 message and installs, and the `poisoned` status are stored in the browser (`localStorage`, key `rogue-on-hf-save`).
 Clear it in the browser dev tools, or run `localStorage.clear()` in the console.

@@ -15,6 +15,10 @@
 .hud-quests:empty{display:none}
 .hud-quests .active{color:var(--color-text)}
 .hud-quests .done{color:var(--color-text-faint);text-decoration:line-through}
+.hud-quests .sub{padding-left:1.1rem;font-size:var(--fs-xs)}
+.hud-status{margin-top:.4rem;display:flex;gap:.4rem}
+.hud-status-icon{font-size:var(--fs-xs);letter-spacing:.2em;padding:.15rem .5rem;border:1px solid currentColor;background:var(--color-panel)}
+.hud-status-icon.is-poisoned{color:#2fa85a;background:rgba(4,21,11,.85);box-shadow:0 0 12px rgba(47,168,90,.35)} /* PLACEHOLDER until design2's icon */
 .hud-quests .thought{color:var(--color-signal-cyan);font-style:italic;animation:hud-in .6s}
 .hud-quests code,.win code{font-family:var(--font-mono);color:var(--color-hug-yellow);font-style:normal}
 @keyframes hud-in{from{opacity:0;transform:translateX(-8px)}}
