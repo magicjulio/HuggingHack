@@ -8,3 +8,4 @@
 - [Direct play + discovery](feedback_direct_play_discovery.md) — play puzzles on the 3D object, dark room with stations waking one by one; short plan first
 - [Ch2 world look](feedback_ch2_world_look.md) — layout, red lasers, bloom fix accepted; agents never bloom; offer 2 takes behind a URL switch
 - [design2 takeover](project_design2_takeover.md) — design2 retired 2026-10-14; I own design/ch2-ui/ (slices B–E + export)
+- [Perf + cutscenes](feedback_perf_and_cutscenes.md) — Step 7 film loved; Julius fears lag: measure on Iris Xe (vsync on), bake/warm/tier, report numbers
