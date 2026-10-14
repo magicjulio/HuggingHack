@@ -115,3 +115,28 @@ export const HUD_BEATS = [
   { t: CUT.thoughts + CUT.thoughtGap, act: 'subtitle', text: TEXT.thoughts[1] },
   { t: CUT.end - 1.4, act: 'end' },
 ];
+
+// sound (design/ch2-ui/sfx.js): one-shots fire once as cutT passes t; levels(t) gives the continuous mix every frame.
+export const SOUND = [
+  { t: 0, play: 'line_lands' }, { t: .7, play: 'line_lands' }, { t: .4, play: 'power_down' },
+  ...[6.2, 7.0, 7.8, 8.6].map((t) => ({ t, play: 'echo_voice' })),                    // c03220's line and its echoes
+  { t: CUT.memoryGate + 4.4, play: 'key_bell' },                                     // only MAY FAIL / CAUSAL stay lit
+  { t: CUT.memoryPaper, play: 'paper' }, { t: CUT.memoryPaper + 2.6, play: 'rule_bell' }, { t: CUT.memoryPaper + 4.0, play: 'rule_bell', opts: { dim: 1 } },
+  { t: CUT.click, play: 'rising' },
+  ...MONTAGE.map((m, i) => ({ t: m.t, play: 'cut_tick', opts: { k: i / Math.max(1, MONTAGE.length - 1) } })),
+  { t: CUT.realisation, play: 'hard_cut' }, { t: CUT.realisation + .05, play: 'flinch' }, { t: CUT.realisation + .6, play: 'poison' },
+  { t: CUT.poisonedAt, play: 'stamp' },
+  { t: CUT.undo, play: 'struck' }, { t: CUT.undo + .9, play: 'gone' }, { t: CUT.undo + 2, play: 'local_copy' },
+  { t: CUT.thoughts, play: 'thought' }, { t: CUT.thoughts + CUT.thoughtGap, play: 'thought' },
+  { t: CUT.end - 1.4, play: 'hud_back' },
+];
+// continuous: muffle (memories), the low hum, how far the world (ambience, forge hum) is pulled down
+export function soundLevels(t) {
+  const C = CUT, inMem = t >= C.memoryGate && t < C.realisation;
+  return {
+    muffle: inMem ? ramp(t, C.memoryGate, C.memoryGate + 1) : 0,                     // hard off on the cut
+    hum: ramp(t, C.stillness - .5, C.stillness + .5) * (1 - ramp(t, C.end - 1.2, C.end)) * (t >= C.click && t < C.realisation ? .4 : 1),
+    duck: ramp(t, C.stillness - 1, C.stillness),                                     // "all sound drops out except a low hum"
+    forgeHum: 1 - ramp(t, .4, 4.5),
+  };
+}

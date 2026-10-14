@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ch2 Sound Board</title>
+<link rel="icon" href="data:,">
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../start-screen/tokens.css">
+<style>
+  body{margin:0;background:#03050b;color:var(--color-text);font:13px/1.5 var(--font-mono);padding:28px 32px 60px}
+  h1{font:700 22px var(--font-display);letter-spacing:.16em;color:var(--color-signal-cyan);margin:0 0 4px}
+  h2{font:700 12px var(--font-display);letter-spacing:.22em;color:var(--color-hug-yellow);margin:26px 0 10px;text-transform:uppercase}
+  p{color:var(--color-text-dim);max-width:900px;margin:4px 0}
+  .grid{display:flex;flex-wrap:wrap;gap:6px}
+  button{font:700 12px/1 var(--font-mono);color:var(--color-text);background:rgba(56,216,255,.07);border:1px solid var(--color-line-strong);padding:9px 11px;cursor:pointer}
+  button:hover{background:rgba(56,216,255,.18)}
+  button.on{background:var(--color-signal-cyan);color:#03050b}
+  button small{display:block;font-weight:400;color:var(--color-text-faint);margin-top:4px;font-size:10px}
+  .loop{display:grid;grid-template-columns:130px 1fr 40px;gap:10px;align-items:center;max-width:620px;margin:6px 0}
+  input[type=range]{accent-color:var(--color-signal-cyan)}
+  .start{position:fixed;inset:0;display:grid;place-items:center;background:rgba(3,5,11,.92);z-index:9;cursor:pointer;font:700 18px var(--font-display);letter-spacing:.2em;color:var(--color-signal-cyan)}
+  a{color:var(--color-signal-cyan)}
+</style>
+</head>
+<body>
+<div class="start" id="start">CLICK TO TURN SOUND ON</div>
+<h1>CH2 · SOUND</h1>
+<p>Every sound is synthesised live (WebAudio, <code>sfx.js</code>), named after the game event that plays it. Sketches: the shapes and timing are the design; final mastered files can be rendered from them later. The films play their own cues: <a href="intro.html">Step 0 intro</a> and <a href="cutscene.html">Step 7 cutscene</a> (press 🔇 sound in their bar).</p>
+<div id="groups"></div>
+<h2>Loops</h2>
+<div id="loops"></div>
+<h2>Mix</h2>
+<div class="loop"><span>muffle (memory)</span><input type="range" id="muffle" min="0" max="1" step=".01" value="0"><output>0</output></div>
+<div class="loop"><span>volume</span><input type="range" id="vol" min="0" max="1" step=".01" value=".8"><output>.8</output></div>
+<script type="module">
+import { createSfx } from './sfx.js';
+const sfx = createSfx(), $ = (s) => document.querySelector(s);
+const GROUPS = [
+  ['Moving (body events)', [['jump'], ['land', { speed: 12 }, 'hard'], ['land', { speed: 4 }, 'soft'], ['dash'], ['glide'], ['fell']]],
+  ['Playing (game events)', [['respawned'], ['respawned', { why: 'reset' }, 'after reset'], ['item_taken'], ['crumble', null, 'decoy'], ['token'], ['pad', null, 'new respawn pad'], ['talk', null, 'bubble line'], ['shoot', null, 'click'], ['muted', null, 'bit muted'], ['hit', null, 'spit'], ['cloud_tick', null, 'drain tick'], ['laser_sweep', null, 'near a laser'], ['reset', null, 'laser hit']]],
+  ['The forge', [['proof_tick', null, 'pair lights'], ['proof_done', null, 'SAME SAME'], ['slot_in', null, 'E'], ['forge_started'], ['forge_rewind', null, 'bit hit forge'], ['round_done', { n: 1 }, 'round 1'], ['round_done', { n: 2 }, 'round 2'], ['round_done', { n: 3 }, 'round 3'], ['flag_fly', null, '2.5 s'], ['flag_in_orb'], ['poison']]],
+  ['Step 0 · intro', [['flash_in'], ['reply'], ['type_tick'], ['open'], ['stream'], ['tornado_land']]],
+  ['Step 7 · cutscene', [['line_lands'], ['power_down'], ['echo_voice'], ['key_bell', null, 'MAY FAIL'], ['paper'], ['rule_bell'], ['rising', null, 'montage'], ['cut_tick'], ['hard_cut'], ['flinch'], ['stamp', null, 'POISONED'], ['struck'], ['gone'], ['local_copy'], ['thought'], ['hud_back']]],
+];
+$('#groups').innerHTML = GROUPS.map(([g, list], gi) => `<h2>${g}</h2><div class="grid">${list.map(([n, o, note], i) => `<button data-g="${gi}" data-i="${i}">${n}${note ? `<small>${note}</small>` : ''}</button>`).join('')}</div>`).join('');
+document.querySelectorAll('[data-g]').forEach((b) => b.onclick = () => { const [n, o] = GROUPS[b.dataset.g][1][b.dataset.i]; sfx.play(n, o ?? undefined); });
+const LOOPS = [['ambience', 'the void'], ['forge_hum', 'forge (level = round)'], ['cloud_hum', 'inside a cloud'], ['tornado', 'Step 0 fall'], ['hum', 'Step 7 low hum']];
+$('#loops').innerHTML = LOOPS.map(([n, note]) => `<div class="loop"><button data-l="${n}">${n}<small>${note}</small></button><input type="range" data-v="${n}" min="0" max="1" step=".01" value=".8"><output>.8</output></div>`).join('');
+const on = {};
+document.querySelectorAll('[data-l]').forEach((b) => b.onclick = () => { const n = b.dataset.l; if (on[n]) { on[n].stop(); on[n] = null; } else on[n] = sfx.loop(n, +document.querySelector(`[data-v="${n}"]`).value); b.classList.toggle('on', !!on[n]); });
+document.querySelectorAll('input[type=range]').forEach((r) => r.oninput = () => { r.nextElementSibling.textContent = r.value; if (r.dataset.v && on[r.dataset.v]) on[r.dataset.v].set(+r.value); if (r.id === 'muffle') sfx.muffle(+r.value); if (r.id === 'vol') sfx.volume(+r.value); });
+$('#start').onclick = () => { sfx.unlock(); $('#start').remove(); };
+window.__ready = true;
+</script>
+</body>
+</html>

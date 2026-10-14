@@ -80,3 +80,16 @@ export function letterPose(i, n, since) {
   const e = easeIn(k);
   return { k, toward: e, angle: e * 5.5 + i * .07, scale: 1 - .6 * e, stretch: 1 + 3 * Math.sin(Math.PI * k), alpha: 1 - ramp(k, .7, 1) };
 }
+
+// sound (design/ch2-ui/sfx.js): one-shots fire once as introT passes t; soundLevels(t) = loops every frame
+export function soundCues(replyLength) {
+  const typed = Math.min(24, replyLength);
+  return [
+    { t: 0, play: 'flash_in' }, { t: T0.reply, play: 'reply' },
+    ...[...Array(typed)].map((_, i) => ({ t: T0.reply + .7 * i / typed, play: 'type_tick' })),
+    { t: T0.open, play: 'open' }, { t: T0.stream, play: 'stream' }, { t: T0.land, play: 'tornado_land' },
+  ];
+}
+export function soundLevels(t, reduced = false) {
+  return { tornado: reduced ? 0 : ramp(t, T0.tornado, T0.dive + .4) * (1 - ramp(t, T0.land - .1, T0.settle + .2)) * (.6 + .4 * ramp(t, T0.dive, T0.land)), ambience: ramp(t, T0.burst, T0.end) };
+}

@@ -74,7 +74,7 @@
   <button id="play">❚❚</button><button id="restart" title="R">⟲</button>
   <div class="tl" id="tl"><div class="tl__track"></div><div class="tl__fill" id="fill"></div></div>
   <span class="time" id="time">0.0 s</span>
-  <button id="sp" title="speed">1×</button><button id="fx" class="on" title="post effect">fx</button><button id="hudb" class="on">HUD</button>
+  <button id="sp" title="speed">1×</button><button id="fx" class="on" title="post effect">fx</button><button id="hudb" class="on">HUD</button><button id="snd" title="sound (click to enable)">🔇 sound</button>
   <span style="color:var(--color-text-dim)">space play · ←/→ 0.5 s · R restart · K hide</span>
 </div>
 
@@ -97,7 +97,8 @@ import { createBridges } from '../3d/ch2/world/bridges.js';
 import { createForge } from '../3d/ch2/world/forge.js';
 import { createPlayerOrb, ORB } from '../3d/ch2/world/playerOrb.js';
 import { FlashbackEffect } from '../3d/ch2/world/fxFlashback.js';
-import { CUT, TEXT, MEMORY, MONTAGE, HUD_BEATS as BEAT_DATA, stage as stageOf, camPose, direct } from '../3d/ch2/world/step7.js';
+import { CUT, TEXT, MEMORY, MONTAGE, HUD_BEATS as BEAT_DATA, stage as stageOf, camPose, direct, SOUND, soundLevels } from '../3d/ch2/world/step7.js';
+import { createSfx } from './sfx.js';
 
 const L = window.LAYOUT, H = window.c2hud, Q = new URLSearchParams(location.search), $ = (s) => document.querySelector(s);
 
@@ -227,7 +228,17 @@ function frame(t, dt) {
 let T = +(Q.get('t') ?? 0), playing = !Q.has('paused'), speed = 1, last = performance.now();
 const tl = $('#tl');
 for (const [k, n] of BEATS) { const d = document.createElement('div'); d.className = 'tl__beat'; d.style.left = CUT[k] / CUT.end * 100 + '%'; d.textContent = n.split(' · ')[0]; tl.append(d); }
-function seek(t) { T = Math.max(0, Math.min(CUT.end, t)); hudTo(T, true); }
+// sound: cues fire once while playing; the mix follows soundLevels(t)
+const sfx = createSfx(); let soundOn = false, cue = 0, loops = null;
+function soundSeek(t) { cue = SOUND.findIndex((c) => c.t > t); if (cue < 0) cue = SOUND.length; }
+function soundFrame(t) {
+  if (!soundOn) return;
+  if (playing) while (cue < SOUND.length && SOUND[cue].t <= t) { sfx.play(SOUND[cue].play, SOUND[cue].opts); cue++; }
+  const s = soundLevels(t); sfx.muffle(s.muffle); loops.hum.set(playing ? s.hum : 0); loops.amb.set(playing ? .7 * (1 - s.duck) : 0); loops.forge.set(playing ? .8 * s.forgeHum : 0);
+}
+$('#snd').onclick = (e) => { soundOn = !soundOn; e.target.textContent = soundOn ? '🔊 sound' : '🔇 sound'; e.target.classList.toggle('on', soundOn);
+  if (soundOn) { sfx.unlock(); loops = { hum: sfx.loop('hum', 0), amb: sfx.loop('ambience', 0), forge: sfx.loop('forge_hum', 0) }; soundSeek(T); } else sfx.stopAll(); };
+function seek(t) { T = Math.max(0, Math.min(CUT.end, t)); hudTo(T, true); soundSeek(T); }
 seek(T);
 tl.addEventListener('pointerdown', (e) => { const r = tl.getBoundingClientRect(); seek((e.clientX - r.left) / r.width * CUT.end); });
 $('#play').onclick = () => { playing = !playing; if (playing && T >= CUT.end) seek(0); };
@@ -249,6 +260,7 @@ renderer.setAnimationLoop(() => {
   if (playing) { T = Math.min(CUT.end, T + dt); hudTo(T, false); if (T >= CUT.end) playing = false; }
   $('#play').textContent = playing ? '❚❚' : '▶';
   frame(T, playing ? dt : rdt * .0001);
+  soundFrame(T);
   $('#fill').style.width = T / CUT.end * 100 + '%'; $('#time').textContent = T.toFixed(1) + ' s';
   let b = ''; for (const [k, n] of BEATS) if (T >= CUT[k]) b = n; $('#beat').textContent = b;
 });

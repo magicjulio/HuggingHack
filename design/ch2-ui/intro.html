@@ -46,7 +46,7 @@
   <div class="tl" id="tl"><div class="tl__track"></div><div class="tl__fill" id="fill"></div></div>
   <span class="time" id="time">0.0 s</span>
   <input id="msg" value="zzHELLO_ANYONE_HERE" title="the player's Ch1 message">
-  <button id="rm" title="prefers-reduced-motion">reduced</button>
+  <button id="rm" title="prefers-reduced-motion">reduced</button><button id="snd">🔇 sound</button>
   <span style="color:var(--color-text-dim)">space · ←/→ · R · K hide</span>
 </div>
 
@@ -72,7 +72,8 @@ import { createTrails } from '../3d/ch2/world/trails.js';
 import { createCrowd } from '../3d/ch2/world/crowd.js';
 import { createPlayerOrb, ORB } from '../3d/ch2/world/playerOrb.js';
 import { createTornado } from '../3d/ch2/world/tornado.js';
-import { T0, replyFor, pathFor, funnel, orbPos, camPose, direct, letterPose } from '../3d/ch2/world/step0.js';
+import { T0, replyFor, pathFor, funnel, orbPos, camPose, direct, letterPose, soundCues, soundLevels } from '../3d/ch2/world/step0.js';
+import { createSfx } from './sfx.js';
 
 const L = window.LAYOUT, Q = new URLSearchParams(location.search), $ = (s) => document.querySelector(s);
 let reduced = Q.has('reduced') || matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -183,7 +184,16 @@ function frame(t, dt) {
 let T = +(Q.get('t') ?? 0), playing = !Q.has('paused'), last = performance.now();
 const tl = $('#tl');
 for (const [k, n] of [['flash', 'FLASH-IN'], ['reply', 'REPLY'], ['open', 'OPENS'], ['stream', 'STREAM'], ['dive', 'PULLED IN'], ['burst', 'THE GATE'], ['end', '']]) { const d = document.createElement('div'); d.className = 'tl__beat'; d.style.left = T0[k] / T0.end * 100 + '%'; d.textContent = n; tl.append(d); }
-function seek(t) { T = Math.max(0, Math.min(T0.end, t)); }
+const sfx = createSfx(); let soundOn = false, cue = 0, cues = [], loops = null;
+function soundSeek(t) { cues = soundCues(reply.length); cue = cues.findIndex((c) => c.t > t); if (cue < 0) cue = cues.length; }
+function soundFrame(t) {
+  if (!soundOn) return;
+  if (playing) while (cue < cues.length && cues[cue].t <= t) { if (!(reduced && cues[cue].play === 'stream')) sfx.play(cues[cue].play, cues[cue].opts); cue++; }
+  const s = soundLevels(t, reduced); loops.tornado.set(playing ? s.tornado : 0); loops.amb.set(s.ambience * .7);
+}
+$('#snd').onclick = (e) => { soundOn = !soundOn; e.target.textContent = soundOn ? '🔊 sound' : '🔇 sound'; e.target.classList.toggle('on', soundOn);
+  if (soundOn) { sfx.unlock(); loops = { tornado: sfx.loop('tornado', 0), amb: sfx.loop('ambience', 0) }; soundSeek(T); } else sfx.stopAll(); };
+function seek(t) { T = Math.max(0, Math.min(T0.end, t)); soundSeek(T); }
 build(); seek(T);
 $('#msg').onchange = () => { build(); seek(0); playing = true; };
 tl.addEventListener('pointerdown', (e) => { const r = tl.getBoundingClientRect(); seek((e.clientX - r.left) / r.width * T0.end); });
@@ -205,6 +215,7 @@ renderer.setAnimationLoop(() => {
   if (playing) { T = Math.min(T0.end, T + rdt); if (T >= T0.end) playing = false; }
   $('#play').textContent = playing ? '❚❚' : '▶';
   frame(T, rdt);
+  soundFrame(T);
   $('#fill').style.width = T / T0.end * 100 + '%'; $('#time').textContent = T.toFixed(2) + ' s';
 });
 window.__ready = true;
