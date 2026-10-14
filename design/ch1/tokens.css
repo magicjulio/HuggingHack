@@ -24,7 +24,10 @@
   --color-hug-yellow:#ffd21e;      /* nod to the platform; sparing use: titles, highlights */
   --color-warn-amber:#ffb020;
   --color-lamp-red:#ff3b4e;        /* scorer red / danger / locked-denied */
-  --color-poison:#b86bff;          /* "poisoned" state, later chapters */
+  --color-violet:#b86bff;          /* Ch1 thoughts, zz rows, code keywords, the S5 plaque (was --color-poison) */
+  --color-poison:#2fa85a;          /* poisoned (Ch2 on): dark green, readable accent */
+  --color-poison-body:#0f3d22;     /* poisoned fills */
+  --color-poison-deep:#04150b;     /* poisoned wash / void tint */
   /* glow helpers */
   --glow-green:0 0 12px rgba(57,255,156,.55),0 0 40px rgba(57,255,156,.25);
   --glow-cyan:0 0 12px rgba(56,216,255,.5),0 0 40px rgba(56,216,255,.2);

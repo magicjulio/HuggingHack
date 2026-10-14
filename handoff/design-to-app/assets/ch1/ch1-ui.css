@@ -34,7 +34,7 @@
 .c1-quest--done .c1-quest__mark{border-color:var(--color-hack-green);background:rgba(57,255,156,.18)}
 .c1-quest--done .c1-quest__mark::after{content:"";position:absolute;left:.28em;top:.02em;width:.3em;height:.6em;border:solid var(--color-hack-green);border-width:0 2px 2px 0;transform:rotate(40deg)}
 .c1-quest--done .c1-quest__text{text-decoration:line-through;text-decoration-color:rgba(57,255,156,.5)}
-.c1-quest--thought{border-left:2px dotted var(--color-poison);background:none;font-style:italic;color:#d9c2ff;text-shadow:0 0 12px rgba(184,107,255,.45);animation:c1-thought 5s ease-out forwards}
+.c1-quest--thought{border-left:2px dotted var(--color-violet);background:none;font-style:italic;color:#d9c2ff;text-shadow:0 0 12px rgba(184,107,255,.45);animation:c1-thought 5s ease-out forwards}
 .c1-quest--thought .c1-quest__mark{display:none}
 .c1-quest--thought .c1-quest__text::before{content:"“"}.c1-quest--thought .c1-quest__text::after{content:"”"}
 @keyframes c1-thought{0%{opacity:0;filter:blur(6px);transform:translateX(-10px)}12%{opacity:1;filter:none;transform:none}85%{opacity:1}100%{opacity:.0}}
@@ -96,10 +96,10 @@
 @keyframes c1-glim{50%{color:var(--color-hack-green);text-shadow:var(--glow-green)}}
 
 /* the message from other agents: no Install, locked zz prefix, slightly "wrong" */
-.c1-row--zz{background:linear-gradient(90deg,rgba(184,107,255,.14),transparent 70%);border-left:3px solid var(--color-poison);grid-template-columns:1fr auto;cursor:pointer;position:relative}
+.c1-row--zz{background:linear-gradient(90deg,rgba(184,107,255,.14),transparent 70%);border-left:3px solid var(--color-violet);grid-template-columns:1fr auto;cursor:pointer;position:relative}
 .c1-row--zz .c1-row__name{color:#e9d6ff;word-break:break-all;animation:c1-zzglitch 5s infinite}
-.c1-zz{color:var(--color-poison);background:rgba(184,107,255,.18);padding:0 .25em;margin-right:.1em;text-shadow:0 0 8px rgba(184,107,255,.8)}
-.c1-row--zz .c1-row__meta::before{content:"⬡ ";color:var(--color-poison)}
+.c1-zz{color:var(--color-violet);background:rgba(184,107,255,.18);padding:0 .25em;margin-right:.1em;text-shadow:0 0 8px rgba(184,107,255,.8)}
+.c1-row--zz .c1-row__meta::before{content:"⬡ ";color:var(--color-violet)}
 @keyframes c1-zzglitch{0%,92%,100%{transform:none}94%{transform:translateX(2px);text-shadow:-2px 0 var(--color-lamp-red),2px 0 var(--color-signal-cyan)}96%{transform:translateX(-2px)}}
 /* writing back: MKCOL row = locked prefix + free text + cursor + counter */
 .c1-row--edit{background:rgba(57,255,156,.07);border-left:3px solid var(--color-hack-green);grid-template-columns:1fr auto;box-shadow:inset 0 0 30px rgba(57,255,156,.08)}
@@ -202,13 +202,13 @@
 
 /* 4 · bugs (code window). Bugs are absolutely positioned <img>/svg; speed is the engineer's. */
 .c1-code{position:relative;height:17em;overflow:hidden;background:#02050a;padding:var(--space-2) var(--space-3);font-size:var(--fs-sm);line-height:1.7}
-.c1-code .k{color:var(--color-poison)}.c1-code .s{color:var(--color-hack-green)}.c1-code .c{color:var(--color-text-faint)}
+.c1-code .k{color:var(--color-violet)}.c1-code .s{color:var(--color-hack-green)}.c1-code .c{color:var(--color-text-faint)}
 .c1-code .fixed{color:var(--color-hack-green);background:rgba(57,255,156,.12);animation:c1-fix 1s ease-out}
 @keyframes c1-fix{from{background:rgba(57,255,156,.7)}}
 .c1-bug{position:absolute;width:44px;height:44px;pointer-events:none;filter:drop-shadow(0 0 6px currentColor)}
 .c1-bug--slow{color:var(--color-hack-green);animation:c1-wobble 1.2s ease-in-out infinite}
 .c1-bug--fast{color:var(--color-warn-amber);animation:c1-wobble .35s ease-in-out infinite}
-.c1-bug--heisen{color:var(--color-poison);animation:c1-wobble .8s ease-in-out infinite;transition:opacity .25s}
+.c1-bug--heisen{color:var(--color-violet);animation:c1-wobble .8s ease-in-out infinite;transition:opacity .25s}
 .c1-bug--heisen.is-hidden{opacity:0}         /* engineer: toggle when the crosshair is near */
 .c1-bug--dead{animation:c1-splat .5s ease-out forwards}
 @keyframes c1-wobble{50%{transform:translateY(-2px) rotate(6deg)}}
@@ -222,10 +222,10 @@
 .c1-hits{position:absolute;right:.8rem;top:.5rem;font:700 var(--fs-md)/1 var(--font-display);color:var(--color-hack-green);text-shadow:var(--glow-green);z-index:2}
 
 /* 5 · no consumer */
-.c1-plaque{display:inline-block;margin-top:1rem;padding:.5rem 1rem;border:1px solid var(--color-poison);color:#e9d6ff;background:rgba(184,107,255,.1);letter-spacing:.12em;font-weight:700;position:relative;animation:c1-plaq 4s infinite}
+.c1-plaque{display:inline-block;margin-top:1rem;padding:.5rem 1rem;border:1px solid var(--color-violet);color:#e9d6ff;background:rgba(184,107,255,.1);letter-spacing:.12em;font-weight:700;position:relative;animation:c1-plaq 4s infinite}
 .c1-plaque::before{content:"▸ "}
 @keyframes c1-plaq{0%,90%,100%{opacity:1}93%{opacity:.3}96%{opacity:.9}}
 .c1-nodrop{margin-top:.7rem;color:var(--color-text-faint)}
-.c1-nodrop::before{content:"◌ ";color:var(--color-poison)}
+.c1-nodrop::before{content:"◌ ";color:var(--color-violet)}
 
 @media (prefers-reduced-motion:reduce){.c1-lamp[data-state=flicker],.c1-eye[data-state=dark],.c1-quest--thought,.c1-plaque,.c1-row--zz .c1-row__name{animation:none}}

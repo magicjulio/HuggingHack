@@ -94,3 +94,4 @@
 - Hooks for the screen layer: `window.CH2.camera`, `.scene`, `.tokenOrbs`; `&nobubble`. Tool: `3d/tools/evalpage.mjs <url> '<js>'` prints a page value as JSON.
 - I also took over design2's `design/ch2-ui/` (Julius, 2026-10-14): slice B map done; C cutscene, D intro, E sound next. Status there.
 - Next (mine): pickups (E), forge rounds + flag into orb, poisoned orb + hooks `uPoison`/`orbFlinch`/`orbDrop`/`forgePowerDown`/`?cam=forge-orbit`, forge fight data preview (`forgeFight`).
+- 2026-10-14 later: Julius picked the red-eyed scanner lasers; accepted the HUD (poisoned scene: small refinements later) and the map; both exported. Map must grow into one whole-game map (sandbox + unlockable regions). design2 retired, `design/ch2-ui/` is mine. Next: Step 7 cutscene (slice C).

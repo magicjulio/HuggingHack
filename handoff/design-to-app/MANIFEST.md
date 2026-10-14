@@ -5,7 +5,7 @@ Status: `draft` (waiting for Julius's sign-off) · `approved` · `superseded`.
 
 | ID | Path (under `assets/`) | Kind | Status | Notes |
 |---|---|---|---|---|
-| `common.tokens` | `start-screen/tokens.css` | CSS custom properties | draft | Palette, type, spacing. Engineer copied it to `app/src/styles/`. |
+| `common.tokens` | `start-screen/tokens.css` | CSS custom properties | draft | Palette, type, spacing. Engineer copied it to `app/src/styles/`. **2026-10-14:** `--color-violet` (#b86bff, Ch1 purple) added, `--color-poison` now #2fa85a + `-body`/`-deep`; swap Ch1 uses to violet in the same change. |
 | `common.fonts` | `start-screen/fonts/` | woff2 + OFL licence | draft | Chakra Petch 500/700, JetBrains Mono 400/700. |
 | `start.screen` | `start-screen/` | HTML/CSS/JS prototype | draft | Integrated 1:1 by engineer 2026-10-11. Look awaits Julius's sign-off. |
 | `common.favicon` | `ui/common-favicon.svg` | SVG | draft | Orb + dashed ring on dark tile. |
@@ -27,3 +27,7 @@ Status: `draft` (waiting for Julius's sign-off) · `approved` · `superseded`.
 | `ch2.world.island-s` | `models/ch2-island-s.glb` | 3D model | draft | Data-shard island, r 2.6, origin = top centre (walkable y = 0). Nodes: `edge` (tint material), `shard_<n>` (bob), `outline` (extras = collider polygon, also in layout.json `models`). Textures still duplicated per file. |
 | `ch2.world.island-m` | `models/ch2-island-m.glb` | 3D model | draft | Same as s, r 5.0. |
 | `ch2.world.island-l` | `models/ch2-island-l.glb` | 3D model | draft | Same as s, r 9.0. |
+| `ch2.hud.css` | `ch2/ch2-ui.css` | CSS (prefix `c2-`) | approved | Ch2 HUD kit: log ribbon, NPC bubble, quests + sub-lines, 4-socket inventory, poisoned badge/stamp/spread, hurt vignette, minimap + full map frames. Needs `common.tokens` + `ch1.ui-css`. Poisoned scene: small refinements later (Julius). See `2026-10-14-ch2-hud-and-map.md`. |
+| `ch2.hud.js` | `ch2/hud.js` | JS reference controller | approved | `window.c2hud`; API mirrors the Ch2 store (log/setLog, say/place, quest/thought, put/decoy/forgeTake, tokens/hurt, poisonIcon/stamp/spread). Port its behaviour. |
+| `ch2.hud.icons` | `ui/ch2/ch2-icon-{seed,tag,forge,poisoned}.svg` (inline: `ch2/icons.js`) | SVG | approved | currentColor except `poisoned` (fixed dark greens). |
+| `ch2.map.js` | `ch2/map.js` | JS (Canvas 2D) | approved | `window.c2map`: minimap + full map from `ch2.world.layout`; contract in its header. Whole-game map (sandbox + unlockable regions) to come. |

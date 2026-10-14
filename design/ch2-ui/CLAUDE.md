@@ -28,3 +28,6 @@ Owner: **designer** since 2026-10-14 (Julius retired design2 and handed its work
 - Plates in `bg/` predate the NPC bloom fix and the red lasers: re-capture before export.
 - `--c2-reset` (log verb `reset`) is still white; the waves are red lasers now, decide at export.
 - Next: C (Step 7 cutscene animatic + flashback fx) → D (intro tornado) → E (sound) → export (`d2-` handoff).
+- **2026-10-14: slice A (HUD) and B (map) ACCEPTED by Julius and exported** (`handoff/design-to-app/2026-10-14-ch2-hud-and-map.md`, MANIFEST `ch2.hud.*`, `ch2.map.js`). Export copies live in `handoff/design-to-app/assets/ch2/` + `assets/ui/ch2/`: re-copy after edits. Tokens: `--color-violet` (Ch1 purple) + dark-green `--color-poison` are in `start-screen/tokens.css` now.
+- Refine later: the poisoned scene (Julius: "small refinements later").
+- Map TODO (Julius): one map for the whole game, the Ch1 sandbox on it, every chapter unlocks more (regions + `unlockedBy`), quick travel between chapters.
