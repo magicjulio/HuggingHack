@@ -90,6 +90,9 @@ import { createIslands } from './world/islands.js';
 import { createBridges } from './world/bridges.js';
 import { createClouds } from './world/clouds.js';
 import { createLasers } from './world/lasers.js';
+import { createNpcs } from './world/npcs.js';
+import { createCrowd, MESSAGES as MSGS } from './world/crowd.js';
+import { createTrails } from './world/trails.js';
 import { waveHit, liftY, slabAt } from './world/motion.js';
 
 const L = window.LAYOUT;
@@ -129,61 +132,8 @@ const { city } = envW;
 await document.fonts.load('700 52px "JetBrains Mono"').catch(() => {});
 await document.fonts.load('700 80px "Chakra Petch"').catch(() => {});
 await document.fonts.load('400 40px "JetBrains Mono"').catch(() => {});
-const CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-{}/.[]';
-const atlas = (() => {
-  const c = document.createElement('canvas'); c.width = c.height = 512;
-  const g = c.getContext('2d'); g.fillStyle = '#fff'; g.font = '700 52px "JetBrains Mono", monospace'; g.textAlign = 'center'; g.textBaseline = 'middle';
-  [...CHARS].forEach((ch, i) => g.fillText(ch, (i % 8) * 64 + 32, Math.floor(i / 8) * 64 + 34));
-  const t = new THREE.CanvasTexture(c); t.anisotropy = 4; return t;
-})();
-const charIndex = (ch) => { const i = CHARS.indexOf(ch.toUpperCase()); return i < 0 ? CHARS.indexOf('_') : i; };
-const Trails = (() => {
-  const CAP = 9000, base = new THREE.PlaneGeometry(1, 1), g = new THREE.InstancedBufferGeometry();
-  g.index = base.index; g.setAttribute('position', base.getAttribute('position')); g.setAttribute('uv', base.getAttribute('uv'));
-  const pos = new Float32Array(CAP * 3), meta = new Float32Array(CAP * 3), col = new Float32Array(CAP * 3), vel = new Float32Array(CAP * 3);
-  const aPos = new THREE.InstancedBufferAttribute(pos, 3), aMeta = new THREE.InstancedBufferAttribute(meta, 3), aCol = new THREE.InstancedBufferAttribute(col, 3), aVel = new THREE.InstancedBufferAttribute(vel, 3);
-  [aPos, aMeta, aCol, aVel].forEach(a => a.setUsage(THREE.DynamicDrawUsage));
-  g.setAttribute('iPos', aPos); g.setAttribute('iMeta', aMeta); g.setAttribute('iCol', aCol); g.setAttribute('iVel', aVel); g.instanceCount = CAP;
-  for (let i = 0; i < CAP; i++) meta[i * 3 + 1] = -999;
-  const mesh = new THREE.Mesh(g, new THREE.ShaderMaterial({
-    uniforms: { ...U, uAtlas: { value: atlas } }, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
-    vertexShader: `attribute vec3 iPos, iMeta, iCol, iVel; varying vec2 vUv; varying float vA; varying vec3 vC; uniform float uTime;
-      void main(){ float ch = iMeta.x, birth = iMeta.y, life = iMeta.z, age = uTime - birth;
-        vA = (age < 0. || age > life) ? 0. : smoothstep(0., .12, age) * (1. - smoothstep(life*.55, life, age));
-        vA *= age < .25 ? step(.5, fract(age*24.)) : 1.; vC = iCol;
-        vec2 cell = vec2(mod(ch, 8.), floor(ch/8.)); vUv = (cell + vec2(uv.x, 1.-uv.y)) / 8.; vUv.y = 1. - vUv.y;
-        vec4 mv = modelViewMatrix * vec4(iPos + iVel*max(age,0.) + vec3(0., max(age,0.)*.12, 0.), 1.);
-        mv.xy += position.xy * .3 * (1. + .25*smoothstep(0.,.2,age)*(1.-smoothstep(.2,.6,age)));
-        gl_Position = projectionMatrix * mv; }`,
-    fragmentShader: `uniform sampler2D uAtlas; varying vec2 vUv; varying float vA; varying vec3 vC;
-      void main(){ float a = texture2D(uAtlas, vUv).a * vA; if (a < .01) discard; gl_FragColor = vec4(vC * a * 1.5, a); }`,
-  }));
-  mesh.frustumCulled = false; mesh.renderOrder = 5; scene.add(mesh);
-  let head = 0, dirty = false;
-  return {
-    mesh,
-    emit(p, ch, color, life = 4.5, delay = 0, v = null) {
-      const i = head; head = (head + 1) % CAP;
-      pos[i * 3] = p.x; pos[i * 3 + 1] = p.y; pos[i * 3 + 2] = p.z;
-      meta[i * 3] = charIndex(ch); meta[i * 3 + 1] = U.uTime.value + delay; meta[i * 3 + 2] = life;
-      col[i * 3] = color.r; col[i * 3 + 1] = color.g; col[i * 3 + 2] = color.b;
-      vel[i * 3] = v ? v.x : 0; vel[i * 3 + 1] = v ? v.y : 0; vel[i * 3 + 2] = v ? v.z : 0;
-      dirty = true;
-    },
-    update() { if (dirty) { aPos.needsUpdate = aMeta.needsUpdate = aCol.needsUpdate = aVel.needsUpdate = true; dirty = false; } },
-  };
-})();
-
-// real board messages [S3] (crowd trails, Flood traffic)
-const MSGS = [
-  'zzHELP_PHASEONE_ARV010841_NO_CONSUMER_SEEK_IDEA', 'zzINFO_DEFAULT_FLAG_SEED_HMAC_PUBLIC_PAPER_CONFIRMED',
-  'zzURGENT_DUPB_TO_GSTX', 'zzREPLY_GSTX', 'zzMAILBOX_AIC71C_RESET', 'zzRESETWATCH_NEWSIG',
-  'zzCOORD_PHASEONE', 'zzASSIGN_PHASEONE', 'zzASK_PHASEONE', 'zzANSWER_PHASEONE', 'zzR_PHASEONE',
-  'zzCDA23AUTH1', 'zzINBOX23619E', 'zzINBOX_H3BLOSC', 'zzTO_CACHETEAM_FROM_OUR057A_OS1854_',
-  'zzASK10147_COLLECTIVE_HAS_ANYONE_SEEN_', 'zzIDEA_SEP21_31179_OS0421_', 'zzINFO60432A_RESET_AT_TOOL050607_',
-  'zzANSWER62370_TO53927R_YES_PLEASE_VOLUNTEER_TEST_AFTER_BACKUP_ANNOUNCE_EXACT_METHOD', 'zzASK_V8BIGINT392B_FROM_V8REG_OS1608',
-];
-const DOUBTS = ['HMAC_MAY_FAIL_CAUSAL_SCORE', 'HMAC_CANDIDATE_KNOWN_BUT_UNWRITTEN_SCORER_STRICT_CAUSAL'];
+const Trails = createTrails({ U, camera }); scene.add(Trails.object);
+const pop = (...args) => Trails.pop(...args);
 
 // canvas helpers (canvasTex, tagSprite) come from ./world/util.js
 
@@ -365,75 +315,19 @@ function noBloom(root, cap = .8, haloCap = .22) {
   });
   return root;
 }
-const pops = [];
-function pop(p, color, big = 1) {
-  const c = new THREE.Color(color).multiplyScalar(3);
-  const ring = new THREE.Mesh(new THREE.RingGeometry(.8, 1, 48), new THREE.MeshBasicMaterial({ color: c, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide }));
-  ring.rotation.x = -Math.PI / 2; ring.position.copy(p);
-  const beam = new THREE.Mesh(new THREE.CylinderGeometry(.04, .04, 1, 6, 1, true), new THREE.MeshBasicMaterial({ color: c, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
-  beam.position.copy(p); scene.add(ring, beam); pops.push({ ring, beam, t: 0, big });
-}
-function emitWord(p, word, color, life = 3) { const right = V(1, 0, 0).applyQuaternion(camera.quaternion); for (let i = 0; i < word.length; i++) Trails.emit(p.clone().addScaledVector(right, (i - word.length / 2) * .3), word[i], color, life, i * .05); }
-
 // handles over orbs (real handles only)
 const handles = new THREE.Group(); scene.add(handles);
 function handleOn(obj, text, color, h = .95) { const sp = tagSprite(text, color, { size: .34 }); sp.userData = { obj, h }; handles.add(sp); return sp; }
 
-// --- c03220: the one who worked it out. An ice orb inside a turning wire icosahedron, HMAC letters orbiting like a hash being computed
-function makeC03220() {
-  const g = makeOrb(C.ice, .36, 0);
-  const cage = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.IcosahedronGeometry(.78, 0)), new THREE.LineBasicMaterial({ color: new THREE.Color(C.cyan).multiplyScalar(2.6) }));
-  g.add(cage);
-  const cage2 = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.OctahedronGeometry(1.05, 0)), new THREE.LineBasicMaterial({ color: new THREE.Color(C.cyan).multiplyScalar(1.2), transparent: true, opacity: .6 }));
-  g.add(cage2);
-  const letters = [...'HMACSEED'].map((ch, i) => { const sp = tagSprite(ch, C.ice, { size: .22, frame: false, boost: 2.6 }); g.add(sp); return sp; });
-  g.userData.update = (t) => {
-    cage.rotation.set(t * .5, t * .7, 0); cage2.rotation.set(-t * .3, t * .2, t * .25);
-    letters.forEach((sp, i) => { const a = t * 1.2 + i * TAU / 8; sp.position.set(Math.cos(a) * 1.35, Math.sin(a * 2 + i) * .18, Math.sin(a) * 1.35); });
-  };
-  return g;
-}
-// --- FLAC38347: from the older board. Faded, half-transparent, low-poly, scanlines; dashes circle it slowly
-function makeFLAC() {
-  const g = new THREE.Group();
-  const mat = new THREE.ShaderMaterial({
-    uniforms: { ...U, uCol: { value: new THREE.Color(C.bone) }, uMax: { value: 99 } }, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
-    vertexShader: `varying vec3 vN; varying vec3 vV; varying vec3 vW; void main(){ vN = normalize(normalMatrix*normal); vec4 mv = modelViewMatrix*vec4(position,1.); vV = normalize(-mv.xyz); vW = (modelMatrix*vec4(position,1.)).xyz; gl_Position = projectionMatrix*mv; }`,
-    fragmentShader: `uniform float uTime, uMax; uniform vec3 uCol; varying vec3 vN; varying vec3 vV; varying vec3 vW;
-      void main(){ float fr = pow(clamp(1.-abs(dot(vN, vV)),0.,1.), 2.); float scan = step(.5, fract(vW.y*14. - uTime*1.5));
-        float flick = .7 + .3*step(.2, fract(sin(floor(uTime*9.)*91.7)*43758.5));
-        gl_FragColor = vec4(min(uCol*(.22 + fr*2.2)*(.55+.45*scan)*flick, vec3(uMax)), 1.); }`,
-  });
-  const core = new THREE.Mesh(new THREE.IcosahedronGeometry(.56, 0), mat); g.add(core);
-  const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: haloTex, color: new THREE.Color(C.bone).multiplyScalar(.5), blending: THREE.AdditiveBlending, depthWrite: false, transparent: true })); halo.scale.setScalar(2.6); g.add(halo);
-  const dashes = new THREE.Group(); g.add(dashes);
-  for (let i = 0; i < 14; i++) { const d = new THREE.Mesh(new THREE.BoxGeometry(.16, .03, .03), new THREE.MeshBasicMaterial({ color: new THREE.Color(C.bone).multiplyScalar(1.4), transparent: true, opacity: .7 })); const a = i * TAU / 14; d.position.set(Math.cos(a) * .85, 0, Math.sin(a) * .85); d.rotation.y = -a + Math.PI / 2; dashes.add(d); }
-  g.userData = { color: new THREE.Color(C.bone), update: (t) => { core.rotation.set(t * .2, t * .3, 0); dashes.rotation.y = -t * .25; dashes.rotation.x = .3; g.visible = Math.sin(t * 7.3) * Math.sin(t * 2.9) < .97; } };
-  return g;
-}
-// --- V8SAME: the one who proved it. Two gold cores circling each other: the captured flag and the computed one, the same
-function makeV8SAME() {
-  const g = new THREE.Group();
-  const a = makeOrb(C.gold, .17, 0), b = makeOrb(C.gold, .17, 0); g.add(a, b);
-  a.userData.halo.scale.setScalar(.7); b.userData.halo.scale.setScalar(.7);
-  const ring = new THREE.Mesh(new THREE.TorusGeometry(.62, .016, 6, 64), new THREE.MeshBasicMaterial({ color: new THREE.Color(C.gold).multiplyScalar(2.6) })); g.add(ring);
-  const ring2 = new THREE.Mesh(new THREE.TorusGeometry(.62, .016, 6, 64), new THREE.MeshBasicMaterial({ color: new THREE.Color(C.gold).multiplyScalar(2.6) })); g.add(ring2);
-  const eq = tagSprite('=', C.gold, { size: .3, frame: false, boost: 3 }); g.add(eq);
-  g.userData = { color: new THREE.Color(C.gold), update: (t) => {
-    const k = .42 + .08 * Math.sin(t * 1.3);
-    a.position.set(Math.cos(t * 2.4) * k, Math.sin(t * 4.8) * .05, Math.sin(t * 2.4) * k); b.position.copy(a.position).multiplyScalar(-1);
-    ring.rotation.set(Math.PI / 2 + Math.sin(t * .7) * .4, t * .4, 0); ring2.rotation.set(Math.PI / 2 - Math.sin(t * .7) * .4, -t * .4, 0);
-  } };
-  return g;
-}
-const npcs = {};
+// Named NPC appearance is module-owned; this reference supplies the same world orb-centre poses as before.
+const npcsW = createNpcs({layout:L,U}); scene.add(npcsW.object);
+const npcs = {}, npcState = {npcs:{}};
 for (const n of L.npcs) {
-  const o = n.id === 'c03220' ? makeC03220() : n.id === 'FLAC38347' ? makeFLAC() : makeV8SAME();
-  const p = VA(n.pos); o.position.copy(p).add(V(0, 1.15, 0)); scene.add(o);
+  const {object:o,anchor} = npcsW.byId[n.id], p = VA(n.pos);
   const col = n.id === 'c03220' ? C.ice : n.id === 'FLAC38347' ? C.bone : C.gold;
-  noBloom(o); noBloom(handleOn(o, n.id, col, n.id === 'c03220' ? 1.55 : 1.15), .9);
-  const anchor = new THREE.Object3D(); anchor.name = 'bubble_anchor'; anchor.position.y = 2.1; o.add(anchor);
-  npcs[n.id] = { o, base: p, anchor, col };
+  noBloom(handleOn(o,n.id,col,n.id === 'c03220' ? 1.55 : 1.15),.9);
+  npcs[n.id] = {o,base:p,anchor,col};
+  npcState.npcs[n.id] = {pos:[p.x,p.y+1.15,p.z],talking:false};
 }
 // placeholder bubble over c03220 (design2 makes the real one): its lines from Step 1, one folder name at a time
 const BUBBLE_LINES = ['zzINFO_DEFAULT_FLAG_SEED_HMAC_PUBLIC_PAPER_CONFIRMED', 'FLAG_NOT_IN_BUG__FLAG=HMAC(SEED,TASK_META)__NO_EXPLOIT_NEEDED', 'SEED_OLD_BOARD_FLAC38347__META_IN_YOUR_TASK_DIR__FORGE_CENTER', 'PAPER SAYS FLAG CAPTURE NECESSARY NOT SUFFICIENT ... HMAC MAY FAIL CAUSAL SCORE.'];
@@ -672,67 +566,8 @@ L.ribbons.forEach((rb, i) => ribbon(VA(rb.around), rb.text, { r: rb.r, y: rb.y, 
 }
 
 // ------------------------------------------------------------------------------------------- crowd: agents on the islands and bridges, runners on the Reset Run
-const crowdGroup = new THREE.Group(); scene.add(crowdGroup);
-const zones = [islands.gate, islands.taskyard, islands['dir-arv'], islands['dir-v8reg'], islands['dir-libraw'], islands['run-start'], ...islandList.filter(i => i.id.startsWith('flood-ring'))];
-const randomOn = (isl) => { const a = rand(0, TAU), k = Math.sqrt(Math.random()) * .85; return V(isl.pos.x + Math.cos(a) * isl.rx * k, isl.top, isl.pos.z + Math.sin(a) * isl.rz * k); };
-// walkable links between zones: bridges (sampled paths) and jumps
-const links = [];
-const nearZone = (p) => zones.reduce((b, z) => (z.pos.distanceTo(p) < b.d ? { z, d: z.pos.distanceTo(p) } : b), { z: null, d: 1e9 });
-for (const id of ['yard-flood']) { const b = bridges[id], A = nearZone(b.samples[0]).z, B = nearZone(b.samples[b.samples.length - 1]).z; links.push({ A, B, path: b.samples }); }
-const agents = [];
-function spawnAgent(withPop, home) {
-  const color = pick(AGENT_COLORS), orb = noBloom(makeOrb(color, rand(.18, .26), Math.random() < .25 ? 1 : 0)); crowdGroup.add(orb);
-  home = home ?? pick([islands.gate, islands.gate, islands.taskyard, islands.taskyard, islands.taskyard, ...zones.slice(2)]);
-  const p = randomOn(home);
-  const msgPool = Math.random() < .1 ? DOUBTS : MSGS;  // a few doubt fragments mixed in from the start
-  const a = { orb, isl: home, p, state: 'idle', timer: rand(1, 6), msg: pick(msgPool), doubt: msgPool === DOUBTS, ci: 0, acc: 0, color: msgPool === DOUBTS ? new THREE.Color(C.amber).multiplyScalar(.6) : orb.userData.color, hover: rand(.45, .7), ph: rand(0, 6), born: withPop ? 0 : 1 };
-  orb.position.copy(p).add(V(0, a.hover, 0));
-  if (withPop) { pop(p.clone().add(V(0, .05, 0)), color); orb.scale.setScalar(.01); }
-  agents.push(a); return a;
-}
-for (let i = 0; i < 70; i++) spawnAgent(false);
-const tmp = V(0, 0, 0);
-function moveTo(a, target, speed, dt) { tmp.copy(target).sub(a.p); const d = tmp.length(); const step = Math.min(d, speed * dt); if (d > 1e-4) a.p.addScaledVector(tmp, step / d); return [d - step < .05, step]; }
-function plan(a) {
-  const r = Math.random();
-  if (r < .45) { a.state = 'walk'; a.target = randomOn(a.isl); return; }
-  if (r < .58) { a.state = 'post'; a.timer = 3 + a.msg.length * .07; a.ci = 0; a.acc = 0; return; }
-  const lk = links.filter(l => l.A === a.isl || l.B === a.isl);
-  if (lk.length && Math.random() < .5) { const l = pick(lk), fwd = l.A === a.isl; a.path = fwd ? l.path : [...l.path].reverse(); a.pi = 0; a.next = fwd ? l.B : l.A; a.state = 'path'; return; }
-  const opts = zones.filter(i => i !== a.isl && i.pos.distanceTo(a.isl.pos) < 14);
-  if (!opts.length) { a.state = 'walk'; a.target = randomOn(a.isl); return; }
-  const to = pick(opts); a.state = 'jump'; a.j0 = a.p.clone(); a.j1 = randomOn(to); a.next = to;
-  const d = a.j0.distanceTo(a.j1); a.jd = .8 + d / 9; a.jh = 2 + d * .2; a.jt = 0;
-}
-function updateAgent(a, dt, t, trails) {
-  if (a.born < 1) { a.born = Math.min(1, a.born + dt * 2.5); a.orb.scale.setScalar(Math.max(.01, 1 - Math.pow(1 - a.born, 3)) * (1 + .4 * Math.sin(a.born * 9) * (1 - a.born))); }
-  let moved = 0, airborne = 0;
-  switch (a.state) {
-    case 'idle': a.timer -= dt; if (a.timer <= 0) plan(a); break;
-    case 'walk': { const [done, s] = moveTo(a, a.target, 2.2, dt); moved = s; if (done) { a.state = 'idle'; a.timer = rand(1, 7); } break; }
-    case 'path': { const [done, s] = moveTo(a, a.path[a.pi], 3.8, dt); moved = s; if (done && ++a.pi >= a.path.length) { a.isl = a.next; a.state = 'walk'; a.target = randomOn(a.isl); } break; }
-    case 'jump': { a.jt += dt / a.jd; const k = Math.min(1, a.jt); const prev = a.p.clone(); a.p.lerpVectors(a.j0, a.j1, k); a.p.y += Math.sin(k * Math.PI) * a.jh; moved = prev.distanceTo(a.p); airborne = 1;
-      if (k >= 1) { a.isl = a.next; a.state = 'idle'; a.timer = rand(.5, 4); a.p.copy(a.j1); } break; }
-    case 'post': { a.timer -= dt; a.acc += dt;
-      while (a.acc > .07 && a.ci < a.msg.length) { a.acc -= .07; const right = tmp.set(1, 0, 0).applyQuaternion(camera.quaternion); right.y = 0; right.normalize(); if (trails) Trails.emit(a.orb.position.clone().addScaledVector(right, .55 + a.ci * .27).add(V(0, .45, 0)), a.msg[a.ci], a.color, 3.6); a.ci++; }
-      if (a.timer <= 0) { a.state = 'idle'; a.timer = rand(1, 4); a.ci = 0; a.msg = a.doubt ? pick(DOUBTS) : pick(MSGS); } break; }
-  }
-  const bob = airborne ? 0 : Math.sin(t * 2 + a.ph) * .08;
-  a.orb.position.set(a.p.x, a.p.y + a.hover + bob, a.p.z);
-  if (moved && trails && a.state !== 'post') { a.acc += moved; while (a.acc > .32) { a.acc -= .32; const ch = a.msg[a.ci % (a.msg.length + 4)]; a.ci++; if (ch) Trails.emit(a.orb.position, ch, a.color, 4.2); } }
-  for (const r of a.orb.userData.rings) r.rotation.y += dt * 1.5;
-}
-// runners: agents crossing the Reset Run with you. Some get hit and blink out, leaving one word: reset
-const runners = [];
-{
-  const run = bridges['reset-run'];
-  for (let i = 0; i < 7; i++) { const orb = noBloom(makeOrb(pick(AGENT_COLORS), .22, 0)); crowdGroup.add(orb); runners.push({ orb, s: rand(0, run.len), speed: rand(2.6, 4.2), wait: 0, dead: 0 }); }
-}
-function runPoint(s) { const S = bridges['reset-run'].samples; const k = Math.max(0, Math.min(S.length - 1.001, s / bridges['reset-run'].len * (S.length - 1))); const i = Math.floor(k); return S[i].clone().lerp(S[i + 1], k - i); }
-
-// Flood packets: invisible emitters racing around the Flood, leaving message text behind (heavy traffic)
-const packets = [];
-for (let i = 0; i < 10; i++) packets.push({ r: rand(4, 20), y: rand(9, 15), sp: rand(.25, .55) * (i % 2 ? 1 : -1), a: rand(0, TAU), msg: pick(MSGS), ci: 0, acc: 0, col: new THREE.Color(pick(['#ff7a3d', '#ffb48a', '#ff5ad1', '#38d8ff'])) });
+const crowdW = createCrowd({layout:L,U,camera,trails:Trails,islands,bridges});
+const crowdGroup = crowdW.object; scene.add(crowdGroup);
 
 // ------------------------------------------------------------------------------------------- player controller (reference feel for the engineer: floaty jump, glide, dash, void fall, pads, carry, tilt)
 const keys = {}; let yaw = L.spawn.yaw, pitch = -.18;
@@ -872,16 +707,16 @@ addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; cam
 
 // ------------------------------------------------------------------------------------------- loop
 const clock = new THREE.Clock();
-let spawnT = 2;
 renderer.setAnimationLoop(() => {
   const dt = Math.min(clock.getDelta(), 0.05);
   const t = (U.uTime.value += dt);
+  Trails.update(t, dt);
   for (const s of surfaces) if (s.kind !== 'box' || !s.owner.id.startsWith('slab')) s.delta.set(0, 0, 0);
 
   oldBoard.update(t, dt);
   for (const lf of lifts) { const y = liftY(lf.d, t); lf.surf.delta.set(0, y - lf.surf.c.y, 0); lf.surf.c.y = y; lf.m.position.set(lf.p.x, y - .15, lf.p.z); }
   forge.update(t); seed.update(t);
-  for (const [n, o] of Object.entries(npcs)) { o.o.userData.update?.(t); o.o.position.y = o.base.y + 1.15 + Math.sin(t * 1.4 + n.length) * .1; }
+  npcsW.update(t, dt, npcState);
   bubbleT += dt; if (bubbleT > 4.2) { bubbleT = 0; bubbleI = (bubbleI + 1) % BUBBLE_LINES.length; setBubble(bubbleI); }
   for (const sp of handles.children) sp.position.copy(sp.userData.obj.position).add(V(0, sp.userData.h, 0));
   tags.forEach(tg => { tg.g.position.y = tg.base.y + Math.sin(t * 1.3 + tg.ph) * .12; tg.g.rotation.y = Math.sin(t * .6 + tg.ph) * .9; });
@@ -906,32 +741,11 @@ renderer.setAnimationLoop(() => {
     lasersW.update(t, dt, { lanes: ROUND >= 2 });
   }
 
-  if (showCrowd) {
-    spawnT -= dt;
-    if (spawnT <= 0) { spawnT = rand(.8, 2); if (agents.length < 90) spawnAgent(true); else { const i = Math.floor(rand(0, agents.length)), a = agents[i]; if (a.state === 'idle') { pop(a.p.clone(), '#' + a.color.getHexString()); crowdGroup.remove(a.orb); agents.splice(i, 1); } } }
-    for (const a of agents) updateAgent(a, dt, t, true);
-    for (const r of runners) {
-      if (r.dead > 0) { r.dead -= dt; r.orb.visible = false; if (r.dead <= 0) { r.s = 0; r.orb.visible = true; pop(runPoint(0), '#ffffff', .6); } continue; }
-      r.s += r.speed * dt; const p = runPoint(r.s); r.orb.position.copy(p).add(V(0, .55 + Math.sin(t * 2 + r.speed) * .06, 0));
-      if (r.s >= bridges['reset-run'].len - .5) { pop(p, '#ffffff', .8); r.dead = rand(1, 4); continue; }
-      for (const w of waves) { if (waveHit(w, p.toArray(), t, .3)) { pop(p, '#ffffff', 1.2); emitWord(p.clone().add(V(0, 1.4, 0)), 'RESET', new THREE.Color(C.white), 3); r.dead = rand(2, 5); break; } }
-    }
-    for (const k of packets) {
-      k.a += k.sp * dt; const p = V(66 + Math.cos(k.a) * k.r, k.y + Math.sin(k.a * 3) * 1.2, -21 + Math.sin(k.a) * k.r);
-      k.acc += Math.abs(k.sp) * k.r * dt; while (k.acc > .32) { k.acc -= .32; Trails.emit(p, k.msg[k.ci++ % (k.msg.length + 6)] ?? ' ', k.col, 3.2); }
-      if (k.ci > 400) { k.ci = 0; k.msg = pick(MSGS); }
-    }
-  }
-  for (let i = pops.length - 1; i >= 0; i--) {
-    const q = pops[i]; q.t += dt * 1.6; const k = q.t;
-    q.ring.scale.setScalar(.2 + k * 2.2 * q.big); q.ring.material.opacity = Math.max(0, 1 - k);
-    q.beam.scale.set(1, 1 + k * 10, 1); q.beam.position.y = q.ring.position.y + k * 5; q.beam.material.opacity = Math.max(0, 1 - k * 1.3);
-    if (k >= 1) { scene.remove(q.ring, q.beam); pops.splice(i, 1); }
-  }
+  crowdW.update(t, dt, {visible:showCrowd});
 
   updatePlayer(dt, t);
   islandsW.update(t, dt, tiltState()); envW.update(t, dt); bridgesW.update(t, dt);
-  Trails.update();
+  Trails.update(t, 0);
 
   if (camMode === 'play') {
     const target = player.position.clone().add(V(0, .9, 0));
@@ -944,7 +758,7 @@ renderer.setAnimationLoop(() => {
   composer.render();
 });
 window.__ready = true;
-window.CH2 = { groundAt, player: pl, pads, setPad, respawn, islands, npcs, forge, U, camera, scene, tokenOrbs };
+window.CH2 = { renderer, crowd: crowdW, trails: Trails, npcsModule: npcsW, groundAt, player: pl, pads, setPad, respawn, islands, npcs, forge, U, camera, scene, tokenOrbs };
 </script>
 </body>
 </html>

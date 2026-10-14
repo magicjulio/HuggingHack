@@ -31,9 +31,10 @@ export function canvasTex(w, h, draw) {
   const c = new OffscreenCanvas(w, h); draw(c.getContext('2d'), w, h);
   const t = new THREE.CanvasTexture(c); t.anisotropy = 8; t.colorSpace = THREE.SRGBColorSpace; return t;
 }
-const measure = new OffscreenCanvas(8, 8).getContext('2d');
+let measure = null;
 // a text sprite with a cut-corner frame: island labels, handles (style shared with the HUD bubbles)
 export function tagSprite(text, color, { size = 1.2, frame = true, bg = 'rgba(3,8,16,.55)', font = '700 64px "JetBrains Mono"', boost = 2 } = {}) {
+  measure ??= new OffscreenCanvas(8, 8).getContext('2d');
   measure.font = font;
   const w = Math.ceil(measure.measureText(text).width) + 70, h = 100;
   const t = canvasTex(w, h, (g) => {

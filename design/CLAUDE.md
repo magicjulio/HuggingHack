@@ -102,3 +102,12 @@
 - Gameplay motion goes in `motion.js` only (the app hits with it). Tilt/slab/lift transforms come in via `state`.
 - `level.html&round=2|3` previews the forge fight lanes / clouds. `?lasers=grid` is gone (Julius picked the scanner).
 - Next modules: `oldBoard`, `crowd`, `npcs`, `pickups`, `pads`, `trails`; then forge + player orb (poison) built as modules from the start (Step 7).
+
+## 2026-10-14 — External designer (Codex, GPT-6.1): approved NPC/crowd extraction delivered
+- Julius requested restoration of the established lively Ch2 NPCs/crowd, via the external engineer's two incoming handoffs. Read both; no creative redesign.
+- New world modules `agents.js`, `npcs.js`, `crowd.js`, `trails.js`; `level.html` consumes all three factories. Copied byte-identically to `handoff/design-to-app/assets/ch2/world/`; `util.js` text measurement is now lazy (engineer's earlier headless-import request). Existing module APIs and pure motion.js untouched.
+- NPCs preserve cages/hash letters, faceted flickering ghost/dashes, twin cores/rings/equals. State pose = orb centre (app NPCS.position already includes +1.15m); local ±.1m hover only. App owns V8 exit and dialogue.
+- Crowd preserves 70→90 agents, all 5 behaviours, 7 laser-reset runners and 10 Flood packet emitters. Trails/pops API available for game events. Agent cores remain under bloom; established letter/pop effects retain their original brightness.
+- 18 browser module checks passed, 120s simulated population reached 90 and exercised all behaviours/96 resets. Five modules import in Node with no DOM/OffscreenCanvas. Real Iris Xe/Vulkan 1920×1080 with reference AA+bloom: six 5s camera samples ~60fps before/after; dense live 89 agents +7 runners +10 packets held 60.08fps over 10s, p95 16.7ms. App integration overhead remains unmeasured.
+- Delivery: `handoff/design-to-app/2026-10-14-external-designer-ch2-npcs-and-crowd.md`; screenshot/raw evidence in adjacent `shots-2026-10-14-external-designer/`. Repro scripts: `3d/tools/ch2-external-designer-{review,check}.mjs`.
+- Still pending: Old Board, pickups, pads, large message ribbons; Step 6 proof/fold/absorb enhancements; intro/audio; whole-game map regions. Earlier `3d/ch2/index.html` shifting cube, tesseract/nested solids, data rain, distant streams and optional depot debris have no known keep/drop decision: remain open, sources untouched.
