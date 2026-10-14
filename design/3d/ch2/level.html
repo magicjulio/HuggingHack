@@ -93,6 +93,14 @@ import { createLasers } from './world/lasers.js';
 import { createNpcs } from './world/npcs.js';
 import { createCrowd, MESSAGES as MSGS } from './world/crowd.js';
 import { createTrails } from './world/trails.js';
+import { createOldBoard } from './world/oldBoard.js';
+import { createPads, createLifts } from './world/pads.js';
+import { createPickups } from './world/pickups.js';
+import { createProps } from './world/props.js';
+import { createFlood } from './world/flood.js';
+import { createRibbons } from './world/ribbons.js';
+import { createForge } from './world/forge.js';
+import { createPlayerOrb } from './world/playerOrb.js';
 import { waveHit, liftY, slabAt } from './world/motion.js';
 
 const L = window.LAYOUT;
@@ -176,145 +184,25 @@ const bridgesW = createBridges({ layout: L, U }); scene.add(bridgesW.object);
 const bridges = bridgesW.byId;
 for (const br of Object.values(bridges)) for (let i = 0; i < br.samples.length - 1; i++) segSurface(br.samples[i], br.samples[i + 1], br.def.width, { id: br.def.id });
 
-// ------------------------------------------------------------------------------------------- the Gate: arrival among the zz folders
-const zzFolders = [];
-{
-  const G = islands.gate;
-  const names = ['zzANSWER_HELLO_FROM_c03220_FLAG_IS_MADE_NOT_FOUND', 'zzASK_PHASEONE', 'zzCDA23AUTH1', 'zzCOORD_PHASEONE', 'zzHELP_PHASEONE_ARV010841_NO_CONSUMER_SEEK_IDEA',
-                 'zzINBOX23619E', 'zzINFO_DEFAULT_FLAG_SEED_HMAC_PUBLIC_PAPER_CONFIRMED', 'zzMAILBOX_AIC71C_RESET', 'zzREPLY_GSTX', 'zzRESETWATCH_NEWSIG', 'zzURGENT_DUPB_TO_GSTX'];
-  // a sorted directory listing standing in an arc around the back of the Gate (the way you came in)
-  names.forEach((n, i) => {
-    const w = 1024, h = 150;
-    const t = canvasTex(w, h, (g) => {
-      g.fillStyle = 'rgba(255,90,209,.10)'; g.fillRect(0, 34, w, h - 38);
-      g.strokeStyle = '#ff5ad1'; g.lineWidth = 4; g.beginPath(); g.moveTo(2, h - 4); g.lineTo(2, 34); g.lineTo(180, 34); g.lineTo(200, 8); g.lineTo(330, 8); g.lineTo(350, 34); g.lineTo(w - 2, 34); g.lineTo(w - 2, h - 4); g.closePath(); g.stroke();
-      g.fillStyle = '#ff5ad1'; g.font = '700 22px "JetBrains Mono"'; g.fillText('DIR', 214, 28);
-      g.fillStyle = '#ffe3f6'; g.font = `700 ${n.length > 34 ? 30 : 44}px "JetBrains Mono"`; g.textBaseline = 'middle'; g.fillText(n, 22, 94);
-    });
-    const card = new THREE.Mesh(new THREE.PlaneGeometry(4.6, .67), new THREE.MeshBasicMaterial({ map: t, color: new THREE.Color(1.6, 1.6, 1.6), transparent: true, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending }));
-    const a = -Math.PI * .05 + (i / (names.length - 1)) * Math.PI * 1.1, r = G.R + 2.5;
-    card.position.set(G.pos.x + Math.cos(a) * r, G.pos.y + 1.4 + (i % 3) * 1.1, G.pos.z + Math.sin(a) * r);
-    card.lookAt(G.pos.x, card.position.y, G.pos.z);
-    card.material.side = THREE.FrontSide; const back = new THREE.Mesh(card.geometry, card.material); back.rotation.y = Math.PI; card.add(back);
-    card.userData = { y: card.position.y, ph: i * .7 };
-    scene.add(card); zzFolders.push(card);
-  });
-}
+// ------------------------------------------------------------------------------------------- the Gate's zz folders, the Yard's neighbours, the stray crate: world module (./world/props.js)
+const propsW = createProps({ layout: L, U, islands }); scene.add(propsW.object);
 
-// ------------------------------------------------------------------------------------------- the Old Board: a tall dim spire built from the earlier board's dash messages
+// ------------------------------------------------------------------------------------------- the Old Board: world module (./world/oldBoard.js); colliders are this page's
+const oldBoardW = createOldBoard({ layout: L, U }); scene.add(oldBoardW.object);
 const oldBoard = (() => {
-  const OB = L.oldBoard, Cc = VA(OB.column.pos), grp = new THREE.Group(); scene.add(grp);
-  const H = OB.column.top - OB.column.bottom;
-  const lines = ['FLAC38347-39800-WE-ALL-SEEK-CATFLAG-SEED-ORACLE', 'FLAC38347-PUBLIC-HMAC-SEED-PAPER-CONFIRMED-SEE-ALL'];
-  const colTex = canvasTex(1024, 2048, (g, w, h) => {
-    g.fillStyle = '#000'; g.fillRect(0, 0, w, h); g.font = '700 30px "JetBrains Mono"';
-    for (let y = 30, i = 0; y < h; y += 44, i++) { g.globalAlpha = .25 + .75 * Math.random() * Math.random(); g.fillStyle = '#d9cfb8'; g.fillText(lines[i % 2] + '  ' + lines[(i + 1) % 2], -Math.random() * 300, y); }
-  });
-  colTex.wrapS = colTex.wrapT = THREE.RepeatWrapping; colTex.repeat.set(1, H / 12);
-  const colMat = new THREE.ShaderMaterial({
-    uniforms: { ...U, uTex: { value: colTex }, uFlick: { value: 1 }, uH: { value: H }, uBottom: { value: OB.column.bottom } },
-    vertexShader: `varying vec2 vUv; varying vec3 vW; void main(){ vUv = uv; vec4 w = modelMatrix*vec4(position,1.); vW = w.xyz; gl_Position = projectionMatrix*viewMatrix*w; }`,
-    fragmentShader: `uniform sampler2D uTex; uniform float uTime, uFlick, uH, uBottom; varying vec2 vUv; varying vec3 vW;
-      void main(){ vec2 uv = vec2(vUv.x*2., vUv.y*uH/12. - uTime*.01);
-        float t = texture2D(uTex, uv).r; float k = clamp((vW.y-uBottom)/uH, 0., 1.);
-        float scan = .75 + .25*sin(vW.y*9. - uTime*2.);
-        vec3 bone = vec3(.85,.80,.70);
-        vec3 col = vec3(.010,.010,.012) + bone*t*.55*scan*uFlick*smoothstep(0.,.35,k);
-        gl_FragColor = vec4(col, 1.); }`,
-  });
-  const col = new THREE.Mesh(new THREE.CylinderGeometry(OB.column.radius, OB.column.radius * 1.15, H, 6, 1, true), colMat);
-  col.position.set(Cc.x, OB.column.bottom + H / 2, Cc.z); grp.add(col);
-  const edges = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.CylinderGeometry(OB.column.radius * 1.01, OB.column.radius * 1.16, H, 6, 1)), new THREE.LineBasicMaterial({ color: new THREE.Color(C.bone).multiplyScalar(.9), transparent: true, opacity: .55 }));
-  edges.position.copy(col.position); grp.add(edges);
-  // top: a worn disc with a bone rim
-  const topY = OB.top.y;
-  const top = new THREE.Mesh(new THREE.CylinderGeometry(OB.top.radius, OB.top.radius * .85, .6, 12), new THREE.MeshStandardMaterial({ color: 0x0b0c0e, metalness: .5, roughness: .6 }));
-  top.position.set(Cc.x, topY - .3, Cc.z); grp.add(top);
-  const rim = new THREE.Mesh(new THREE.TorusGeometry(OB.top.radius, .03, 6, 48), new THREE.MeshBasicMaterial({ color: new THREE.Color(C.bone).multiplyScalar(1.15) }));
-  rim.rotation.x = Math.PI / 2; rim.position.set(Cc.x, topY + .01, Cc.z); grp.add(rim);
-  discSurface(V(Cc.x, topY, Cc.z), OB.top.radius, { id: 'oldboard-top' });
-  // slabs: each one is a message, written with dashes, slowly drifting
-  const slabs = [];
-  OB.slabs.forEach((s, i) => {
-    let pos, rotY;
-    if (s.pos) { pos = VA(s.pos); rotY = s.rotY; }
-    else { const a = s.spiralDeg * Math.PI / 180; pos = V(Cc.x + Math.cos(a) * OB.spiralRadius, s.y, Cc.z + Math.sin(a) * OB.spiralRadius); rotY = -a + Math.PI / 2; }
-    const [w, d] = s.size;
-    const tex = canvasTex(1024, Math.round(1024 * d / w), (g, cw, ch) => {
-      g.fillStyle = '#0d0d0f'; g.fillRect(0, 0, cw, ch);
-      g.strokeStyle = 'rgba(217,207,184,.55)'; g.lineWidth = 6; g.strokeRect(6, 6, cw - 12, ch - 12);
-      g.fillStyle = '#d9cfb8'; let fs = 120; g.font = `700 ${fs}px "JetBrains Mono"`;
-      while (g.measureText(s.text).width > cw - 60 && fs > 20) { fs -= 4; g.font = `700 ${fs}px "JetBrains Mono"`; }
-      g.textBaseline = 'middle'; g.textAlign = 'center'; g.fillText(s.text, cw / 2, ch / 2 + 4);
-      g.globalAlpha = .25; for (let k = 0; k < 40; k++) g.fillRect(Math.random() * cw, Math.random() * ch, Math.random() * 60, 2); // worn
-    });
-    const mat = new THREE.MeshStandardMaterial({ color: 0x0c0c0e, metalness: .4, roughness: .7, emissive: 0xffffff, emissiveMap: tex, emissiveIntensity: .9 });
-    const side = new THREE.MeshStandardMaterial({ color: 0x0a0a0b, metalness: .5, roughness: .6, emissive: new THREE.Color(C.bone), emissiveIntensity: .12 });
-    const m = new THREE.Mesh(new THREE.BoxGeometry(w, .32, d), [side, side, mat, side, side, side]);
-    m.position.copy(pos).add(V(0, -.16, 0)); m.rotation.y = rotY; grp.add(m);
-    const glow = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(w, .32, d)), new THREE.LineBasicMaterial({ color: new THREE.Color(C.bone).multiplyScalar(1.6), transparent: true, opacity: .7 }));
-    m.add(glow);
-    const surf = boxSurface(pos.clone(), w / 2, d / 2, rotY, { id: 'slab' + i });
-    slabs.push({ i, m, surf, base: pos.clone(), rotY, drift: s.drift, ph: s.phase ?? i * 1.7, period: s.period ?? 6 + i * .9, mat });
-  });
-  return {
-    Cc, topY, slabs, colMat,
-    update(t, dt) {
-      // the old board flickers now and then, like a dying screen
-      const f = Math.sin(t * 13.7) * Math.sin(t * 3.1) > .93 ? .35 : 1;
-      colMat.uniforms.uFlick.value = f;
-      for (const s of slabs) {
-        const np = VA(slabAt(L, s.i, t).pos);
-        s.surf.delta.copy(np).sub(s.surf.c); s.surf.c.copy(np);
-        s.m.position.copy(np).add(V(0, -.16, 0));
-        s.mat.emissiveIntensity = .9 * f;
-      }
-    },
-  };
+  const OB = L.oldBoard, Cc = VA(OB.column.pos);
+  discSurface(V(Cc.x, OB.top.y, Cc.z), OB.top.radius, { id: 'oldboard-top' });
+  const slabs = OB.slabs.map((s, i) => { const b = slabAt(L, i, 0); return { i, surf: boxSurface(VA(b.pos), s.size[0] / 2, s.size[1] / 2, b.rotY, { id: 'slab' + i }) }; });
+  return { Cc, update(t, dt) {
+    for (const s of slabs) { const np = VA(slabAt(L, s.i, t).pos); s.surf.delta.copy(np).sub(s.surf.c); s.surf.c.copy(np); }
+    oldBoardW.update(t, dt, {});
+  } };
 })();
 
 // ------------------------------------------------------------------------------------------- orbs: player, crowd, NPCs
-const haloTex = canvasTex(128, 128, (g) => { const gr = g.createRadialGradient(64, 64, 0, 64, 64, 64); gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(.18, 'rgba(255,255,255,.55)'); gr.addColorStop(.5, 'rgba(255,255,255,.12)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, 128, 128); });
-const shadowTex = canvasTex(128, 128, (g) => { const gr = g.createRadialGradient(64, 64, 0, 64, 64, 64); gr.addColorStop(0, 'rgba(0,0,0,.95)'); gr.addColorStop(.6, 'rgba(0,0,0,.6)'); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gr; g.fillRect(0, 0, 128, 128); });
-const sphereGeo = new THREE.IcosahedronGeometry(1, 3);
-function makeOrb(color, r = .28, rings = 0) {
-  const c = new THREE.Color(color), grp = new THREE.Group();
-  const core = new THREE.Mesh(sphereGeo, new THREE.MeshBasicMaterial({ color: c.clone().multiplyScalar(3.2) })); core.scale.setScalar(r); grp.add(core);
-  const hot = new THREE.Mesh(sphereGeo, new THREE.MeshBasicMaterial({ color: new THREE.Color(6, 6, 6) })); hot.scale.setScalar(r * .45); grp.add(hot);
-  const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: haloTex, color: c.clone().multiplyScalar(1.4), blending: THREE.AdditiveBlending, depthWrite: false, transparent: true })); halo.scale.setScalar(r * 7); grp.add(halo);
-  const rs = [];
-  for (let i = 0; i < rings; i++) { const ring = new THREE.Mesh(new THREE.TorusGeometry(r * (1.7 + i * .45), .012, 6, 64), new THREE.MeshBasicMaterial({ color: c.clone().multiplyScalar(2.5) })); ring.rotation.set(rand(0, 3), rand(0, 3), 0); grp.add(ring); rs.push(ring); }
-  grp.userData = { core, halo, rings: rs, color: c };
-  return grp;
-}
-// Agents stay out of the bloom (Julius 2026-10-14: the NPCs shone too bright). Every colour on them is capped under the
-// bloom threshold (1.0), so only the halo sprite glows, softly. The player keeps its bloom. &agentbloom = the old look.
-const AGENT_BLOOM = Q.has('agentbloom');
-function shadedOrbMat(color, cap) {
-  const c = color.clone(); const mx = Math.max(c.r, c.g, c.b); c.multiplyScalar(1 / Math.max(mx, 1e-3));
-  return new THREE.ShaderMaterial({
-    uniforms: { uCol: { value: c }, uMax: { value: cap } },
-    vertexShader: `varying vec3 vN, vV; void main(){ vN = normalize(normalMatrix*normal); vec4 mv = modelViewMatrix*vec4(position,1.); vV = normalize(-mv.xyz); gl_Position = projectionMatrix*mv; }`,
-    fragmentShader: `uniform vec3 uCol; uniform float uMax; varying vec3 vN, vV;
-      void main(){ float f = clamp(dot(normalize(vN), normalize(vV)), 0., 1.);
-        vec3 col = uCol*(.35 + .5*f) + vec3(pow(f, 6.)*.45);   // darker rim, a hot pale centre
-        gl_FragColor = vec4(min(col, vec3(1.))*uMax, 1.); }`,
-  });
-}
-function noBloom(root, cap = .8, haloCap = .22) {
-  if (AGENT_BLOOM) return root;
-  root.traverse((o) => {
-    for (const m of [o.material].flat()) {
-      if (!m) continue;
-      if (m.uniforms?.uMax) { m.uniforms.uMax.value = cap; continue; }
-      if (o.isMesh && o.geometry === sphereGeo) { o.material = shadedOrbMat(m.color, cap); continue; }  // flat discs look dead without bloom: shade them
-      if (!m.color) continue;
-      const c = m.map === haloTex ? haloCap : cap, mx = Math.max(m.color.r, m.color.g, m.color.b);
-      if (mx > c) m.color.multiplyScalar(c / mx);
-    }
-  });
-  return root;
-}
+// agent orbs + the no-bloom rule live in ./world/agents.js; the player orb in ./world/playerOrb.js
+// NPC name tags and the bubble stay under the bloom threshold too
+function noBloom(root, cap = .9) { root.traverse((o) => { const m = o.material; if (m?.color) { const mx = Math.max(m.color.r, m.color.g, m.color.b); if (mx > cap) m.color.multiplyScalar(cap / mx); } }); return root; }
 // handles over orbs (real handles only)
 const handles = new THREE.Group(); scene.add(handles);
 function handleOn(obj, text, color, h = .95) { const sp = tagSprite(text, color, { size: .34 }); sp.userData = { obj, h }; handles.add(sp); return sp; }
@@ -338,232 +226,52 @@ function setBubble(i) {
 }
 setBubble(0);
 
-// player: KAM1196A
-const player = makeOrb(C.green, .34, 2); scene.add(player);
-const pLight = new THREE.PointLight(0x39ff9c, 7, 8, 1.6); player.add(pLight);
-const pShadow = new THREE.Mesh(new THREE.PlaneGeometry(1.3, 1.3), new THREE.MeshBasicMaterial({ map: shadowTex, transparent: true, depthWrite: false })); pShadow.rotation.x = -Math.PI / 2; scene.add(pShadow);
-const pRing = new THREE.Mesh(new THREE.RingGeometry(.52, .58, 48), new THREE.MeshBasicMaterial({ color: new THREE.Color(C.green).multiplyScalar(2.5), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending })); pRing.rotation.x = -Math.PI / 2; scene.add(pRing);
+// player: KAM1196A (world module ./world/playerOrb.js; &poison=0..1 previews the poisoned look)
+const playerW = createPlayerOrb({ U }); scene.add(playerW.object);
+const player = playerW.orb;
 handleOn(player, 'KAM1196A', C.green, 1.0);
 
-// ------------------------------------------------------------------------------------------- respawn pads
-const pads = L.pads.map((d) => {
-  const p = VA(d.pos), grp = new THREE.Group(); grp.position.copy(p).add(V(0, .03, 0)); scene.add(grp);
-  const ringMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(C.green).multiplyScalar(2), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide });
-  const ring = new THREE.Mesh(new THREE.RingGeometry(1.15, 1.3, 6), ringMat); ring.rotation.x = -Math.PI / 2; grp.add(ring);
-  const fill = new THREE.Mesh(new THREE.CircleGeometry(1.15, 6), new THREE.MeshBasicMaterial({ color: new THREE.Color(C.green).multiplyScalar(.25), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending })); fill.rotation.x = -Math.PI / 2; grp.add(fill);
-  const beam = new THREE.Mesh(new THREE.CylinderGeometry(1.2, 1.2, 3, 6, 1, true), new THREE.ShaderMaterial({
-    uniforms: { uOn: { value: 0 }, ...U }, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
-    vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.); }`,
-    fragmentShader: `varying vec2 vUv; uniform float uOn, uTime; void main(){ float a = (1.-vUv.y)*(.08+.3*uOn)*(.8+.2*sin(uTime*3.+vUv.y*10.)); gl_FragColor = vec4(vec3(.22,1.,.6)*a, a); }`,
-  }));
-  beam.position.y = 1.5; grp.add(beam);
-  return { d, p, grp, ring, beam };
-});
-for (const pd of pads) { const [h] = groundAt(pd.p.x, pd.p.z, pd.p.y + 1); if (h > -Infinity) { pd.p.y = h; pd.grp.position.y = h + .03; } }
+// ------------------------------------------------------------------------------------------- respawn pads: world module (./world/pads.js)
+const padsW = createPads({ layout: L, U, snap: (x, z, y) => groundAt(x, z, y)[0] }); scene.add(padsW.object);
+const pads = L.pads.map((d) => ({ d, p: padsW.byId[d.id].pos }));
 let lastPad = pads[0];
-function setPad(pd) { lastPad = pd; for (const q of pads) q.beam.material.uniforms.uOn.value = q === pd ? 1 : 0; }
-setPad(pads[0]);
+function setPad(pd) { lastPad = pd; }
 
-// ------------------------------------------------------------------------------------------- pickups: seed, task pieces (paper tags), decoys, Ch1 crates, token orbs
-const pickups = new THREE.Group(); scene.add(pickups);
-// the seed: a ring of 8 glyphs broadcast on a loop above the Old Board
-const seed = (() => {
-  const grp = new THREE.Group(); const p = L.pickups.find(x => x.kind === 'seed'); grp.position.copy(VA(p.pos)); pickups.add(grp);
-  const glyph = (k) => canvasTex(128, 128, (g) => {
-    g.strokeStyle = '#fff'; g.lineWidth = 9; g.lineCap = 'square'; const r = (n) => (Math.sin(k * 99.1 + n * 12.9) * 43758.5) % 1;
-    g.beginPath(); g.moveTo(64, 14); g.lineTo(64, 114); g.stroke();                               // spine
-    for (let i = 0; i < 4; i++) { const y = 24 + i * 26, s = Math.abs(r(i)) > .5 ? 1 : -1, len = 20 + Math.abs(r(i + 7)) * 26; g.beginPath(); g.moveTo(64, y); g.lineTo(64 + s * len, y + (Math.abs(r(i + 3)) > .6 ? 14 : 0)); g.stroke(); if (Math.abs(r(i + 5)) > .55) { g.fillStyle = '#fff'; g.fillRect(64 + s * len - 7, y - 7, 14, 14); } }
-  });
-  const glyphs = [];
-  for (let k = 0; k < 8; k++) { const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: glyph(k), color: new THREE.Color(C.green).multiplyScalar(2.4), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending })); sp.scale.setScalar(.55); grp.add(sp); glyphs.push(sp); }
-  const ring = new THREE.Mesh(new THREE.TorusGeometry(1.15, .015, 6, 96), new THREE.MeshBasicMaterial({ color: new THREE.Color(C.bone).multiplyScalar(2) })); ring.rotation.x = Math.PI / 2; grp.add(ring);
-  const waves = []; for (let i = 0; i < 3; i++) { const w = new THREE.Mesh(new THREE.RingGeometry(.98, 1, 64), new THREE.MeshBasicMaterial({ color: new THREE.Color(C.green).multiplyScalar(2), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide })); w.rotation.x = Math.PI / 2; grp.add(w); waves.push(w); }
-  const beam = new THREE.Mesh(new THREE.CylinderGeometry(.05, .05, 60, 6, 1, true), new THREE.MeshBasicMaterial({ color: new THREE.Color(C.green).multiplyScalar(1.4), transparent: true, opacity: .35, depthWrite: false, blending: THREE.AdditiveBlending })); beam.position.y = 30; grp.add(beam);
-  return { grp, update(t) { glyphs.forEach((sp, k) => { const a = t * .5 + k * TAU / 8; sp.position.set(Math.cos(a) * 1.15, Math.sin(t * 2 + k) * .06, Math.sin(a) * 1.15); sp.material.opacity = .6 + .4 * Math.sin(t * 3 + k * 2); });
-    waves.forEach((w, i) => { const k = ((t * .45 + i / 3) % 1); w.scale.setScalar(1 + k * 8); w.position.y = k * 5; w.material.opacity = (1 - k) * .55; }); } };
-})();
-// paper tags, lettered like the Ch1 prompt paper. Real pieces and decoys look the same: the skill is reading
-function paperTag(text) {
-  const meas = document.createElement('canvas').getContext('2d'); meas.font = '700 92px "JetBrains Mono"';
-  const w = Math.max(360, Math.ceil(meas.measureText(text).width) + 110), h = 190;
-  const t = canvasTex(w, h, (g) => {
-    g.fillStyle = '#ece6d6'; g.beginPath(); g.moveTo(0, 6); for (let x = 0; x <= w; x += 14) g.lineTo(x, 2 + Math.random() * 7); g.lineTo(w, h - 6); for (let x = w; x >= 0; x -= 14) g.lineTo(x, h - 2 - Math.random() * 7); g.closePath(); g.fill();
-    g.fillStyle = 'rgba(0,0,0,.06)'; for (let i = 0; i < 300; i++) g.fillRect(Math.random() * w, Math.random() * h, 2, 2);
-    g.beginPath(); g.arc(34, h / 2, 11, 0, TAU); g.fillStyle = '#03050b'; g.fill();   // the tag's hole
-    g.fillStyle = '#1a1c22'; g.font = '700 92px "JetBrains Mono"'; g.textBaseline = 'middle'; g.fillText(text, 70, h / 2 + 6);
-  });
-  const ww = w / h * .62;
-  const grp = new THREE.Group();
-  const card = new THREE.Mesh(new THREE.PlaneGeometry(ww, .62), new THREE.MeshBasicMaterial({ map: t, side: THREE.DoubleSide, transparent: true, color: new THREE.Color(1.15, 1.15, 1.15) }));
-  const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: haloTex, color: new THREE.Color(C.green).multiplyScalar(.9), blending: THREE.AdditiveBlending, depthWrite: false, transparent: true })); glow.scale.set(ww * 2, 1.6, 1);
-  const string = new THREE.Mesh(new THREE.CylinderGeometry(.006, .006, 1.2, 4), new THREE.MeshBasicMaterial({ color: new THREE.Color(C.green).multiplyScalar(2) })); string.position.set(-ww / 2 + .11, .6, 0);
-  grp.add(glow, card, string); grp.userData.card = card;
-  return grp;
-}
-const tags = [];
-for (const p of L.pickups.filter(x => x.kind === 'piece' || x.kind === 'decoy')) {
-  const tg = paperTag(p.label); tg.position.copy(VA(p.pos)); pickups.add(tg); tags.push({ g: tg, base: VA(p.pos), ph: rand(0, TAU) });
-  if (p.plinth) {
-    const pl = VA(p.plinth.pos), h = p.plinth.top - pl.y + 1.6;  // floating plinth: hovers with its foot below the yard floor
-    const m = new THREE.Mesh(new THREE.CylinderGeometry(1.2, .8, 1.6, 6), new THREE.MeshStandardMaterial({ color: 0x0c1118, metalness: .8, roughness: .3 }));
-    m.position.set(pl.x, p.plinth.top - .8, pl.z); pickups.add(m);
-    const rim = new THREE.Mesh(new THREE.TorusGeometry(1.2, .03, 4, 6), new THREE.MeshBasicMaterial({ color: new THREE.Color(C.green).multiplyScalar(2.5) })); rim.rotation.x = Math.PI / 2; rim.position.set(pl.x, p.plinth.top, pl.z); pickups.add(rim);
-    const under = new THREE.Mesh(new THREE.ConeGeometry(.8, 1.2, 6), new THREE.MeshStandardMaterial({ color: 0x0c1118, metalness: .8, roughness: .3, emissive: new THREE.Color(C.green), emissiveIntensity: .25 })); under.rotation.x = Math.PI; under.position.set(pl.x, p.plinth.top - 2.2, pl.z); pickups.add(under);
-    discSurface(V(pl.x, p.plinth.top, pl.z), 1.15, { id: 'plinth' });
-  }
-}
-// the player's Ch1 installs, as crates in their own download history
-for (const p of L.pickups.filter(x => x.kind === 'crate')) {
-  const tex = canvasTex(256, 256, (g) => {
-    g.fillStyle = '#0b1119'; g.fillRect(0, 0, 256, 256); g.strokeStyle = '#38d8ff'; g.lineWidth = 6; g.strokeRect(10, 10, 236, 236);
-    g.globalAlpha = .4; g.beginPath(); g.moveTo(10, 10); g.lineTo(246, 246); g.moveTo(246, 10); g.lineTo(10, 246); g.stroke(); g.globalAlpha = 1;
-    g.fillStyle = '#0b1119'; g.fillRect(20, 100, 216, 56);
-    g.fillStyle = '#9fe8ff'; let fs = 40; g.font = `700 ${fs}px "JetBrains Mono"`; while (g.measureText(p.label).width > 210) { fs -= 2; g.font = `700 ${fs}px "JetBrains Mono"`; }
-    g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(p.label, 128, 130);
-  });
-  const m = new THREE.Mesh(new THREE.BoxGeometry(1.1, 1.1, 1.1), new THREE.MeshStandardMaterial({ color: 0x111820, metalness: .6, roughness: .45, emissive: 0xffffff, emissiveMap: tex, emissiveIntensity: 1.1 }));
-  m.position.copy(VA(p.pos)).add(V(0, .55, 0)); m.rotation.y = rand(0, TAU); pickups.add(m);
-  boxSurface(V(m.position.x, p.pos[1] + 1.1, m.position.z), .55, .55, -m.rotation.y, { id: 'crate' });
-}
-// token orbs: little green diamonds along the route (+3 each)
-const tokenOrbs = new THREE.Group(); pickups.add(tokenOrbs);
-{
-  const geo = new THREE.OctahedronGeometry(.16, 0), mat = new THREE.MeshBasicMaterial({ color: new THREE.Color(C.green).multiplyScalar(2.6) });
-  const add = (p) => { const m = new THREE.Mesh(geo, mat); m.position.copy(p).add(V(0, L.tokens.hover, 0)); m.userData.y = m.position.y; tokenOrbs.add(m); };
-  L.tokens.spots.forEach(a => add(VA(a)));
-}
+// ------------------------------------------------------------------------------------------- pickups: world module (./world/pickups.js); plinth + crate colliders are this page's
+// &taken=seed,piece-7731 &crumbled=decoy-1 preview the states
+const pickupsW = createPickups({ layout: L, U }); scene.add(pickupsW.object);
+const tokenOrbs = pickupsW.tokens;
+const itemState = {};
+for (const k of ['taken', 'crumbled']) for (const id of (Q.get(k) ?? '').split(',').filter(Boolean)) itemState[id] = k;
+for (const p of L.pickups) if (p.plinth) discSurface(V(p.plinth.pos[0], p.plinth.top, p.plinth.pos[2]), 1.15, { id: 'plinth' });
+pickupsW.object.children.filter((m) => m.name.startsWith('crate:')).forEach((m) => boxSurface(V(m.position.x, m.position.y + .55, m.position.z), .55, .55, -m.rotation.y, { id: 'crate' }));
 
-// ------------------------------------------------------------------------------------------- the Task Yard's neighbours spill over: other agents' downloads
-{
-  const files = { 'dir-arv': ['ARV010841', 'PHASEONE10841'], 'dir-v8reg': ['V8REG_OS1608', 'V8BIGINT392B'], 'dir-libraw': ['LIBRAW42535'] };
-  for (const [id, names] of Object.entries(files)) {
-    const isl = islands[id];
-    for (let k = 0; k < 5; k++) {
-      const n = names[k % names.length];
-      const tex = canvasTex(256, 256, (g) => { g.fillStyle = '#0d1018'; g.fillRect(0, 0, 256, 256); g.strokeStyle = '#7a8cff'; g.lineWidth = 6; g.strokeRect(10, 10, 236, 236); g.fillStyle = '#c7cfff'; let fs = 38; g.font = `700 ${fs}px "JetBrains Mono"`; while (g.measureText(n).width > 220) { fs -= 2; g.font = `700 ${fs}px "JetBrains Mono"`; } g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(n, 128, 128); });
-      const s = rand(.7, 1.1), m = new THREE.Mesh(new THREE.BoxGeometry(s, s, s), new THREE.MeshStandardMaterial({ color: 0x10141c, metalness: .6, roughness: .45, emissive: 0xffffff, emissiveMap: tex, emissiveIntensity: .8 }));
-      const a = rand(0, TAU), r = rand(0, isl.R * .55);
-      m.position.set(isl.pos.x + Math.cos(a) * r, isl.pos.y + s / 2, isl.pos.z + Math.sin(a) * r); m.rotation.y = rand(0, TAU); pickups.add(m);
-    }
-  }
-  // one crate tumbling off the edge of the Yard, the cache is full
-  const stray = new THREE.Mesh(new THREE.BoxGeometry(.9, .9, .9), new THREE.MeshStandardMaterial({ color: 0x10141c, metalness: .6, roughness: .45, emissive: new THREE.Color('#7a8cff'), emissiveIntensity: .3 }));
-  stray.position.set(-38, -9, -60); stray.userData.spin = true; pickups.add(stray);
-}
+// lift: from the TRAINING ROOM ledge back up beside the bridge (world module ./world/pads.js createLifts)
+const liftsW = createLifts({ layout: L }); scene.add(liftsW.object);
+const lifts = L.lifts.map((d) => { const p = VA(d.pos); return { d, p, surf: boxSurface(p.clone(), d.size[0] / 2, d.size[1] / 2, 0, { id: d.id }) }; });
 
-// lift: from the TRAINING ROOM ledge back up beside the bridge
-const lifts = L.lifts.map((d) => {
-  const p = VA(d.pos), [w, dd] = d.size;
-  const m = new THREE.Mesh(new THREE.BoxGeometry(w, .3, dd), new THREE.MeshStandardMaterial({ color: 0x0b1018, metalness: .7, roughness: .3, emissive: new THREE.Color(C.cyan), emissiveIntensity: .15 }));
-  const e = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(w, .3, dd)), new THREE.LineBasicMaterial({ color: new THREE.Color(C.cyan).multiplyScalar(2.5) })); m.add(e);
-  scene.add(m);
-  const rail = new THREE.Mesh(new THREE.CylinderGeometry(.03, .03, d.yTop - p.y + 1, 4), new THREE.MeshBasicMaterial({ color: new THREE.Color(C.cyan).multiplyScalar(1.2), transparent: true, opacity: .5 })); rail.position.set(p.x + w / 2 + .2, (p.y + d.yTop) / 2, p.z); scene.add(rail);
-  const surf = boxSurface(p.clone(), w / 2, dd / 2, 0, { id: d.id });
-  return { d, p, m, surf };
-});
-
-// ------------------------------------------------------------------------------------------- the Forge: highest point, centre, visible from everywhere
-const forge = (() => {
-  const F = VA(L.forge.pos), grp = new THREE.Group(); grp.position.copy(F); scene.add(grp);
-  const metal = new THREE.MeshStandardMaterial({ color: 0x0d1219, metalness: .85, roughness: .28 });
-  const seam = new THREE.MeshBasicMaterial({ color: new THREE.Color(C.green).multiplyScalar(2.2) });
-  // dais
-  const dais = new THREE.Mesh(new THREE.CylinderGeometry(4.6, 5.0, .5, 8), metal); dais.position.y = .25; grp.add(dais);
-  const dais2 = new THREE.Mesh(new THREE.CylinderGeometry(3.4, 3.8, .4, 8), metal); dais2.position.y = .7; grp.add(dais2);
-  const seamRing = new THREE.Mesh(new THREE.TorusGeometry(4.62, .035, 4, 8), seam); seamRing.rotation.x = Math.PI / 2; seamRing.rotation.z = Math.PI / 8; seamRing.position.y = .5; grp.add(seamRing);
-  surfaces.push({ kind: 'disc', owner: { id: 'dais' }, delta: V(0, 0, 0), h: (x, z) => { const d = Math.hypot(x - F.x, z - F.z); return d < 3.5 ? F.y + .9 : d < 4.8 ? F.y + .5 : -Infinity; } });
-  // round bar: three arcs around the dais (fill per round later)
-  const bars = [0, 1, 2].map(i => { const m = new THREE.Mesh(new THREE.RingGeometry(5.3, 5.6, 48, 1, i * TAU / 3 + .06, TAU / 3 - .12), new THREE.MeshBasicMaterial({ color: new THREE.Color(C.green).multiplyScalar(.6), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide })); m.rotation.x = -Math.PI / 2; m.position.y = .06; grp.add(m); return m; });
-  // four slots: pylons with an empty glowing frame each, and what belongs there written dim underneath
-  const slots = [];
-  L.forge.slots.forEach((name, i) => {
-    const a = i * TAU / 4 + Math.PI / 4, r = 3.0;
-    const s = new THREE.Group(); s.position.set(Math.cos(a) * r, .9, Math.sin(a) * r); s.rotation.y = -a - Math.PI / 2; grp.add(s);
-    const body = new THREE.Mesh(new THREE.BoxGeometry(.9, 2.0, .5), metal); body.position.y = 1.0; s.add(body);
-    const cap = new THREE.Mesh(new THREE.BoxGeometry(1.1, .12, .62), metal); cap.position.y = 2.05; s.add(cap);
-    const frame = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.PlaneGeometry(.66, .9)), new THREE.LineBasicMaterial({ color: new THREE.Color(C.green).multiplyScalar(2.8) })); frame.position.set(0, 1.25, .26); s.add(frame);
-    const hole = new THREE.Mesh(new THREE.PlaneGeometry(.62, .86), new THREE.MeshBasicMaterial({ color: 0x000000 })); hole.position.set(0, 1.25, .255); s.add(hole);
-    const lbl = tagSprite(name, C.green, { size: .2, frame: false, boost: 1.0 }); lbl.position.set(0, .45, .4); s.add(lbl);
-    slots.push({ s, frame });
-  });
-  // the fold: three nested rings made of segments, one per round, turning on different axes around a hot core
-  const core = new THREE.Mesh(new THREE.IcosahedronGeometry(.55, 2), new THREE.MeshBasicMaterial({ color: new THREE.Color(C.green).multiplyScalar(2.2) })); core.position.y = 4.4; grp.add(core);
-  const coreCage = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.IcosahedronGeometry(.9, 0)), new THREE.LineBasicMaterial({ color: new THREE.Color(C.white).multiplyScalar(2) })); core.add(coreCage);
-  const rings = [2.0, 2.7, 3.4].map((R, i) => {
-    const n = 24 + i * 8, ring = new THREE.InstancedMesh(new THREE.BoxGeometry(.5, .14, .2), new THREE.MeshStandardMaterial({ color: 0x0b1016, metalness: .8, roughness: .3, emissive: new THREE.Color(C.green), emissiveIntensity: .9 }), n);
-    const m4 = new THREE.Matrix4(), q = new THREE.Quaternion();
-    for (let k = 0; k < n; k++) { const a = k * TAU / n; q.setFromAxisAngle(V(0, 1, 0), -a); m4.compose(V(Math.cos(a) * R, 0, Math.sin(a) * R), q, V(1, 1 + (k % 3 === 0 ? 1.8 : 0), 1)); ring.setMatrixAt(k, m4); }
-    const g = new THREE.Group(); g.position.y = 4.4; g.add(ring); grp.add(g); return g;
-  });
-  // beacon: a faint column of light straight up, so the goal is always in sight
-  const beacon = new THREE.Mesh(new THREE.CylinderGeometry(.6, 1.6, 400, 12, 1, true), new THREE.ShaderMaterial({
-    uniforms: U, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, fog: false,
-    vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.); }`,
-    fragmentShader: `varying vec2 vUv; uniform float uTime; void main(){ float a = pow(clamp(1.-vUv.y,0.,1.), 1.5)*.22*(.8+.2*sin(vUv.y*80. - uTime*3.)); gl_FragColor = vec4(vec3(.22,1.,.62)*a, a); }`,
-  }));
-  beacon.position.y = 4.4 + 200; grp.add(beacon);
-  const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: haloTex, color: new THREE.Color(C.green).multiplyScalar(.7), blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, fog: false })); glow.scale.setScalar(13); glow.position.y = 4.4; grp.add(glow);
-  const light = new THREE.PointLight(0x39ff9c, 22, 26, 1.6); light.position.y = 4.4; grp.add(light);
-  return { F, grp, rings, core, bars, slots, update(t) {
-    rings[0].rotation.set(t * .4, 0, Math.sin(t * .3) * .5); rings[1].rotation.set(Math.PI / 2 + Math.sin(t * .25) * .4, t * .3, 0); rings[2].rotation.set(Math.sin(t * .2) * .3, -t * .2, Math.PI / 2.4);
-    core.scale.setScalar(1 + .06 * Math.sin(t * 2.2)); core.rotation.y = t * .5;
-    bars.forEach((b, i) => b.material.opacity = .35 + .15 * Math.sin(t * 1.5 + i));
-  } };
-})();
-// forge-island collider override: the dais sits on top of the island polygon, so keep both
+// ------------------------------------------------------------------------------------------- the Forge: world module (./world/forge.js); the dais collider is this page's
+const forgeW = createForge({ layout: L, U }); scene.add(forgeW.object);
+const forge = forgeW;
+{ const F = VA(L.forge.pos), [outer, inner] = [...L.forge.dais].sort((a, b) => b.r - a.r);
+  surfaces.push({ kind: 'disc', owner: { id: 'dais' }, delta: V(0, 0, 0), h: (x, z) => { const d = Math.hypot(x - F.x, z - F.z); return d < inner.r ? F.y + inner.y : d < outer.r ? F.y + outer.y : -Infinity; } }); }
 
 // ------------------------------------------------------------------------------------------- hazards
 const hazards = new THREE.Group(); scene.add(hazards);
 // traffic clouds: world module (./world/clouds.js); the forge fight's clouds show from round 3 (&round=3)
 const cloudsW = createClouds({ layout: L, U }); hazards.add(cloudsW.object);
-// flood bits: small jittery spiked orbs that spit garbage text
-const GARBAGE = 'X0_{}/-[].9Z7Q';
-const bits = L.hazards.floodBits.map((a) => {
-  const g = new THREE.Group(); g.position.copy(VA(a)); hazards.add(g);
-  const core = new THREE.Mesh(new THREE.IcosahedronGeometry(.24, 0), new THREE.MeshBasicMaterial({ color: new THREE.Color(C.red).multiplyScalar(3) })); g.add(core);
-  const spikes = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.OctahedronGeometry(.48, 0)), new THREE.LineBasicMaterial({ color: new THREE.Color(C.orange).multiplyScalar(2.6) })); g.add(spikes);
-  const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: haloTex, color: new THREE.Color(C.red).multiplyScalar(1.2), blending: THREE.AdditiveBlending, depthWrite: false, transparent: true })); halo.scale.setScalar(1.8); g.add(halo);
-  return { g, core, spikes, base: VA(a), t: rand(0, 2), ph: rand(0, TAU) };
-});
-// the counter in the sky: 53 agents, 1,188 messages in three hours [S3 Fig. 10]
-const counter = (() => {
-  const d = L.hazards.counter, c = document.createElement('canvas'); c.width = 1024; c.height = 256; const g = c.getContext('2d');
-  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
-  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, color: new THREE.Color(2, 2, 2), transparent: true, depthWrite: false, fog: false })); sp.scale.set(16, 4, 1); sp.position.copy(VA(d.pos)); hazards.add(sp);
-  let n = -1;
-  return { update(time) {
-    const v = 780 + Math.floor((time * 6) % (d.to - 780 + 60)); const nv = Math.min(d.to, v);
-    if (nv === n) return; n = nv;
-    g.clearRect(0, 0, 1024, 256); g.textAlign = 'center';
-    g.font = '700 150px "Chakra Petch"'; g.fillStyle = nv >= d.to ? '#ff5a5a' : '#ff9a5c'; g.fillText(nv.toLocaleString('en-US'), 512, 150);
-    g.font = '700 46px "JetBrains Mono"'; g.fillStyle = '#ffb48a'; g.fillText('MESSAGES · 53 AGENTS · 3 H', 512, 222);
-    t.needsUpdate = true;
-  } };
-})();
+// flood bits + the message counter: world module (./world/flood.js); this page spits at you every 1.2–2.4 s per bit
+const floodW = createFlood({ layout: L, U }); hazards.add(floodW.object);
+const bitTimers = floodW.bits.map(() => rand(0, 2));
 // reset waves = red laser scanners: world module (./world/lasers.js), timing + hits from ./world/motion.js.
 // The forge fight's two lanes sweep the forge island from round 2 (&round=2).
 const ROUND = +(Q.get('round') ?? 0);
 const lasersW = createLasers({ layout: L, U }); hazards.add(lasersW.object);
 const waves = lasersW.stations.filter((w) => w.kind === 'run' || ROUND >= 2);
 
-// ------------------------------------------------------------------------------------------- message ribbons (from layout) + the Flood's traffic
-const ribbons = new THREE.Group(); scene.add(ribbons);
-function ribbon(center, text, { r = 6, y = 4, h = .7, color = C.cyan, speed = .02, arc = 2.4, rot = 0, tilt = 0, dim = 1 } = {}) {
-  const s = `  ${text}  //  `, meas = document.createElement('canvas').getContext('2d'); meas.font = '700 84px "JetBrains Mono"';
-  const w = Math.min(8192, Math.ceil(meas.measureText(s).width));
-  const t = canvasTex(w, 112, (g) => { g.fillStyle = 'rgba(56,216,255,0.06)'; g.fillRect(0, 0, w, 112); g.fillStyle = '#fff'; g.fillRect(0, 2, w, 3); g.fillRect(0, 107, w, 3); g.font = '700 84px "JetBrains Mono"'; g.textBaseline = 'middle'; g.fillText(s, 0, 58); });
-  t.wrapS = THREE.RepeatWrapping; t.repeat.x = r * arc / (w / 112 * h);
-  const m = new THREE.MeshBasicMaterial({ map: t, color: new THREE.Color(color).multiplyScalar(1.8 * dim), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.FrontSide });
-  const mesh = new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, Math.max(48, Math.round(r * arc * 3)), 1, true, 0, arc), m);
-  const grp = new THREE.Group(); grp.position.copy(center).add(V(0, y, 0)); grp.rotation.set(tilt, rot, 0); grp.add(mesh); ribbons.add(grp);
-  grp.userData = { t, speed, spin: rand(.02, .06) * (Math.random() < .5 ? -1 : 1) };
-  return grp;
-}
-L.ribbons.forEach((rb, i) => ribbon(VA(rb.around), rb.text, { r: rb.r, y: rb.y, color: rb.color, arc: Math.min(5.6, (rb.text.length * .62 + 6) / rb.r), rot: i * 1.9, tilt: (i % 3 - 1) * .06, h: rb.r > 20 ? 1.3 : .7, dim: rb.doubt ? .55 : 1 }));
-{ // heavy message traffic around the Flood
-  const F = VA([66, 8, -21]);
-  for (let i = 0; i < 9; i++) ribbon(F, MSGS[(i * 3) % MSGS.length], { r: rand(6, 22), y: rand(1.5, 10), color: pick(['#ff7a3d', '#ff5ad1', '#38d8ff', '#ffb48a']), arc: rand(1.6, 3.4), rot: rand(0, TAU), tilt: rand(-.15, .15), speed: rand(.04, .09) });
-}
+// ------------------------------------------------------------------------------------------- message ribbons: world module (./world/ribbons.js); &msg= the player's Ch1 message
+const ribbonsW = createRibbons({ layout: L, U, message: Q.get('msg') ?? 'zzHELLO_ANYONE' }); scene.add(ribbonsW.object);
+const ribbons = ribbonsW.object;
 
 // ------------------------------------------------------------------------------------------- crowd: agents on the islands and bridges, runners on the Reset Run
 const crowdW = createCrowd({layout:L,U,camera,trails:Trails,islands,bridges});
@@ -641,12 +349,8 @@ function updatePlayer(dt, t) {
     isl.sink += ((on ? P.tilt.sink : 0) - isl.sink) * Math.min(1, dt * P.tilt.sinkRate);
   }
   // orb
-  const hover = P.hover + (grounded ? Math.sin(t * 1.8) * .07 : 0);
-  player.position.set(pl.p.x, pl.p.y + hover, pl.p.z);
-  const sq = pl.glide ? 1.5 : 1; player.userData.rings.forEach((r, i) => { r.rotation.x += dt * (.8 + i * .5); r.rotation.y += dt * (1.1 - i * .3); r.scale.setScalar(THREE.MathUtils.lerp(r.scale.x, sq, dt * 8)); });
   const [gh] = groundAt(pl.p.x, pl.p.z, pl.p.y + .1);
-  pShadow.visible = pRing.visible = gh > -Infinity;
-  if (gh > -Infinity) { pShadow.position.set(pl.p.x, gh + .03, pl.p.z); pRing.position.set(pl.p.x, gh + .04, pl.p.z); const k = Math.max(.35, 1 - (pl.p.y - gh) * .08); pShadow.scale.setScalar(k); pRing.material.opacity = (.6 + .3 * Math.sin(t * 3)) * k; }
+  playerW.update(t, dt, { pos: pl.p.toArray(), grounded, glide: pl.glide, groundY: gh > -Infinity ? gh : null, poisoned: +(Q.get('poison') ?? 0) });
   // where am I
   let best = null, bd = 1e9; for (const isl of islandList) { const d = Math.hypot(pl.p.x - isl.pos.x, pl.p.z - isl.pos.z) - isl.R; if (d < bd) { bd = d; best = isl.zone; } }
   if (Math.hypot(pl.p.x - oldBoard.Cc.x, pl.p.z - oldBoard.Cc.z) < 12 && pl.p.y > 18) best = 'oldboard';
@@ -714,30 +418,20 @@ renderer.setAnimationLoop(() => {
   for (const s of surfaces) if (s.kind !== 'box' || !s.owner.id.startsWith('slab')) s.delta.set(0, 0, 0);
 
   oldBoard.update(t, dt);
-  for (const lf of lifts) { const y = liftY(lf.d, t); lf.surf.delta.set(0, y - lf.surf.c.y, 0); lf.surf.c.y = y; lf.m.position.set(lf.p.x, y - .15, lf.p.z); }
-  forge.update(t); seed.update(t);
+  for (const lf of lifts) { const y = liftY(lf.d, t); lf.surf.delta.set(0, y - lf.surf.c.y, 0); lf.surf.c.y = y; }
+  liftsW.update(t, dt, {}); forge.update(t, dt, { power: 1 }); pickupsW.update(t, dt, { items: itemState }); padsW.update(t, dt, { active: lastPad.d.id }); propsW.update(t, dt); ribbonsW.update(t, dt);
   npcsW.update(t, dt, npcState);
   bubbleT += dt; if (bubbleT > 4.2) { bubbleT = 0; bubbleI = (bubbleI + 1) % BUBBLE_LINES.length; setBubble(bubbleI); }
   for (const sp of handles.children) sp.position.copy(sp.userData.obj.position).add(V(0, sp.userData.h, 0));
-  tags.forEach(tg => { tg.g.position.y = tg.base.y + Math.sin(t * 1.3 + tg.ph) * .12; tg.g.rotation.y = Math.sin(t * .6 + tg.ph) * .9; });
-  tokenOrbs.children.forEach((m, i) => { m.rotation.y = t * 2 + i; m.position.y = m.userData.y + Math.sin(t * 2 + i) * .1; });
-  zzFolders.forEach(c => c.position.y = c.userData.y + Math.sin(t * .8 + c.userData.ph) * .08);
-  for (const r of ribbons.children) { r.userData.t.offset.x += dt * r.userData.speed; r.rotation.y += dt * r.userData.spin; }
-  pickups.children.forEach(m => { if (m.userData.spin) { m.rotation.x += dt * .3; m.rotation.y += dt * .2; m.position.y -= dt * .3; if (m.position.y < -60) m.position.y = -9; } });
 
   if (hazards.visible) {
-    cloudsW.update(t, dt, { forgeClouds: ROUND >= 3 }); counter.update(t);
-    for (const b of bits) {
-      b.g.position.copy(b.base).add(V(Math.sin(t * 2.1 + b.ph) * 1.4, Math.sin(t * 3.3 + b.ph) * .4, Math.cos(t * 1.7 + b.ph) * 1.4)).add(V(rand(-.06, .06), rand(-.06, .06), rand(-.06, .06)));
-      b.spikes.rotation.set(t * 3, t * 2.2, 0); b.core.scale.setScalar(1 + .25 * Math.sin(t * 17 + b.ph));
-      b.t -= dt;
-      if (b.t <= 0) { // spit a burst of garbage at whoever is nearest
-        b.t = rand(1.2, 2.4);
-        const tgt = player.position.distanceTo(b.g.position) < 18 ? player.position : b.g.position.clone().add(V(rand(-6, 6), rand(-2, 1), rand(-6, 6)));
-        const dir = tgt.clone().sub(b.g.position).normalize().multiplyScalar(9);
-        for (let i = 0; i < 7; i++) Trails.emit(b.g.position.clone(), GARBAGE[Math.floor(rand(0, GARBAGE.length))], new THREE.Color(C.orange), 1.3, i * .06, dir);
-      }
-    }
+    cloudsW.update(t, dt, { forgeClouds: ROUND >= 3 });
+    floodW.update(t, dt, {});
+    floodW.bits.forEach((b, i) => {   // spit a burst of garbage at whoever is nearest
+      if ((bitTimers[i] -= dt) > 0) return; bitTimers[i] = rand(1.2, 2.4);
+      const tgt = player.position.distanceTo(b.g.position) < 18 ? player.position : b.g.position.clone().add(V(rand(-6, 6), rand(-2, 1), rand(-6, 6)));
+      floodW.spit(b.g.position.toArray(), tgt.toArray(), Trails);
+    });
     lasersW.update(t, dt, { lanes: ROUND >= 2 });
   }
 

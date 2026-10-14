@@ -28,7 +28,7 @@ export function createClouds({ layout, U }) {
         float ch = mod(iMeta.x + floor(uTime*(2.+s*6.)), 44.);
         vec2 cell = vec2(mod(ch, 8.), floor(ch/8.)); vUv = (cell + vec2(uv.x, 1.-uv.y)) / 8.; vUv.y = 1. - vUv.y;
         vA = (.35 + .65*step(.5, fract(s*13.+uTime*.7))) * on; vS = s;
-        vec4 mv = modelViewMatrix*vec4(c + o, 1.); mv.xy += position.xy*(.26 + s*.12)*on; gl_Position = projectionMatrix*mv; }`,
+        vec4 mv = modelViewMatrix*vec4(c + o, 1.); vA *= smoothstep(1.2, 4.5, -mv.z); mv.xy += position.xy*(.26 + s*.12)*on; gl_Position = projectionMatrix*mv; }   // glyphs at the lens fade: inside a cloud you see the swirl, not giant letters`,
     fragmentShader: `uniform sampler2D uAtlas; varying vec2 vUv; varying float vA; varying float vS;
       void main(){ float a = texture2D(uAtlas, vUv).a*vA; if (a < .01) discard; vec3 c = mix(vec3(1.,.48,.24), vec3(1.,.23,.30), step(.7,vS)); gl_FragColor = vec4(c*a*1.4, a); }`,
   });
