@@ -41,7 +41,9 @@ test('start screen: locked items refuse, Enter starts chapter 1', async ({ page 
   expect(errors).toEqual([]);
 });
 
-test('chapter 1: paper, the whole chain to the end card, CONTINUE into chapter 2', async ({ page }) => {
+test('chapter 1: paper, the whole chain to the end card, CONTINUE into chapter 2', async ({
+  page,
+}) => {
   test.setTimeout(T(90_000));
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message));
@@ -295,7 +297,7 @@ test('chapter 2: intro, real keys move the orb, forge, cutscene, poisoned in the
   // the forge: proof, four inputs, three rounds (fast-forwarded), the flag goes into the orb
   await ch2(page, 'jumpTo(6)');
   await ch2Wait(page, "s.forge.phase === 'ready'", 20_000);
-  await ch2(page, 'placePlayer([2.4, 54, 0.5])');
+  await ch2(page, 'placePlayer([2.4, 34.95, 0.5])'); // on the dais by slot 1 (layout.json forge)
   await ch2Wait(page, "s.target && s.target.kind === 'forge'", 5000);
   for (let i = 0; i < 4; i++) await page.keyboard.press('e');
   expect(await ch2(page, 'forge.phase')).toBe('forging');

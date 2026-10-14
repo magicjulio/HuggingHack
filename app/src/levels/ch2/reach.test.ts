@@ -94,12 +94,18 @@ const reachable = (from: string, to: string, times = [0], start?: V3) =>
     [{}, { glide: true }, { dash: true }].some((o) => hop(from, to, { ...o, t0, start })),
   );
 
-/** Walk from `from` to `to` without jumping, through `via` points (connected surfaces). */
-function walk(from: string, to: string, via: V3[] = []): boolean {
+/**
+ * Walk from `from` to `to` without jumping, through `via` points (connected surfaces), ending at
+ * `end` (default: the centre of `to`).
+ */
+function walk(from: string, to: string, via: V3[] = [], end?: V3): boolean {
   const world = new PlatformWorld(SURFACES);
   const s = centre(world, from);
   const b = createBody([s.x, s.y + 0.3, s.z]);
-  const goals = [...via.map((v) => new Vector3(...v)), centre(world, to)];
+  const goals = [
+    ...via.map((v) => new Vector3(...v)),
+    end ? new Vector3(...end) : centre(world, to),
+  ];
   const dt = 1 / 60;
   for (let t = 0; t < 60 && goals.length; t += dt) {
     world.update(dt, b);
@@ -116,8 +122,8 @@ function walk(from: string, to: string, via: V3[] = []): boolean {
   return !!b.ground && group(world, b.ground.def.id) === group(world, to);
 }
 /** Walk a whole bridge, from the island before it to the island after it. */
-const walkBridge = (from: string, bridge: string, to: string) =>
-  walk(from, to, BRIDGES.find((b) => b.id === bridge)!.samples);
+const walkBridge = (from: string, bridge: string, to: string, end?: V3) =>
+  walk(from, to, BRIDGES.find((b) => b.id === bridge)!.samples, end);
 
 describe('chapter 2 golden path is reachable (layout.json)', () => {
   it('Gate: three tutorial jumps, the tutorial bridge, then the dash gap needs a dash', () => {
@@ -141,12 +147,8 @@ describe('chapter 2 golden path is reachable (layout.json)', () => {
   });
 
   it('Task Yard: slide down, the plinth, the ledge chain, the lift back up', () => {
-    // FINDING (handoff app-to-design 2026-10-14): the slide ends ~2 m short of the Yard's collider,
-    // so walking off its end falls into the void; a hop at the end makes it.
-    const end = bridgeEnd('oldboard-yard', 'last');
-    expect(walk('ob-top', end, BRIDGES.find((b) => b.id === 'oldboard-yard')!.samples)).toBe(true);
-    expect(walk(end, 'taskyard'), 'slide end → taskyard, walking off').toBe(false);
-    expect(reachable(end, 'taskyard'), 'slide end → taskyard, hop').toBe(true);
+    // the slide ends 1 m inside the Yard's collider (designer fix 2026-10-14): walk straight on
+    expect(walkBridge('ob-top', 'oldboard-yard', 'taskyard'), 'ob-top → taskyard').toBe(true);
     expect(hop('taskyard', 'piece-7731-plinth'), 'taskyard → plinth').toBe(true);
     expect(reachable('taskyard', 'yard-step-1'), 'taskyard → yard-step-1').toBe(true);
     expect(reachable('yard-step-1', 'yard-step-2'), 'yard-step-1 → yard-step-2').toBe(true);
@@ -176,10 +178,13 @@ describe('chapter 2 golden path is reachable (layout.json)', () => {
   });
 
   it('Reset Run: the bridge climbs to the Forge, then up the dais', () => {
-    expect(walkBridge('run-start', 'reset-run', 'forge'), 'run-start → forge').toBe(true);
-    // from the east, between two slot pylons (the straight line from the pad hits a pylon)
-    const f = padOf('forge').position;
-    const east: V3 = [f[0], f[1], 0];
-    expect(reachable('forge', 'forge-dais-1', [0], east), 'forge → dais (a hop up)').toBe(true);
+    const pad = padOf('forge').position;
+    expect(walkBridge('run-start', 'reset-run', 'forge', pad), 'run-start → forge pad').toBe(true);
+    // both dais tiers are within stepUp (designer fix 2026-10-14): walk up from the east,
+    // between two slot pylons (the straight line from the pad hits a pylon)
+    expect(
+      walk('forge', 'forge-dais-1', [pad, [pad[0], pad[1], 0]]),
+      'forge → dais (walking)',
+    ).toBe(true);
   });
 });

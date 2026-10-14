@@ -13,6 +13,8 @@
 import { CatmullRomCurve3, Vector3 } from 'three';
 import { ngon, rect, type SurfaceDef, type V2, type V3 } from '../../engine/platformer';
 import L from './layout.json';
+// the designer's pure motion formulas (verbatim copy): the game hits with what the world draws
+import { liftY as liftYOf, slabAt, waveStations } from './world/motion.js';
 
 export const LAYOUT = L;
 /** Movement numbers (designer's `physics` block; config.ts turns them into the body params). */
@@ -43,7 +45,6 @@ export interface Island extends SurfaceDef {
 
 const v3 = (a: readonly number[]): V3 => [a[0], a[1], a[2]];
 const TAU = Math.PI * 2;
-const clamp01 = (x: number) => Math.min(1, Math.max(0, x));
 
 // ---------------------------------------------------------------- islands (notes.islands, notes.ring)
 interface IslandEntry {
@@ -257,7 +258,7 @@ export const OLD_BOARD_SLABS: SlabEntry[] = OB.slabs.map((s, i) => {
 
 function oldBoardSurfaces(): Island[] {
   const c = OB.column;
-  const slabs = OLD_BOARD_SLABS.map((s): Island => ({
+  const slabs = OLD_BOARD_SLABS.map((s, i): Island => ({
     id: s.id,
     group: s.id,
     area: 'oldboard',
@@ -268,11 +269,11 @@ function oldBoardSurfaces(): Island[] {
     depth: 0.32,
     position: s.pos,
     yaw: s.rotY,
-    // drift along the slab's long side: (cos rotY, 0, −sin rotY)
+    // drift along the slab's long side (motion.js slabAt)
     motion: s.drift
       ? (t) => {
-          const o = s.drift * Math.sin((TAU * t) / s.period + s.phase);
-          return { offset: [Math.cos(s.rotY) * o, 0, -Math.sin(s.rotY) * o] };
+          const p = slabAt(L, i, t).pos as number[];
+          return { offset: [p[0] - s.pos[0], p[1] - s.pos[1], p[2] - s.pos[2]] };
         }
       : undefined,
   }));
@@ -302,11 +303,8 @@ function oldBoardSurfaces(): Island[] {
 }
 
 // ---------------------------------------------------------------- lifts (notes.lifts)
-/** Lift height at time t: waits a moment at both ends. */
-export function liftY(l: (typeof L.lifts)[number], t: number) {
-  const k = 0.5 - 0.5 * Math.cos((TAU * t) / l.period);
-  return l.pos[1] + (l.yTop - l.pos[1]) * clamp01(k * 1.25 - 0.125);
-}
+/** Lift height at time t: waits a moment at both ends (motion.js). */
+export const liftY = (l: (typeof L.lifts)[number], t: number): number => liftYOf(l, t);
 function liftSurfaces(): Island[] {
   return L.lifts.map((l) => ({
     id: l.id,
@@ -489,11 +487,6 @@ export const PADS: Pad[] = L.pads.map((p) => ({
   area: zoneAt(v3(p.pos)),
   position: v3(p.pos),
 }));
-// (engineer) layout.json v2 has no pad on the Forge, so a fall in the forge fight would send the
-// player down to the Reset Run's foot. Fallback pad where the run arrives; asked the designer.
-if (!PADS.some((p) => p.area === 'forge'))
-  PADS.push({ id: 'pad-forge', area: 'forge', position: [F.pos[0] + 7, F.pos[1], F.pos[2] + 7] });
-
 /** Touching a pad: within this horizontal radius and |dy| < `PAD_HEIGHT`. */
 export const PAD_RADIUS = PHYSICS.padRadius;
 export const PAD_HEIGHT = 1;
@@ -556,62 +549,27 @@ export const FLOOD_CLOUDS: Cloud[] = L.hazards.clouds.map(cloud);
 export const FORGE_CLOUDS: Cloud[] = L.forgeFight.clouds.map(cloud);
 
 /**
- * A red laser scan line. It lies across `dir` and moves along it, around station `at`, over
- * ±`span` m in `sweep` s, then rests at that end until `period` is over; the next pass runs back.
+ * A red laser station (motion.js `waveStations`): the line lies along `side`, moves along `dir`
+ * over ±`span` m around `at` in `sweep` s, then rests until `period` is over (layout notes.waves).
+ * `kind` 'run' = the Reset Run's, 'lane' = across the forge island from round 2.
  */
 export interface WaveLane {
   id: string;
-  /** Station point (centre of the sweep). */
+  kind: 'run' | 'lane';
   at: V3;
-  /** Unit direction the line moves along (world XZ). */
   dir: V2;
-  /** Height change per metre along `dir` (the bridge's slope). */
+  side: V2;
   slope: number;
-  /** Half the width it covers across `dir` (bridge half-width; the hit adds 0.3 m). */
   half: number;
-  /** Drawn length of the line. */
-  length: number;
   span: number;
   sweep: number;
   period: number;
   offset: number;
 }
-export const RUN_WAVES: WaveLane[] = L.hazards.waves.map((w, i) => {
-  const b = BRIDGES.find((x) => x.id === w.bridge)!;
-  const a = b.points[w.segment];
-  const c = b.points[w.segment + 1];
-  const fx = c[0] - a[0];
-  const fz = c[2] - a[2];
-  const flen = Math.hypot(fx, fz);
-  return {
-    id: `wave-${i}`,
-    at: [a[0] + fx * w.t, a[1] + (c[1] - a[1]) * w.t, a[2] + fz * w.t],
-    dir: [fx / flen, fz / flen],
-    slope: (c[1] - a[1]) / flen,
-    half: b.width / 2,
-    length: b.width + 1,
-    span: w.span ?? 4,
-    sweep: w.sweep ?? 1,
-    period: w.period,
-    offset: w.offset,
-  };
-});
+export const WAVE_STATIONS = waveStations(L) as WaveLane[];
+export const RUN_WAVES = WAVE_STATIONS.filter((w) => w.kind === 'run');
 /** Forge round 2+: the same lines across the whole forge island. */
-export const FORGE_WAVES: WaveLane[] = L.forgeFight.waveLanes.map((w) => {
-  const len = Math.hypot(w.dir[0], w.dir[1]) || 1;
-  return {
-    id: w.id,
-    at: v3(w.centre),
-    dir: [w.dir[0] / len, w.dir[1] / len],
-    slope: 0,
-    half: w.length / 2,
-    length: w.length,
-    span: w.span,
-    sweep: w.sweep,
-    period: w.period,
-    offset: w.offset,
-  };
-});
+export const FORGE_WAVES = WAVE_STATIONS.filter((w) => w.kind === 'lane');
 
 /** Flood bits (§Step 4): home positions; they wake when the player comes near. */
 export const FLOOD_BITS: V3[] = L.hazards.floodBits.map(v3);

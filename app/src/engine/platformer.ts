@@ -62,11 +62,14 @@ export class Surface {
     const pos = new Vector3(...d.position);
     if (m) pos.add(new Vector3(...m.offset));
     pos.y -= this.sink;
+    const yaw = (d.yaw ?? 0) + (m?.yaw ?? 0);
+    // tilt is about the world X and Z axes, as an Object3D's rotation (x = tiltX, y = yaw, z = tiltZ):
+    // the same transform a view gets by setting group.rotation, so what you see is what you stand on
     const q = new Quaternion().setFromEuler(
-      new Euler(d.pitch ?? 0, (d.yaw ?? 0) + (m?.yaw ?? 0), 0, 'YXZ'),
+      this.tiltX || this.tiltZ
+        ? new Euler(this.tiltX, yaw, this.tiltZ)
+        : new Euler(d.pitch ?? 0, yaw, 0, 'YXZ'),
     );
-    if (this.tiltX || this.tiltZ)
-      q.multiply(new Quaternion().setFromEuler(new Euler(this.tiltX, 0, this.tiltZ)));
     this.matrix.compose(pos, q, new Vector3(1, 1, 1));
     this.inv.copy(this.matrix).invert();
   }
@@ -264,11 +267,12 @@ export class PlatformWorld {
         let gx = 0;
         let gz = 0;
         if (body?.ground === s && s.tiltOn) {
-          // lean towards the body: the further from the centre, the more
-          const l = tmp.copy(body.pos).applyMatrix4(s.inv);
+          // lean towards the body: the further from the centre (world offset), the more
           const r = Math.max(1, ...s.def.outline.map(([x, z]) => Math.hypot(x, z)));
-          gx = Math.max(-1, Math.min(1, l.z / r)) * tilt.max;
-          gz = -Math.max(-1, Math.min(1, l.x / r)) * tilt.max;
+          const dx = body.pos.x - s.def.position[0];
+          const dz = body.pos.z - s.def.position[2];
+          gx = Math.max(-1, Math.min(1, dz / r)) * tilt.max;
+          gz = -Math.max(-1, Math.min(1, dx / r)) * tilt.max;
         }
         const k = 1 - Math.exp(-tilt.speed * dt);
         s.tiltX += (gx - s.tiltX) * k;
@@ -394,7 +398,8 @@ export function stepBody(
   for (const s of world.surfaces) {
     if (s.def.solid === false) continue;
     const l = tmp.copy(b.pos).applyMatrix4(s.inv);
-    if (l.y > -P.stepUp || l.y + P.height < -s.def.depth) continue;
+    // (+1 cm: a step of exactly `stepUp` is walkable, not a wall)
+    if (l.y > -P.stepUp - 0.01 || l.y + P.height < -s.def.depth) continue;
     const inside = inPolygon(l.x, l.z, s.def.outline);
     const { p, d } = closestOnEdge(l.x, l.z, s.def.outline);
     if (!inside && d >= P.radius) continue;
@@ -414,7 +419,7 @@ export function stepBody(
 
   // 9. ground: land on tops we came from above, follow slopes and steps down
   const wasGround = b.ground;
-  const reach = Math.max(oldY, b.pos.y) + P.stepUp;
+  const reach = Math.max(oldY, b.pos.y) + P.stepUp + 0.01;
   const hit = world.groundBelow(b.pos.x, b.pos.z, reach);
   const falling = b.vel.y <= 0;
   if (hit && falling && b.pos.y <= hit.y + (wasGround ? P.snapDown : 0.001)) {

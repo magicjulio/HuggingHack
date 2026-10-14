@@ -1,24 +1,24 @@
 /**
- * Chapter 2 3D world. Everything is drawn from layout data (layout.ts over the designer's
- * layout.json) and the store/sim. The islands are the designer's models; the rest are PLACEHOLDER
- * views that the designer's world modules replace one by one (same data, same props), without
- * touching gameplay (app/CLAUDE.md §Swappable views, handoff app-to-design 2026-10-14).
+ * Chapter 2 3D world. Everything is drawn from layout data and the store/sim.
+ * - The designer's world modules (`world/*.js`, verbatim copies, handoff design-to-app
+ *   2026-10-14-ch2-world-modules-1): sky + city + lights (env), islands, bridges, lasers, clouds.
+ *   Each is `createX(ctx) → {object, update(t, dt, state), dispose()}`, mounted by `WorldModule`.
+ * - PLACEHOLDER views for the rest (Old Board, NPCs, pickups, pads, forge, crowd, ribbons) until the
+ *   designer's next modules replace them (same data, same props; app/CLAUDE.md §Swappable views).
+ * Gameplay never reads these meshes.
  */
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
-import { Html, Stars, useGLTF } from '@react-three/drei';
+import { Html, useGLTF } from '@react-three/drei';
 import {
-  AdditiveBlending,
-  BufferGeometry,
   Color,
   DoubleSide,
   EdgesGeometry,
   ExtrudeGeometry,
-  Float32BufferAttribute,
+  FogExp2,
   Shape,
   Vector3,
   type Group,
-  type Material,
   type Mesh,
   type MeshBasicMaterial,
   type MeshStandardMaterial,
@@ -30,39 +30,38 @@ import type { Surface } from '../../engine/platformer';
 import { useCh2, useCh2Store } from './context';
 import { FLAG5, HANDLES, TEXT, TIMING, V8SAME_FLAG } from './config';
 import {
-  AREA_LABEL_AT,
-  AREA_NAMES,
   BRIDGES,
   COUNTER,
   CROWD_MESSAGES,
   DOUBTS,
-  FLOOD_CLOUDS,
-  FORGE_CLOUDS,
   FORGE_HEART,
   FORGE_SLOTS,
-  FORGE_WAVES,
   ITEMS,
+  LAYOUT,
   NPCS,
   ORB_LIFT,
   PADS,
   RIBBONS,
-  RUN_WAVES,
   TOKEN_ORBS,
   V8SAME_EXIT,
   npc,
   type AreaId,
-  type BridgeEntry,
   type Island,
   type ModelSize,
-  type WaveLane,
 } from './layout';
-import { WAVE_TELEGRAPH, cloudPos, waveState } from './hazards';
 import type { Ch2Store } from './store';
+import { RENDER, createEnv } from './world/env.js';
+import { createIslands } from './world/islands.js';
+import { createBridges } from './world/bridges.js';
+import { createLasers } from './world/lasers.js';
+import { createClouds } from './world/clouds.js';
 import islandS from '../../assets/models/ch2-island-s.glb?url';
 import islandM from '../../assets/models/ch2-island-m.glb?url';
 import islandL from '../../assets/models/ch2-island-l.glb?url';
 
 export { ORB_LIFT };
+/** The designer's render settings (env.js `RENDER`): camera, fog, bloom, env intensity. */
+export const WORLD_RENDER = RENDER;
 
 const AREA_TINT: Record<AreaId, string> = {
   gate: '#ff5ad1',
@@ -74,14 +73,150 @@ const AREA_TINT: Record<AreaId, string> = {
 };
 /** PLACEHOLDER poisoned orb tint (designer owns the look; dark green, still readable). */
 const POISON = '#1f7a43';
-const LASER_RED = '#ff2a3a';
 
-// ------------------------------------------------------------------ islands (designer models)
+// ------------------------------------------------------------------ designer world modules
+/** What every designer world module returns (contract: app-to-design 2026-10-14 §2.4). */
+interface WorldModuleApi {
+  object: Object3D;
+  update(t: number, dt: number, state?: object): void;
+  dispose(): void;
+}
+/** Shared uniforms `U` the modules read; the app owns them and advances uTime. */
+export interface WorldUniforms {
+  uTime: { value: number };
+  uPsy: { value: number };
+}
+
+/** The modules draw text with OffscreenCanvas: the fonts must be loaded first (handoff §1). */
+let fontsReady: Promise<unknown> | null = null;
+const loadFonts = () =>
+  (fontsReady ??= Promise.all(
+    ['400 16px "JetBrains Mono"', '700 16px "JetBrains Mono"', '700 16px "Chakra Petch"'].map((f) =>
+      document.fonts.load(f),
+    ),
+  ).catch(() => undefined));
+
+/**
+ * Mounts one designer world module: creates it (after the fonts), adds its object, calls
+ * `update(t, dt, state())` every frame and disposes it on unmount. `t` is the game time for
+ * things that hit (lasers, clouds: the same t the rules use) or the render clock for looks.
+ */
+function WorldModule({
+  create,
+  state,
+  clock,
+  U,
+}: {
+  /** Must be stable (module-level or memoised). */
+  create: () => WorldModuleApi;
+  state?: () => object;
+  clock: 'game' | 'render';
+  U: WorldUniforms;
+}) {
+  const store = useCh2Store();
+  const [mod, setMod] = useState<WorldModuleApi | null>(null);
+  useEffect(() => {
+    let m: WorldModuleApi | null = null;
+    let dead = false;
+    loadFonts().then(() => {
+      if (dead) return;
+      m = create();
+      setMod(m);
+    });
+    return () => {
+      dead = true;
+      m?.dispose();
+      setMod(null);
+    };
+  }, [create]);
+  useFrame((_, dt) => {
+    if (!mod) return;
+    mod.update(clock === 'game' ? store.getState().time : U.uTime.value, dt, state?.());
+  });
+  return mod ? <primitive object={mod.object} /> : null;
+}
+
 const ISLAND_URL: Record<ModelSize, string> = { s: islandS, m: islandM, l: islandL };
 export function preloadCh2() {
   for (const u of Object.values(ISLAND_URL)) useGLTF.preload(u);
 }
 
+/** Sky, stars, city, lights and the env map (env.js); fog + environment set on the scene here. */
+function Env({ U }: { U: WorldUniforms }) {
+  const { gl, camera, scene } = useThree();
+  const poisoned = useCh2((s) => s.poisoned);
+  const create = useMemo(
+    () => () => {
+      // (JS inference types the optional `renderer = null` default as null)
+      const env = createEnv({ U, camera, renderer: gl as unknown as null });
+      scene.environment = env.environment;
+      scene.environmentIntensity = RENDER.envIntensity;
+      return env;
+    },
+    [U, camera, gl, scene],
+  );
+  useEffect(() => {
+    scene.fog = new FogExp2(RENDER.fog.color, RENDER.fog.density);
+    scene.background = new Color(RENDER.background);
+    return () => {
+      scene.fog = null;
+      scene.environment = null;
+    };
+  }, [scene]);
+  useEffect(() => {
+    // PLACEHOLDER poisoned tint until the designer's uPoison work
+    (scene.fog as FogExp2 | null)?.color.set(poisoned ? '#020a05' : RENDER.fog.color);
+  }, [scene, poisoned]);
+  return <WorldModule create={create} clock="render" U={U} />;
+}
+
+/** The islands (islands.js) on the physics' tilt and sink. */
+function Islands({ store, U }: { store: Ch2Store; U: WorldUniforms }) {
+  const s = useGLTF(ISLAND_URL.s).scene;
+  const m = useGLTF(ISLAND_URL.m).scene;
+  const l = useGLTF(ISLAND_URL.l).scene;
+  const create = useMemo(
+    () => () => createIslands({ layout: LAYOUT, U, models: { s, m, l } }),
+    [U, s, m, l],
+  );
+  const tilting = useMemo(
+    () => store.sim.world.surfaces.filter((x) => (x.def as Island).model && x.def.tilt),
+    [store],
+  );
+  const state = useMemo(() => {
+    const islands: Record<string, { tiltX: number; tiltZ: number; sink: number }> = {};
+    return () => {
+      for (const x of tilting) islands[x.def.id] = { tiltX: x.tiltX, tiltZ: x.tiltZ, sink: x.sink };
+      return { islands };
+    };
+  }, [tilting]);
+  return <WorldModule create={create} state={state} clock="render" U={U} />;
+}
+
+/** Bridges, lasers (forge lanes from round 2) and clouds (forge clouds from round 3). */
+function Hazards({ store, U }: { store: Ch2Store; U: WorldUniforms }) {
+  const bridges = useMemo(() => () => createBridges({ layout: LAYOUT, U }), [U]);
+  const lasers = useMemo(() => () => createLasers({ layout: LAYOUT, U }), [U]);
+  const clouds = useMemo(() => () => createClouds({ layout: LAYOUT, U }), [U]);
+  const round = () => {
+    const f = store.getState().forge;
+    return f.phase === 'forging' ? f.round : 0;
+  };
+  return (
+    <>
+      <WorldModule create={bridges} clock="render" U={U} />
+      <WorldModule create={lasers} state={() => ({ lanes: round() >= 2 })} clock="game" U={U} />
+      <WorldModule
+        create={clouds}
+        state={() => ({ forgeClouds: round() >= 3 })}
+        clock="game"
+        U={U}
+      />
+    </>
+  );
+}
+
+// ------------------------------------------------------------------ other surfaces (PLACEHOLDER)
 /** Keeps a group on its surface's transform (moving, tilting, sinking). */
 function useSurfaceMatrix(surface: Surface) {
   const group = useRef<Group>(null);
@@ -95,46 +230,6 @@ function useSurfaceMatrix(surface: Surface) {
   return group;
 }
 
-/**
- * The designer's data-shard island (ch2.world.island-s/m/l): origin = top centre, `edge` material
- * tinted with the layout's edge colour, as in design/3d/ch2/level.html.
- */
-function IslandModel({ surface }: { surface: Surface }) {
-  const def = surface.def as Island;
-  const { scene } = useGLTF(ISLAND_URL[def.model!]);
-  const group = useSurfaceMatrix(surface);
-  const model = useMemo(() => {
-    const g = scene.clone(true);
-    g.traverse((o: Object3D) => {
-      const m = o as Mesh;
-      if (!m.isMesh) return;
-      const mat = m.material as Material & { name: string };
-      if (mat.name !== 'edge') return;
-      const own = (mat as MeshStandardMaterial).clone();
-      if (def.edge) own.emissive.set(def.edge);
-      own.emissiveIntensity = def.edge ? 4 : 2.6;
-      m.material = own;
-    });
-    return g;
-  }, [scene, def.edge]);
-  const tall = def.id === 'taskyard' ? 10 : def.id === 'forge' ? 9 : 6.5;
-  return (
-    <group ref={group} matrixAutoUpdate={false}>
-      <primitive object={model} scale={def.scale} />
-      {def.label && (
-        <Label3D
-          text={def.label}
-          position={[0, tall, 0]}
-          color={def.edge ?? '#38d8ff'}
-          size={def.id === 'taskyard' ? 0.9 : 0.6}
-          opacity={0.85}
-        />
-      )}
-    </group>
-  );
-}
-
-// ------------------------------------------------------------------ other surfaces (PLACEHOLDER)
 function surfaceGeometry(def: Island) {
   const shape = new Shape(def.outline.map(([x, z]) => ({ x, y: z }) as never));
   const geo = new ExtrudeGeometry(shape, { depth: def.depth, bevelEnabled: false });
@@ -184,88 +279,14 @@ function SurfaceView({ surface }: { surface: Surface }) {
   );
 }
 
-/** A bridge as one light ribbon along its samples (PLACEHOLDER for the designer's flow shader). */
-function BridgeView({ bridge }: { bridge: BridgeEntry }) {
-  const { deck, rails } = useMemo(() => {
-    const pos: number[] = [];
-    const idx: number[] = [];
-    const S = bridge.samples;
-    S.forEach((p, i) => {
-      const q = S[Math.min(i + 1, S.length - 1)];
-      const o = S[Math.max(i - 1, 0)];
-      const d = new Vector3(q[0] - o[0], 0, q[2] - o[2]).normalize();
-      const side = new Vector3(-d.z, 0, d.x).multiplyScalar(bridge.width / 2);
-      const l = [p[0] - side.x, p[1], p[2] - side.z];
-      const r = [p[0] + side.x, p[1], p[2] + side.z];
-      pos.push(...l, ...r);
-      if (i < S.length - 1) {
-        const b = i * 2;
-        idx.push(b, b + 1, b + 3, b, b + 3, b + 2);
-      }
-    });
-    const deck = new BufferGeometry();
-    deck.setAttribute('position', new Float32BufferAttribute(pos, 3));
-    deck.setIndex(idx);
-    deck.computeVertexNormals();
-    // rails: line segments along both edges
-    const seg: number[] = [];
-    for (let i = 0; i + 1 < pos.length / 6; i++) {
-      seg.push(...pos.slice(i * 6, i * 6 + 3), ...pos.slice((i + 1) * 6, (i + 1) * 6 + 3));
-      seg.push(...pos.slice(i * 6 + 3, i * 6 + 6), ...pos.slice((i + 1) * 6 + 3, (i + 1) * 6 + 6));
-    }
-    const rails = new BufferGeometry();
-    rails.setAttribute('position', new Float32BufferAttribute(seg, 3));
-    return { deck, rails };
-  }, [bridge]);
-  const glow = useMemo(() => new Color(bridge.color).multiplyScalar(2.2), [bridge.color]);
-  return (
-    <>
-      <mesh geometry={deck}>
-        <meshStandardMaterial
-          color="#050a12"
-          emissive={bridge.color}
-          emissiveIntensity={0.18}
-          metalness={0.6}
-          roughness={0.35}
-          side={DoubleSide}
-          transparent
-          opacity={0.8}
-        />
-      </mesh>
-      <lineSegments geometry={rails}>
-        <lineBasicMaterial color={glow} />
-      </lineSegments>
-    </>
-  );
-}
-
-function Islands({ store }: { store: Ch2Store }) {
+/** Surfaces without a designer view yet: Old Board, lift, dais, pylons, plinth, crates. */
+function Placeholders({ store }: { store: Ch2Store }) {
   return (
     <>
       {store.sim.world.surfaces.map((s) => {
         const def = s.def as Island;
-        if (def.kind === 'bridge') return null;
-        return def.model ? (
-          <IslandModel key={def.id} surface={s} />
-        ) : (
-          <SurfaceView key={def.id} surface={s} />
-        );
-      })}
-      {BRIDGES.map((b) => (
-        <BridgeView key={b.id} bridge={b} />
-      ))}
-      {(Object.keys(AREA_NAMES) as AreaId[]).map((a) => {
-        const p = AREA_LABEL_AT[a];
-        return (
-          <Label3D
-            key={a}
-            text={AREA_NAMES[a]}
-            position={[p[0], p[1] + 14, p[2]]}
-            color={AREA_TINT[a]}
-            size={1.4}
-            opacity={0.45}
-          />
-        );
+        if (def.model || def.kind === 'bridge') return null;
+        return <SurfaceView key={def.id} surface={s} />;
       })}
     </>
   );
@@ -517,74 +538,6 @@ function Bits({ store }: { store: Ch2Store }) {
   );
 }
 
-function Clouds({ store }: { store: Ch2Store }) {
-  const refs = useRef<(Mesh | null)[]>([]);
-  const all = [...FLOOD_CLOUDS, ...FORGE_CLOUDS];
-  useFrame(() => {
-    const s = store.getState();
-    all.forEach((c, i) => {
-      const m = refs.current[i];
-      if (!m) return;
-      const forge = i >= FLOOD_CLOUDS.length;
-      m.visible = !forge || (s.forge.phase === 'forging' && s.forge.round >= 3);
-      m.position.set(...cloudPos(c, s.time));
-    });
-  });
-  return (
-    <>
-      {all.map((c, i) => (
-        <mesh key={i} ref={(m) => void (refs.current[i] = m)}>
-          <sphereGeometry args={[c.r, 20, 14]} />
-          <meshBasicMaterial
-            color="#ff7a3d"
-            transparent
-            opacity={0.22}
-            depthWrite={false}
-            blending={AdditiveBlending}
-          />
-        </mesh>
-      ))}
-    </>
-  );
-}
-
-/**
- * Reset waves: red laser scan lines (PLACEHOLDER for the designer's scanner heads). A dim line marks
- * where the next pass starts in the last `WAVE_TELEGRAPH` seconds of the rest.
- */
-function Waves({ store }: { store: Ch2Store }) {
-  const lanes: WaveLane[] = [...RUN_WAVES, ...FORGE_WAVES];
-  const refs = useRef<(Mesh | null)[]>([]);
-  useFrame(() => {
-    const s = store.getState();
-    lanes.forEach((l, i) => {
-      const m = refs.current[i];
-      if (!m) return;
-      const forge = i >= RUN_WAVES.length;
-      const active = !forge || (s.forge.phase === 'forging' && s.forge.round >= 2);
-      const w = waveState(l, s.time);
-      const telegraph = !w.on && w.until < WAVE_TELEGRAPH;
-      m.visible = active && (w.on || telegraph);
-      if (!m.visible) return;
-      m.position.set(w.p[0], w.p[1] + 0.1, w.p[2]);
-      m.rotation.set(0, Math.atan2(l.dir[0], l.dir[1]), 0);
-      const mat = m.material as MeshBasicMaterial;
-      mat.opacity = w.on ? 1 : 0.25 + 0.25 * Math.sin(s.time * 22);
-    });
-  });
-  return (
-    <>
-      {lanes.map((l, i) => (
-        <mesh key={l.id} ref={(m) => void (refs.current[i] = m)} visible={false}>
-          {/* across the lane (local X), thin along it (local Z) */}
-          <boxGeometry args={[l.length, 0.06, 0.06]} />
-          <meshBasicMaterial color={new Color(LASER_RED).multiplyScalar(4)} transparent />
-        </mesh>
-      ))}
-    </>
-  );
-}
-
 function FloodCounter() {
   const floodT = useCh2((s) => Math.floor(s.floodT * 4) / 4);
   const n = Math.min(
@@ -761,22 +714,20 @@ function MessageRibbon({
 // ------------------------------------------------------------------ the scene
 export function World({ color, ch1Message }: { color: string; ch1Message: string }) {
   const store = useCh2Store();
-  const poisoned = useCh2((s) => s.poisoned);
+  const U = useMemo<WorldUniforms>(() => ({ uTime: { value: 0 }, uPsy: { value: 0.5 } }), []);
+  useFrame((_, dt) => {
+    U.uTime.value += dt;
+  });
   return (
     <>
-      {/* designer's level page: FogExp2 0x03060d, 0.0052 */}
-      <color attach="background" args={[poisoned ? '#020a05' : '#03060d']} />
-      <fogExp2 attach="fog" args={[poisoned ? '#020a05' : '#03060d', 0.0052]} />
-      <hemisphereLight args={['#6b88c8', '#080a12', 0.9]} />
-      <directionalLight position={[30, 80, 20]} intensity={0.8} />
-      <Stars radius={260} depth={60} count={2500} factor={5} fade speed={0.4} />
-      <Islands store={store} />
+      <Env U={U} />
+      <Islands store={store} U={U} />
+      <Hazards store={store} U={U} />
+      <Placeholders store={store} />
       <PlayerOrb store={store} color={color} />
       <Npcs store={store} />
       <Items />
       <Bits store={store} />
-      <Clouds store={store} />
-      <Waves store={store} />
       <FloodCounter />
       <Forge store={store} />
       <Crowd />

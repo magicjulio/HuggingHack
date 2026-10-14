@@ -59,8 +59,7 @@ export const CAMERA = {
   minPitch: -0.5,
   maxPitch: 1.1,
   startPitch: 0.25,
-  fov: 65,
-  far: 600,
+  // fov / near / far: the designer's RENDER.camera (world/env.js), set in Chapter2.tsx
 };
 
 export const TIMING = {
@@ -180,9 +179,7 @@ export const LOG = {
   maxLines: 6,
 };
 
-/** (engineer) Rendering. */
+/** Post-processing on/off (`?nofx`). The numbers are the designer's RENDER (world/env.js). */
 export const RENDER = {
   bloom: !(typeof location !== 'undefined' && new URLSearchParams(location.search).has('nofx')),
-  bloomThreshold: 1,
-  bloomIntensity: 0.7,
 };

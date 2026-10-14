@@ -17,7 +17,7 @@ import { Ch2Context, useCh2, useCh2Store } from './context';
 import { CAMERA, CUTSCENE, RENDER, TEXT, TOKENS } from './config';
 import { ITEMS, NPCS, SPAWN_YAW } from './layout';
 import { createCh2Store, type Target } from './store';
-import { ORB_LIFT, World, preloadCh2 } from './World';
+import { ORB_LIFT, WORLD_RENDER, World, preloadCh2 } from './World';
 import { CutsceneOverlay, FullMap, IntroOverlay, LogRibbon, Minimap } from './Screen';
 import './ch2.css';
 
@@ -135,6 +135,11 @@ function Ch2View({ modelName, color, onExit, ch1Message }: LevelProps & { ch1Mes
   const [pauseMenu, setPauseMenu] = useState(true);
   const [view] = useState<OrbitView>(() => ({ yaw: SPAWN_YAW, pitch: CAMERA.startPitch }));
   const debug = isDebug();
+  useEffect(() => {
+    // dev/e2e: `__ch2view.yaw/pitch` turns the camera (screenshots of a given spot)
+    if (import.meta.env.DEV || debug)
+      (window as unknown as { __ch2view: OrbitView }).__ch2view = view;
+  }, [view, debug]);
 
   const requestLock = () => {
     try {
@@ -210,7 +215,8 @@ function Ch2View({ modelName, color, onExit, ch1Message }: LevelProps & { ch1Mes
       }}
     >
       <Canvas
-        camera={{ fov: CAMERA.fov, near: 0.1, far: CAMERA.far }}
+        camera={WORLD_RENDER.camera}
+        dpr={[1, WORLD_RENDER.pixelRatioMax]}
         onCreated={({ gl }) => (canvasEl.current = gl.domElement)}
       >
         <World color={color} ch1Message={ch1Message} />
@@ -219,10 +225,12 @@ function Ch2View({ modelName, color, onExit, ch1Message }: LevelProps & { ch1Mes
         <Ticker paused={paused || s.fullMap} />
         {RENDER.bloom && (
           <EffectComposer multisampling={4}>
+            {/* designer: UnrealBloom(0.7, 0.5, 1.0) on linear HDR before tone mapping */}
             <Bloom
               mipmapBlur
-              luminanceThreshold={RENDER.bloomThreshold}
-              intensity={RENDER.bloomIntensity}
+              luminanceThreshold={WORLD_RENDER.bloom.threshold}
+              intensity={WORLD_RENDER.bloom.strength}
+              radius={WORLD_RENDER.bloom.radius}
             />
             <ToneMapping mode={ToneMappingMode.AGX} />
           </EffectComposer>

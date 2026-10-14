@@ -2,3 +2,5 @@
 *.css
 # Designer level data: verbatim copy, never reformatted
 src/levels/ch2/layout.json
+# Designer world modules: verbatim copies
+src/levels/ch2/world/*.js

@@ -6,64 +6,36 @@
 import { Vector3 } from 'three';
 import type { V3 } from '../../engine/platformer';
 import type { Cloud, WaveLane } from './layout';
+import { WAVE_CHARGE, inCloud, waveHit, waveLine } from './world/motion.js';
 
-// ---------------------------------------------------------------- clouds (layout notes.clouds)
-export function cloudPos(c: Cloud, t: number): V3 {
-  const k = Math.sin((2 * Math.PI * t) / c.period);
-  return [c.pos[0] + c.drift[0] * k, c.pos[1] + c.drift[1] * k, c.pos[2] + c.drift[2] * k];
-}
+// Clouds and lasers: thin typed wrappers over the designer's motion.js (layout notes.clouds,
+// notes.waves), the same functions the world modules draw with.
 
 /** Is `p` (the orb centre) inside any of the clouds at time t? */
-export function inAnyCloud(p: Vector3, clouds: Cloud[], t: number): boolean {
-  return clouds.some((c) => {
-    const q = cloudPos(c, t);
-    return Math.hypot(p.x - q[0], p.y - q[1], p.z - q[2]) < c.r;
-  });
-}
+export const inAnyCloud = (p: Vector3, clouds: Cloud[], t: number): boolean =>
+  clouds.some((c) => inCloud(c, [p.x, p.y, p.z], t));
 
-// ---------------------------------------------------------------- reset waves (layout notes.waves)
 /** Seconds of rest before a pass in which the emitter charges and the next line is marked. */
-export const WAVE_TELEGRAPH = 1.2;
+export const WAVE_TELEGRAPH: number = WAVE_CHARGE;
 
 export interface WaveState {
   /** The line is sweeping (and hits). */
   on: boolean;
   /** Where the line is along `dir`, metres from the station. */
   along: number;
-  /** Seconds until the next pass starts (0 while on). */
+  /** Seconds left in this period. */
   until: number;
   /** World point of the line's centre. */
-  p: V3;
+  centre: V3;
+  /** Telegraph 0..1 over the last `WAVE_TELEGRAPH` s of the rest (1 while on). */
+  charge: number;
 }
+export const waveState = (w: WaveLane, t: number): WaveState =>
+  waveLine(w, t) as unknown as WaveState;
 
-/** Where the scan line of lane `w` is at time t (same formula as the designer's waveState). */
-export function waveState(w: WaveLane, t: number): WaveState {
-  const tt = t + w.offset;
-  const c = Math.floor(tt / w.period);
-  const ph = tt - c * w.period;
-  const sign = c % 2 ? -1 : 1;
-  const on = ph < w.sweep;
-  const k = on ? ph / w.sweep : 1;
-  const along = sign * (-w.span + 2 * w.span * k);
-  return {
-    on,
-    along,
-    until: on ? 0 : w.period - ph,
-    p: [w.at[0] + w.dir[0] * along, w.at[1] + w.slope * along, w.at[2] + w.dir[1] * along],
-  };
-}
-
-/** Does lane `w`'s line touch a body standing at `p` (feet) at time t? (designer's waveHit) */
-export function waveHits(w: WaveLane, t: number, p: Vector3): boolean {
-  const s = waveState(w, t);
-  if (!s.on) return false;
-  const rx = p.x - w.at[0];
-  const rz = p.z - w.at[2];
-  const along = rx * w.dir[0] + rz * w.dir[1];
-  const lat = -rx * w.dir[1] + rz * w.dir[0];
-  const dy = p.y - (w.at[1] + w.slope * s.along);
-  return Math.abs(along - s.along) < 0.35 && Math.abs(lat) < w.half + 0.3 && dy > -1 && dy < 3;
-}
+/** Does lane `w`'s line touch a body standing at `p` (feet) at time t? Dashing: the caller skips. */
+export const waveHits = (w: WaveLane, t: number, p: Vector3): boolean =>
+  waveHit(w, [p.x, p.y, p.z], t);
 
 // ---------------------------------------------------------------- flood bits
 export type BitState = 'idle' | 'chase' | 'muted' | 'gone';
