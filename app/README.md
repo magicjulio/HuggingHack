@@ -17,6 +17,7 @@ Handy URL flags (combine with `&`):
 | `/?skipboot` | skip the start screen's boot intro |
 | `/?debug` | debug panel in game: jump to any step, change tokens; no pause without mouse lock |
 | `/?nofx` | no bloom / post-processing (weak GPUs, headless tests) |
+| `/?quality=high` / `mid` / `low` | Chapter 2: fix render quality; otherwise it adapts to frame rate. Low uses 75% resolution without MSAA. |
 
 ## Controls
 **Start screen:** W/S or ↑/↓ chapter · A/D or ←/→ model · Enter start.
@@ -47,6 +48,8 @@ Handy URL flags (combine with `&`):
 | Enter | skip the ending cutscene (only on a replay) |
 
 The Ch1 end card's **CONTINUE** goes straight into Chapter 2. Chapter 2's level is the designer's `src/levels/ch2/layout.json`.
+
+Chapter 2 now uses the accepted HUD/map and Step 7 poisoning film, including the forge and player-orb modules. The approved animated NPCs, 70–90-agent crowd, Reset Run runners and Flood message trails are integrated. Old Board, pickups, pads and several other visuals still await designer exports. See [the external engineer's work record](EXTERNAL-ENGINEER.md).
 
 ## Other commands
 | Command | What it does |

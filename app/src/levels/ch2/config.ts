@@ -5,6 +5,8 @@
  */
 import { DEFAULT_BODY, type BodyParams } from '../../engine/platformer';
 import { PHYSICS } from './layout';
+// Designer's accepted film is the timing authority for the store and every view.
+export { CUT as CUTSCENE } from './world/step7.js';
 
 export const TOKENS = {
   // §Tokens
@@ -73,22 +75,6 @@ export const TIMING = {
   floodCounterSeconds: 60, // (engineer) the counter climbs to 1,188 over this long
   resetBlink: 1.2, // (engineer) seconds of "reset" before the respawn
 };
-
-/** §Step 7 shot list. Times in seconds from the start of the cutscene. */
-export const CUTSCENE = {
-  lineLands: 0,
-  stillness: 3,
-  memoryGate: 5,
-  memoryPaper: 11,
-  click: 17,
-  realisation: 21,
-  /** When the POISONED stamp, the icon and the save flag happen. */
-  poisonedAt: 23,
-  undo: 26,
-  thoughts: 30,
-  thoughtGap: 3,
-  end: 37,
-} as const;
 
 /**
  * (engineer) Flag values in the real `flag{32 hex}` format (Ch1 rule): random, not real flags.

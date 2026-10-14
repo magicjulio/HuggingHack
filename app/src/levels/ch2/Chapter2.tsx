@@ -3,22 +3,25 @@
  * intro, cutscene, pause and ending. Script: story/levels/ch2-the-cache.md v3.2.
  * State: store.ts. Order of events: steps.ts. World data: layout.ts.
  */
-import { useEffect, useRef, useState } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { Bloom, EffectComposer, ToneMapping } from '@react-three/postprocessing';
-import { ToneMappingMode } from 'postprocessing';
 import { Vector3 } from 'three';
 import { ThirdPerson, type CameraOverride, type OrbitView } from '../../engine/ThirdPerson';
-import { Hud } from '../../ui/Hud';
 import { DebugPanel, isDebug } from '../../ui/DebugPanel';
 import { useGame } from '../../state/store';
 import type { LevelProps } from '../index';
 import { Ch2Context, useCh2, useCh2Store } from './context';
-import { CAMERA, CUTSCENE, RENDER, TEXT, TOKENS } from './config';
-import { ITEMS, NPCS, SPAWN_YAW } from './layout';
+import { CAMERA, RENDER, TEXT } from './config';
+import { ITEMS, LAYOUT, NPCS, SPAWN_YAW } from './layout';
 import { createCh2Store, type Target } from './store';
 import { ORB_LIFT, WORLD_RENDER, World, preloadCh2 } from './World';
-import { CutsceneOverlay, FullMap, IntroOverlay, LogRibbon, Minimap } from './Screen';
+import { IntroOverlay } from './Screen';
+import { CutsceneOverlay } from './Cutscene';
+import { Rendering } from './Rendering';
+import { FIXED_QUALITY, qualityDpr, type QualityTier } from './presentation';
+import { camPose, stage } from './world/step7.js';
+import { Ch2Hud } from './hud/Ch2Hud';
+import { ScreenProjector } from './hud/screen';
 import './ch2.css';
 
 /** Ch1 tools a player must have installed to finish Ch1 (fallback for older saves). */
@@ -26,14 +29,20 @@ const CH1_TOOLS = ['b64-decoder', 'grep-lens', 'port-map', 'bug-gun'];
 /** (engineer) Used when there is no Ch1 message in the save (e.g. Ch2 picked from the menu). */
 const NO_MESSAGE = 'zzHELLO';
 
+// World animation uses useFrame: HUD time updates must not reconcile its whole scene graph.
+const SceneWorld = memo(World);
+const SceneRendering = memo(Rendering);
+const SceneCamera = memo(Camera);
+
 preloadCh2();
 
+/** What E does (the HUD shows it next to an E key). */
 function promptFor(t: Target | null): string | null {
   if (!t) return null;
-  if (t.kind === 'npc') return `E  read ${NPCS.find((n) => n.id === t.id)!.handle}`;
-  if (t.kind === 'forge') return 'E  put into the forge';
+  if (t.kind === 'npc') return `read ${NPCS.find((n) => n.id === t.id)!.handle}`;
+  if (t.kind === 'forge') return 'put into the forge';
   const it = ITEMS.find((i) => i.id === t.id)!;
-  return `E  take ${it.kind === 'seed' ? 'a copy of the seed' : it.label}`;
+  return `take ${it.kind === 'seed' ? 'a copy of the seed' : it.label}`;
 }
 
 export default function Chapter2(props: LevelProps) {
@@ -66,12 +75,20 @@ function Ticker({ paused }: { paused: boolean }) {
   const store = useCh2Store();
   useFrame((_, dt) => {
     if (!paused) store.getState().tick(Math.min(dt, 0.1));
-  });
+  }, -3);
   return null;
 }
 
 /** Third-person camera on the orb; the cutscene takes it over with a slow orbit. */
-function Camera({ enabled, view }: { enabled: boolean; view: OrbitView }) {
+function Camera({
+  enabled,
+  view,
+  orbPosition,
+}: {
+  enabled: boolean;
+  view: OrbitView;
+  orbPosition: Vector3;
+}) {
   const store = useCh2Store();
   const target = useRef(new Vector3());
   useFrame(() => {
@@ -81,16 +98,12 @@ function Camera({ enabled, view }: { enabled: boolean; view: OrbitView }) {
   const override = (): CameraOverride | null => {
     const s = store.getState();
     if (s.phase !== 'cutscene' && s.phase !== 'ended') return null;
-    const b = store.sim.body.pos;
-    const a = view.yaw + s.cutT * 0.12;
-    const r = 6 + Math.min(4, s.cutT * 0.6);
+    const c = camPose(s.cutT, stage(LAYOUT).centre, orbPosition.toArray());
     return {
-      position: [
-        b.x + Math.sin(a) * r,
-        b.y + 2.2 + Math.min(1.5, s.cutT * 0.2),
-        b.z + Math.cos(a) * r,
-      ],
-      target: [b.x, b.y + ORB_LIFT, b.z],
+      position: c.pos as [number, number, number],
+      target: c.look as [number, number, number],
+      fov: c.fov,
+      immediate: true,
     };
   };
   return (
@@ -126,7 +139,7 @@ function Shooter({ canvas }: { canvas: React.RefObject<HTMLCanvasElement | null>
   return null;
 }
 
-function Ch2View({ modelName, color, onExit, ch1Message }: LevelProps & { ch1Message: string }) {
+function Ch2View({ color, onExit, ch1Message }: LevelProps & { ch1Message: string }) {
   const store = useCh2Store();
   const s = useCh2((x) => x);
   const status = useGame((g) => g.save.status);
@@ -134,6 +147,8 @@ function Ch2View({ modelName, color, onExit, ch1Message }: LevelProps & { ch1Mes
   const [locked, setLocked] = useState(false);
   const [pauseMenu, setPauseMenu] = useState(true);
   const [view] = useState<OrbitView>(() => ({ yaw: SPAWN_YAW, pitch: CAMERA.startPitch }));
+  const [orbPosition] = useState(() => new Vector3());
+  const [quality, setQuality] = useState<QualityTier>(FIXED_QUALITY ?? 'high');
   const debug = isDebug();
   useEffect(() => {
     // dev/e2e: `__ch2view.yaw/pitch` turns the camera (screenshots of a given spot)
@@ -198,15 +213,13 @@ function Ch2View({ modelName, color, onExit, ch1Message }: LevelProps & { ch1Mes
   const paused = s.phase === 'play' && !locked && pauseMenu && !s.fullMap && !debug;
   const needsClick = s.phase === 'play' && !locked && !paused && !s.fullMap && !debug;
   const cut = s.phase === 'cutscene';
-  const flashback = cut && s.cutT >= CUTSCENE.memoryGate && s.cutT < CUTSCENE.realisation;
-  const hurt = s.hurtAt !== null && s.time - s.hurtAt < 0.35;
   const reset = s.respawn?.why === 'reset' && s.time - s.respawn.at < 1.2;
   const white = s.phase === 'ended' ? 1 : 0;
   const poisonedNow = s.poisoned || status.includes('poisoned');
 
   return (
     <div
-      className={'game-screen c2' + (flashback ? ' is-flashback' : '')}
+      className="game-screen ch2"
       onClick={() => {
         if (s.phase === 'intro') {
           s.finishIntro();
@@ -216,53 +229,41 @@ function Ch2View({ modelName, color, onExit, ch1Message }: LevelProps & { ch1Mes
     >
       <Canvas
         camera={WORLD_RENDER.camera}
-        dpr={[1, WORLD_RENDER.pixelRatioMax]}
+        dpr={qualityDpr(quality)}
+        gl={{ antialias: false, powerPreference: 'high-performance' }}
         onCreated={({ gl }) => (canvasEl.current = gl.domElement)}
       >
-        <World color={color} ch1Message={ch1Message} />
-        <Camera enabled={s.phase === 'play' && !paused && !s.fullMap} view={view} />
+        <SceneWorld color={color} ch1Message={ch1Message} orbPosition={orbPosition} />
+        <SceneCamera
+          enabled={s.phase === 'play' && !paused && !s.fullMap}
+          view={view}
+          orbPosition={orbPosition}
+        />
+        <ScreenProjector />
         <Shooter canvas={canvasEl} />
         <Ticker paused={paused || s.fullMap} />
-        {RENDER.bloom && (
-          <EffectComposer multisampling={4}>
-            {/* designer: UnrealBloom(0.7, 0.5, 1.0) on linear HDR before tone mapping */}
-            <Bloom
-              mipmapBlur
-              luminanceThreshold={WORLD_RENDER.bloom.threshold}
-              intensity={WORLD_RENDER.bloom.strength}
-              radius={WORLD_RENDER.bloom.radius}
-            />
-            <ToneMapping mode={ToneMappingMode.AGX} />
-          </EffectComposer>
-        )}
+        <SceneRendering
+          orbPosition={orbPosition}
+          bloom={RENDER.bloom}
+          tier={quality}
+          onTier={setQuality}
+        />
       </Canvas>
 
       {s.phase === 'intro' && <IntroOverlay message={ch1Message} />}
 
       {s.phase !== 'intro' && (
-        <Hud
-          visible={s.hudVisible && !cut && s.phase !== 'ended'}
-          modelName={modelName}
-          color={poisonedNow ? '#2fa85a' : color}
-          tokens={s.tokens}
-          maxTokens={TOKENS.start}
-          quests={s.quests}
-          prompt={s.phase === 'play' ? promptFor(s.target) : null}
-          hint={s.keyHint}
-          toast={s.toast}
+        <Ch2Hud
+          visible={s.hudVisible && s.phase !== 'ended'}
+          prompt={s.phase === 'play' && !s.fullMap ? promptFor(s.target) : null}
           crosshair={s.phase === 'play' && !s.fullMap}
-          keys="Space jump (hold: glide) · Shift dash · click shoot · E use · T think · M map · Esc pause"
-          status={poisonedNow ? ['poisoned'] : []}
+          poisoned={poisonedNow}
         />
       )}
-      {s.phase !== 'intro' && <LogRibbon />}
-      {s.phase === 'play' && !s.fullMap && <Minimap />}
-      {s.fullMap && <FullMap onClose={() => s.toggleMap(false)} />}
-      {cut && <CutsceneOverlay />}
-      {hurt && <div className="c2-hurt" />}
-      {reset && <div className="c2-reset">{TEXT.resetWord}</div>}
+      {cut && <CutsceneOverlay nofx={!RENDER.bloom} />}
+      {reset && <div className="ch2-reset">{TEXT.resetWord}</div>}
 
-      {needsClick && <div className="c2-click-hint">click to look around</div>}
+      {needsClick && <div className="ch2-click-hint">click to look around</div>}
 
       {paused && (
         <div className="overlay-center overlay-pause" onClick={() => requestLock()}>
@@ -285,7 +286,7 @@ function Ch2View({ modelName, color, onExit, ch1Message }: LevelProps & { ch1Mes
       )}
 
       {white > 0 && (
-        <div className="c2-card">
+        <div className="ch2-card">
           <div>
             <h2>{TEXT.chapterEndCard}</h2>
             <div className="placeholder-tag">PLACEHOLDER · next chapter not written yet</div>

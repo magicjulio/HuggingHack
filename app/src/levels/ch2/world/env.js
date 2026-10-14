@@ -24,13 +24,11 @@ export const GRID_Y = -130;
 
 export function createEnv({ U, camera, renderer = null }) {
   const object = new THREE.Group(); object.name = 'env';
-  // sky: a slow nebula, its hue drifting with uPsy
-  object.add(new THREE.Mesh(new THREE.SphereGeometry(1500, 48, 24), new THREE.ShaderMaterial({
-    uniforms: U, side: THREE.BackSide, depthWrite: false, fog: false,
-    vertexShader: `varying vec3 vDir; void main(){ vDir = position; gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.); }`,
-    fragmentShader: NOISE + `varying vec3 vDir; uniform float uTime, uPsy;
-    void main(){
-      vec3 d = normalize(vDir);
+  // sky: a slow nebula, its hue drifting with uPsy. The noise is expensive per pixel (two 5-octave fbm), and it barely moves,
+  // so with a renderer it is baked into a 1024 x 512 equirect texture, re-baked every SKY_REBAKE s (~4 ms -> ~0.1 ms a frame
+  // on an integrated GPU at 1080p). Without a renderer it runs live.
+  const SKY_FN = NOISE + `uniform float uTime, uPsy;
+    vec3 sky(vec3 d){
       vec3 col = mix(vec3(.002,.004,.010), vec3(.006,.010,.024), smoothstep(-.7,.6,d.y));
       float band = exp(-pow((d.y - .08 + .35*d.x)*2.6, 2.));
       float n  = fbm(d*2.4 + vec3(0., uTime*.006, 0.));
@@ -38,9 +36,34 @@ export function createEnv({ U, camera, renderer = null }) {
       vec3 c1 = vec3(.010,.060,.110), c2 = vec3(.070,.020,.130);
       float h = uPsy * (.6*sin(uTime*.05) + .4);
       c1 = hue(c1, h*1.2); c2 = hue(c2, -h*.9);
-      col += .6*(c1*smoothstep(.42,.85,n)*(.35+band) + c2*smoothstep(.5,.92,n2)*(.25+.8*band));
-      gl_FragColor = vec4(col, 1.);
-    }`,
+      return col + .6*(c1*smoothstep(.42,.85,n)*(.35+band) + c2*smoothstep(.5,.92,n2)*(.25+.8*band));
+    }`;
+  let skyRT = null, bake = null;
+  if (renderer) {
+    skyRT = new THREE.WebGLRenderTarget(1024, 512, { type: THREE.HalfFloatType, magFilter: THREE.LinearFilter, minFilter: THREE.LinearFilter, depthBuffer: false });
+    const q = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.ShaderMaterial({
+      uniforms: U, depthTest: false, depthWrite: false,
+      vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0., 1.); }`,
+      fragmentShader: SKY_FN + `varying vec2 vUv;
+        void main(){ float lon = (vUv.x - .5) * 6.2831853, lat = (vUv.y - .5) * 3.1415927;
+          vec3 d = vec3(cos(lat)*sin(lon), sin(lat), cos(lat)*cos(lon)); gl_FragColor = vec4(sky(d), 1.); }`,
+    }));
+    const bs = new THREE.Scene(); bs.add(q); const bc = new THREE.Camera();
+    bake = () => { const prev = renderer.getRenderTarget(); renderer.setRenderTarget(skyRT); renderer.render(bs, bc); renderer.setRenderTarget(prev); };
+    bake();
+    object.userData.skyBake = { q, bs };
+  }
+  const SKY_REBAKE = .25;
+  object.add(new THREE.Mesh(new THREE.SphereGeometry(1500, 48, 24), renderer ? new THREE.ShaderMaterial({
+    uniforms: { uSky: { value: skyRT.texture } }, side: THREE.BackSide, depthWrite: false, fog: false,
+    vertexShader: `varying vec3 vDir; void main(){ vDir = position; gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.); }`,
+    fragmentShader: `varying vec3 vDir; uniform sampler2D uSky;
+      void main(){ vec3 d = normalize(vDir); vec2 uv = vec2(atan(d.x, d.z) / 6.2831853 + .5, asin(clamp(d.y, -1., 1.)) / 3.1415927 + .5);
+        gl_FragColor = vec4(texture2D(uSky, uv).rgb, 1.); }`,
+  }) : new THREE.ShaderMaterial({
+    uniforms: U, side: THREE.BackSide, depthWrite: false, fog: false,
+    vertexShader: `varying vec3 vDir; void main(){ vDir = position; gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.); }`,
+    fragmentShader: SKY_FN + `varying vec3 vDir; void main(){ gl_FragColor = vec4(sky(normalize(vDir)), 1.); }`,
   })));
   // stars
   {
@@ -110,9 +133,11 @@ export function createEnv({ U, camera, renderer = null }) {
     const pm = new THREE.PMREMGenerator(renderer);
     environment = pm.fromScene(env, 0.02).texture; pm.dispose(); disposeTree(env);
   }
+  let lastBake = -1e9;
   return {
     object, city, environment,
-    update() {},  // everything moves on U.uTime
-    dispose() { disposeTree(object); environment?.dispose(); },
+    // everything moves on U.uTime; the baked sky catches up every SKY_REBAKE s
+    update(t) { if (bake && Math.abs(U.uTime.value - lastBake) >= SKY_REBAKE) { lastBake = U.uTime.value; bake(); } },
+    dispose() { disposeTree(object); environment?.dispose(); skyRT?.dispose(); if (object.userData.skyBake) disposeTree(object.userData.skyBake.bs); },
   };
 }

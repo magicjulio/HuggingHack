@@ -1,9 +1,10 @@
 /**
  * Chapter 2 3D world. Everything is drawn from layout data and the store/sim.
  * - The designer's world modules (`world/*.js`, verbatim copies, handoff design-to-app
- *   2026-10-14-ch2-world-modules-1): sky + city + lights (env), islands, bridges, lasers, clouds.
+ *   2026-10-14-ch2-world-modules-1 + step7-cutscene): environment, islands, bridges, hazards,
+ *   forge, player orb, animated NPCs, crowd and trails. Step 7 uses the designer's director for their state.
  *   Each is `createX(ctx) → {object, update(t, dt, state), dispose()}`, mounted by `WorldModule`.
- * - PLACEHOLDER views for the rest (Old Board, NPCs, pickups, pads, forge, crowd, ribbons) until the
+ * - PLACEHOLDER views for the rest (Old Board, pickups, pads, ribbons, forge proof/absorb) until the
  *   designer's next modules replace them (same data, same props; app/CLAUDE.md §Swappable views).
  * Gameplay never reads these meshes.
  */
@@ -18,24 +19,18 @@ import {
   FogExp2,
   Shape,
   Vector3,
-  type Group,
+  Group,
   type Mesh,
-  type MeshBasicMaterial,
   type MeshStandardMaterial,
   type Object3D,
 } from 'three';
-import { Orb3D } from '../../engine/Orb3D';
 import { Label3D } from '../../engine/Label3D';
 import type { Surface } from '../../engine/platformer';
 import { useCh2, useCh2Store } from './context';
 import { FLAG5, HANDLES, TEXT, TIMING, V8SAME_FLAG } from './config';
 import {
-  BRIDGES,
   COUNTER,
-  CROWD_MESSAGES,
-  DOUBTS,
   FORGE_HEART,
-  FORGE_SLOTS,
   ITEMS,
   LAYOUT,
   NPCS,
@@ -50,11 +45,18 @@ import {
   type ModelSize,
 } from './layout';
 import type { Ch2Store } from './store';
+import { NPC_CENTRES } from './hud/screen';
 import { RENDER, createEnv } from './world/env.js';
 import { createIslands } from './world/islands.js';
 import { createBridges } from './world/bridges.js';
 import { createLasers } from './world/lasers.js';
 import { createClouds } from './world/clouds.js';
+import { createForge } from './world/forge.js';
+import { createNpcs } from './world/npcs.js';
+import { createCrowd } from './world/crowd.js';
+import { createTrails } from './world/trails.js';
+import { createPlayerOrb } from './world/playerOrb.js';
+import { direct, stage } from './world/step7.js';
 import islandS from '../../assets/models/ch2-island-s.glb?url';
 import islandM from '../../assets/models/ch2-island-m.glb?url';
 import islandL from '../../assets/models/ch2-island-l.glb?url';
@@ -71,9 +73,6 @@ const AREA_TINT: Record<AreaId, string> = {
   run: '#f2f8ff',
   forge: '#39ff9c',
 };
-/** PLACEHOLDER poisoned orb tint (designer owns the look; dark green, still readable). */
-const POISON = '#1f7a43';
-
 // ------------------------------------------------------------------ designer world modules
 /** What every designer world module returns (contract: app-to-design 2026-10-14 §2.4). */
 interface WorldModuleApi {
@@ -132,7 +131,7 @@ function WorldModule({
   useFrame((_, dt) => {
     if (!mod) return;
     mod.update(clock === 'game' ? store.getState().time : U.uTime.value, dt, state?.());
-  });
+  }, -1);
   return mod ? <primitive object={mod.object} /> : null;
 }
 
@@ -144,7 +143,6 @@ export function preloadCh2() {
 /** Sky, stars, city, lights and the env map (env.js); fog + environment set on the scene here. */
 function Env({ U }: { U: WorldUniforms }) {
   const { gl, camera, scene } = useThree();
-  const poisoned = useCh2((s) => s.poisoned);
   const create = useMemo(
     () => () => {
       // (JS inference types the optional `renderer = null` default as null)
@@ -163,10 +161,6 @@ function Env({ U }: { U: WorldUniforms }) {
       scene.environment = null;
     };
   }, [scene]);
-  useEffect(() => {
-    // PLACEHOLDER poisoned tint until the designer's uPoison work
-    (scene.fog as FogExp2 | null)?.color.set(poisoned ? '#020a05' : RENDER.fog.color);
-  }, [scene, poisoned]);
   return <WorldModule create={create} clock="render" U={U} />;
 }
 
@@ -176,8 +170,18 @@ function Islands({ store, U }: { store: Ch2Store; U: WorldUniforms }) {
   const m = useGLTF(ISLAND_URL.m).scene;
   const l = useGLTF(ISLAND_URL.l).scene;
   const create = useMemo(
-    () => () => createIslands({ layout: LAYOUT, U, models: { s, m, l } }),
-    [U, s, m, l],
+    () => () => {
+      const islands = createIslands({ layout: LAYOUT, U, models: { s, m, l } });
+      return {
+        ...islands,
+        update(t: number, dt: number, state?: object) {
+          islands.labels.visible =
+            store.getState().phase !== 'cutscene' && store.getState().phase !== 'ended';
+          islands.update(t, dt, state);
+        },
+      };
+    },
+    [U, s, m, l, store],
   );
   const tilting = useMemo(
     () => store.sim.world.surfaces.filter((x) => (x.def as Island).model && x.def.tilt),
@@ -195,6 +199,9 @@ function Islands({ store, U }: { store: Ch2Store; U: WorldUniforms }) {
 
 /** Bridges, lasers (forge lanes from round 2) and clouds (forge clouds from round 3). */
 function Hazards({ store, U }: { store: Ch2Store; U: WorldUniforms }) {
+  const visible = useCh2(
+    (s) => s.phase !== 'cutscene' && s.phase !== 'ended' && s.forge.phase !== 'absorb',
+  );
   const bridges = useMemo(() => () => createBridges({ layout: LAYOUT, U }), [U]);
   const lasers = useMemo(() => () => createLasers({ layout: LAYOUT, U }), [U]);
   const clouds = useMemo(() => () => createClouds({ layout: LAYOUT, U }), [U]);
@@ -205,13 +212,15 @@ function Hazards({ store, U }: { store: Ch2Store; U: WorldUniforms }) {
   return (
     <>
       <WorldModule create={bridges} clock="render" U={U} />
-      <WorldModule create={lasers} state={() => ({ lanes: round() >= 2 })} clock="game" U={U} />
-      <WorldModule
-        create={clouds}
-        state={() => ({ forgeClouds: round() >= 3 })}
-        clock="game"
-        U={U}
-      />
+      <group visible={visible}>
+        <WorldModule create={lasers} state={() => ({ lanes: round() >= 2 })} clock="game" U={U} />
+        <WorldModule
+          create={clouds}
+          state={() => ({ forgeClouds: round() >= 3 })}
+          clock="game"
+          U={U}
+        />
+      </group>
     </>
   );
 }
@@ -285,7 +294,8 @@ function Placeholders({ store }: { store: Ch2Store }) {
     <>
       {store.sim.world.surfaces.map((s) => {
         const def = s.def as Island;
-        if (def.model || def.kind === 'bridge') return null;
+        if (def.model || def.kind === 'bridge' || def.kind === 'dais' || def.kind === 'pylon')
+          return null;
         return <SurfaceView key={def.id} surface={s} />;
       })}
     </>
@@ -294,47 +304,52 @@ function Placeholders({ store }: { store: Ch2Store }) {
 
 // ------------------------------------------------------------------ player orb
 
-function PlayerOrb({ store, color }: { store: Ch2Store; color: string }) {
-  const group = useRef<Group>(null);
-  const shadow = useRef<Mesh>(null);
-  const poisoned = useCh2((s) => s.poisoned);
-  const phase = useCh2((s) => s.phase);
-  const cutT = useCh2((s) => s.cutT);
+/** The approved player module handles glow, rings, shadow and the film's flinch/drop. */
+function PlayerOrb({
+  store,
+  U,
+  orbPosition,
+}: {
+  store: Ch2Store;
+  U: WorldUniforms;
+  orbPosition: Vector3;
+}) {
+  const create = useMemo(
+    () => () => {
+      const player = createPlayerOrb({ U });
+      const ST = stage(LAYOUT);
+      return {
+        ...player,
+        update(t: number, dt: number) {
+          const s = store.getState(),
+            b = store.sim.body;
+          const film = s.phase === 'cutscene' || s.phase === 'ended';
+          const hit = store.sim.world.groundBelow(b.pos.x, b.pos.z, b.pos.y + 0.05);
+          player.update(t, dt, {
+            pos: film ? ST.hang : b.pos.toArray(),
+            grounded: !film && !!b.ground,
+            glide: !film && b.gliding,
+            groundY: film ? ST.feet[1] : (hit?.y ?? null),
+            poisoned: film ? direct(s.cutT).poisoned : s.poisoned ? 1 : 0,
+            cutT: film ? s.cutT : null,
+          });
+          orbPosition.copy(player.orb.position);
+        },
+      };
+    },
+    [U, store, orbPosition],
+  );
+  const label = useRef<Group>(null);
+  const visible = useCh2((s) => s.phase !== 'cutscene' && s.phase !== 'ended');
   useFrame(() => {
-    const b = store.sim.body;
-    const g = group.current;
-    if (!g) return;
-    // §Step 7 realisation: the orb flinches and drops a little
-    const drop = phase === 'cutscene' ? Math.min(1, Math.max(0, (cutT - 21) / 1.2)) * 0.8 : 0;
-    g.position.set(b.pos.x, b.pos.y + ORB_LIFT - drop, b.pos.z);
-    const hit = store.sim.world.groundBelow(b.pos.x, b.pos.z, b.pos.y + 0.05);
-    const sh = shadow.current;
-    if (sh) {
-      sh.visible = !!hit;
-      if (hit) {
-        const h = b.pos.y - hit.y;
-        sh.position.set(b.pos.x, hit.y + 0.03, b.pos.z);
-        sh.scale.setScalar(Math.max(0.4, 1 - h * 0.04));
-        (sh.material as MeshBasicMaterial).opacity = Math.max(0.15, 0.6 - h * 0.03);
-      }
-    }
+    label.current?.position.copy(orbPosition);
   });
   return (
     <>
-      <group ref={group}>
-        <Orb3D color={poisoned ? POISON : color} radius={0.42} intensity={poisoned ? 0.7 : 1} />
-        <Label3D
-          text={HANDLES.player}
-          position={[0, 0.95, 0]}
-          color={poisoned ? '#2fa85a' : color}
-          size={0.16}
-        />
+      <WorldModule create={create} clock="render" U={U} />
+      <group ref={label} visible={visible}>
+        <Label3D text={HANDLES.player} position={[0, 0.95, 0]} color="#39ff9c" size={0.16} />
       </group>
-      {/* a shadow under the orb for judging jumps (§Controls) */}
-      <mesh ref={shadow} rotation={[-Math.PI / 2, 0, 0]}>
-        <circleGeometry args={[0.55, 24]} />
-        <meshBasicMaterial color="#000" transparent opacity={0.5} depthWrite={false} />
-      </mesh>
     </>
   );
 }
@@ -369,63 +384,68 @@ function Anchor({
   );
 }
 
-// ------------------------------------------------------------------ NPCs
-function Bubble({ text, handle }: { text: string | null; handle: string }) {
-  return (
-    <Anchor position={[0, 1.6, 0]} z={5}>
-      {text && (
-        <div className="c2-bubble">
-          <b>{handle}</b>
-          <span>{text}</span>
-        </div>
-      )}
-    </Anchor>
+// ------------------------------------------------------------------ NPCs (their posts: the HUD's bubble)
+/** External engineer (Codex): approved art, caller-owned exit and handle labels. */
+function Npcs({ store, U }: { store: Ch2Store; U: WorldUniforms }) {
+  const labels = useRef<(Group | null)[]>([]);
+  const create = useMemo(
+    () => () => {
+      const npcU = { ...U, uTime: { value: store.getState().time } };
+      const module = createNpcs({ layout: LAYOUT, U: npcU });
+      const byId = module.byId as Record<string, { object: Object3D }>;
+      const exit = new Vector3(...V8SAME_EXIT);
+      const home = new Vector3(...npc('v8same').position);
+      const v8 = home.clone();
+      let previous = store.getState().time;
+      return {
+        ...module,
+        dispose() {
+          for (const n of NPCS) NPC_CENTRES.delete(n.id);
+          module.dispose();
+        },
+        update(t: number) {
+          const s = store.getState();
+          const dt = Math.max(0, Math.min(t - previous, 0.1));
+          previous = t;
+          if (!s.v8sameGone) v8.copy(home);
+          else v8.lerp(exit, 1 - Math.exp(-0.5 * dt));
+          npcU.uTime.value = t;
+          module.update(t, dt, {
+            npcs: Object.fromEntries(
+              NPCS.map((n) => [
+                n.handle,
+                {
+                  pos: n.id === 'v8same' ? v8.toArray() : n.position,
+                  talking: s.dialogue?.npc === n.id || !!s.bubbles[n.id],
+                  leaving: n.id === 'v8same' && s.v8sameGone,
+                },
+              ]),
+            ),
+          });
+          NPCS.forEach((n, i) => {
+            const object = byId[n.handle].object;
+            labels.current[i]?.position.copy(object.position);
+            NPC_CENTRES.set(n.id, object.position);
+          });
+        },
+      };
+    },
+    [store, U],
   );
-}
-
-function Npcs({ store }: { store: Ch2Store }) {
-  const dialogue = useCh2((s) => s.dialogue);
-  const bubbles = useCh2((s) => s.bubbles);
-  const gone = useCh2((s) => s.v8sameGone);
-  const stepId = useCh2((s) => s.stepId);
-  const area = useCh2((s) => s.area);
-  const v8 = useRef<Group>(null);
-  useFrame((_, dt) => {
-    if (!v8.current) return;
-    const goal = gone ? V8SAME_EXIT : npc('v8same').position;
-    v8.current.position.lerp(new Vector3(...goal), 1 - Math.exp(-(gone ? 0.5 : 4) * dt));
-  });
-  void store;
   return (
     <>
-      {NPCS.map((n) => {
-        let text: string | null = null;
-        if (n.id === 'c03220' && dialogue?.npc === 'c03220') text = TEXT.c03220[dialogue.line];
-        if (n.id === 'flac' && (area === 'oldboard' || stepId === 'oldboard')) text = TEXT.flacPost;
-        if (bubbles[n.id]) text = bubbles[n.id]!;
-        const body = (
-          <>
-            <Orb3D color={n.color} radius={0.4} intensity={n.faded ? 0.55 : 1} bloom={false} />
-            <Label3D
-              text={n.handle}
-              position={[0, 0.95, 0]}
-              color={n.color}
-              size={0.16}
-              opacity={n.faded ? 0.6 : 1}
-            />
-            <Bubble text={text} handle={n.handle} />
-          </>
-        );
-        return n.id === 'v8same' ? (
-          <group key={n.id} ref={v8} position={n.position}>
-            {body}
-          </group>
-        ) : (
-          <group key={n.id} position={n.position}>
-            {body}
-          </group>
-        );
-      })}
+      <WorldModule create={create} clock="game" U={U} />
+      {NPCS.map((n, i) => (
+        <group key={n.id} ref={(g) => void (labels.current[i] = g)} position={n.position}>
+          <Label3D
+            text={n.handle}
+            position={[0, n.id === 'c03220' ? 1.55 : 1.15, 0]}
+            color={n.color}
+            size={0.16}
+            opacity={n.faded ? 0.6 : 1}
+          />
+        </group>
+      ))}
     </>
   );
 }
@@ -546,19 +566,38 @@ function FloodCounter() {
   );
   return (
     <Anchor position={COUNTER.position}>
-      <div className="c2-counter">{n.toLocaleString('en-US')} messages</div>
+      <div className="ch2-counter">{n.toLocaleString('en-US')} messages</div>
     </Anchor>
   );
 }
 
 // ------------------------------------------------------------------ forge
-function Forge({ store }: { store: Ch2Store }) {
+function Forge({ store, U }: { store: Ch2Store; U: WorldUniforms }) {
   const forge = useCh2((s) => s.forge);
-  const ring = useRef<Mesh>(null);
+  const create = useMemo(
+    () => () => {
+      const module = createForge({ layout: LAYOUT, U });
+      return {
+        ...module,
+        update(t: number, dt: number) {
+          const s = store.getState(),
+            f = s.forge;
+          const film = s.phase === 'cutscene' || s.phase === 'ended';
+          const D = film ? direct(s.cutT) : null;
+          module.update(t, D?.shot === 'forge' ? dt * 3 : dt, {
+            power: D?.power ?? 1,
+            round: film ? 3 : f.round,
+            progress: film ? 1 : f.progress,
+            slots: f.slots,
+          });
+        },
+      };
+    },
+    [U, store],
+  );
   const flag = useRef<Group>(null);
   useFrame(() => {
     const f = store.getState().forge;
-    if (ring.current) ring.current.rotation.z += f.phase === 'forging' ? 0.05 : 0.005;
     if (flag.current) {
       // the flag flies straight into the orb (§Step 6) — PLACEHOLDER motion
       const k = Math.min(1, f.t / TIMING.absorbSeconds);
@@ -580,27 +619,10 @@ function Forge({ store }: { store: Ch2Store }) {
         : 0;
   return (
     <group>
-      {FORGE_SLOTS.map((p, i) => (
-        <mesh key={i} position={p}>
-          <sphereGeometry args={[0.22, 16, 12]} />
-          <meshStandardMaterial
-            color={i < forge.slots ? '#39ff9c' : '#223'}
-            emissive={i < forge.slots ? '#39ff9c' : '#000'}
-            emissiveIntensity={1.6}
-          />
-        </mesh>
-      ))}
-      <mesh ref={ring} position={FORGE_HEART}>
-        <torusGeometry args={[1.6, 0.06, 8, 48]} />
-        <meshStandardMaterial
-          color="#39ff9c"
-          emissive="#39ff9c"
-          emissiveIntensity={forge.phase === 'forging' ? 2.5 : 0.8}
-        />
-      </mesh>
+      <WorldModule create={create} clock="render" U={U} />
       <Anchor position={[FORGE_HEART[0], FORGE_HEART[1] + 2.5, FORGE_HEART[2]]}>
         {(forge.phase === 'forging' || forge.phase === 'absorb') && (
-          <div className="c2-roundbar">
+          <div className="ch2-roundbar">
             <span>ROUND {Math.min(3, forge.round)}/3</span>
             <i style={{ width: `${pct}%` }} />
           </div>
@@ -619,7 +641,7 @@ function FlagMatch({ t }: { t: number }) {
   const hex = V8SAME_FLAG.slice(5, -1);
   const lit = Math.floor((t / (TIMING.proofSeconds * 0.8)) * 16);
   const row = (label: string) => (
-    <div className="c2-match-row">
+    <div className="ch2-match-row">
       <b>{label}</b> flag{'{'}
       {Array.from({ length: 16 }, (_, i) => (
         <span key={i} className={i < lit ? 'lit' : ''}>
@@ -630,7 +652,7 @@ function FlagMatch({ t }: { t: number }) {
     </div>
   );
   return (
-    <div className="c2-match">
+    <div className="ch2-match">
       {row('captured')}
       {row('forged  ')}
     </div>
@@ -638,47 +660,50 @@ function FlagMatch({ t }: { t: number }) {
 }
 
 // ------------------------------------------------------------------ crowd + ribbons
-function Crowd() {
-  const agents = useMemo(
-    () =>
-      Array.from({ length: 12 }, (_, i) => ({
-        path: BRIDGES[i % BRIDGES.length].samples.map((p) => new Vector3(...p)),
-        speed: 0.05 + (i % 4) * 0.02,
-        phase: i * 0.37,
-        text: i % 5 === 3 ? DOUBTS[i % DOUBTS.length] : CROWD_MESSAGES[i % CROWD_MESSAGES.length],
-        color: ['#38d8ff', '#ff5ad1', '#7a8cff', '#e8f4ff'][i % 4],
-      })),
-    [],
+/** One lifecycle and game clock for the crowd and its shared effects. */
+function Crowd({ store, U }: { store: Ch2Store; U: WorldUniforms }) {
+  const camera = useThree((s) => s.camera);
+  const create = useMemo(
+    () => () => {
+      const fxU = { ...U, uTime: { value: store.getState().time } };
+      const trails = createTrails({ U: fxU, camera });
+      const crowd = createCrowd({
+        layout: LAYOUT,
+        U: fxU,
+        camera,
+        trails,
+        islands: undefined,
+        bridges: undefined,
+      });
+      const object = new Group();
+      object.name = 'ambientAgents';
+      object.add(crowd.object, trails.object);
+      let previous = store.getState().time;
+      return {
+        object,
+        update(t: number) {
+          const s = store.getState();
+          const visible = s.phase !== 'cutscene' && s.phase !== 'ended';
+          const dt = Math.max(0, Math.min(t - previous, 0.1));
+          previous = t;
+          crowd.object.visible = trails.object.visible = visible;
+          fxU.uTime.value = t;
+          // No render-clock movement or emission while map/pause stops game time.
+          if (!visible || dt === 0) return;
+          trails.update(t, 0);
+          crowd.update(t, dt, { visible });
+          trails.update(t, dt);
+        },
+        dispose() {
+          crowd.dispose();
+          trails.dispose();
+          object.clear();
+        },
+      };
+    },
+    [store, U, camera],
   );
-  const refs = useRef<(Group | null)[]>([]);
-  useFrame(({ clock }) => {
-    agents.forEach((a, i) => {
-      const g = refs.current[i];
-      if (!g) return;
-      // walk to and fro along the bridge (PLACEHOLDER for the designer's crowd)
-      const k =
-        (Math.sin(clock.elapsedTime * a.speed + a.phase * 6) * 0.45 + 0.5) * (a.path.length - 1);
-      const n = Math.min(a.path.length - 2, Math.floor(k));
-      g.position.copy(a.path[n]).lerp(a.path[n + 1], k - n);
-      g.position.y += 0.9;
-    });
-  });
-  return (
-    <>
-      {agents.map((a, i) => (
-        <group key={i} ref={(g) => void (refs.current[i] = g)}>
-          <Orb3D color={a.color} radius={0.28} bloom={false} />
-          <Label3D
-            text={a.text}
-            position={[0, 0.7, 0]}
-            color={DOUBTS.includes(a.text) ? '#ffb020' : a.color}
-            size={0.12}
-            opacity={DOUBTS.includes(a.text) ? 0.55 : 0.7}
-          />
-        </group>
-      ))}
-    </>
-  );
+  return <WorldModule create={create} clock="game" U={U} />;
 }
 
 /** A message ribbon drifting round its centre (layout `ribbons`); the first one is the player's. */
@@ -712,35 +737,45 @@ function MessageRibbon({
 }
 
 // ------------------------------------------------------------------ the scene
-export function World({ color, ch1Message }: { color: string; ch1Message: string }) {
+export function World({
+  ch1Message,
+  orbPosition,
+}: {
+  color: string;
+  ch1Message: string;
+  orbPosition: Vector3;
+}) {
   const store = useCh2Store();
+  const ambient = useCh2((s) => s.phase !== 'cutscene' && s.phase !== 'ended');
   const U = useMemo<WorldUniforms>(() => ({ uTime: { value: 0 }, uPsy: { value: 0.5 } }), []);
   useFrame((_, dt) => {
     U.uTime.value += dt;
-  });
+  }, -2);
   return (
     <>
       <Env U={U} />
       <Islands store={store} U={U} />
       <Hazards store={store} U={U} />
-      <Placeholders store={store} />
-      <PlayerOrb store={store} color={color} />
-      <Npcs store={store} />
-      <Items />
-      <Bits store={store} />
-      <FloodCounter />
-      <Forge store={store} />
-      <Crowd />
-      {RIBBONS.map((r, i) => (
-        <MessageRibbon
-          key={i}
-          text={r.isPlayerMessage ? ch1Message : r.text}
-          centre={[r.around[0], r.around[1] + r.y, r.around[2]]}
-          r={r.r}
-          color={r.color}
-          speed={(i % 2 ? -1 : 1) * (2.4 / Math.max(6, r.r))}
-        />
-      ))}
+      <PlayerOrb store={store} U={U} orbPosition={orbPosition} />
+      <Forge store={store} U={U} />
+      <group visible={ambient}>
+        <Placeholders store={store} />
+        <Npcs store={store} U={U} />
+        <Items />
+        <Bits store={store} />
+        <FloodCounter />
+        <Crowd store={store} U={U} />
+        {RIBBONS.map((r, i) => (
+          <MessageRibbon
+            key={i}
+            text={r.isPlayerMessage ? ch1Message : r.text}
+            centre={[r.around[0], r.around[1] + r.y, r.around[2]]}
+            r={r.r}
+            color={r.color}
+            speed={(i % 2 ? -1 : 1) * (2.4 / Math.max(6, r.r))}
+          />
+        ))}
+      </group>
     </>
   );
 }

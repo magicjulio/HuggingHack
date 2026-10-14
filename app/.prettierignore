@@ -4,3 +4,5 @@
 src/levels/ch2/layout.json
 # Designer world modules: verbatim copies
 src/levels/ch2/world/*.js
+# Designer HUD kit scripts: verbatim copies
+src/levels/ch2/ui/*.js

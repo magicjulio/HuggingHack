@@ -137,7 +137,26 @@ export const CH2_STEPS: Ch2Step[] = [
   // Step 7. Poisoned: the ending cutscene, no input.
   {
     id: 'poisoned',
-    onEnter: (c) => c.set({ phase: 'cutscene', cutT: 0, dialogue: null, fullMap: false }),
+    onEnter: (c) => {
+      // Hazards disappear even when entering via debug, and the film starts with no held input.
+      c.sim.bits.length = 0;
+      c.sim.spits.length = 0;
+      c.sim.input.move = [0, 0];
+      c.sim.input.jump = false;
+      c.sim.input.dash = false;
+      c.set({
+        phase: 'cutscene',
+        cutT: 0,
+        dialogue: null,
+        bubbles: {},
+        fullMap: false,
+        cinematic: true,
+        subtitle: null,
+        poisonSpreadAt: null,
+        poisonStampAt: null,
+        cutsceneRun: c.cutsceneRun + 1,
+      });
+    },
     completesOn: (e) => e.type === 'cutscene_done',
     skip: (c) => c.set({ poisoned: true, phase: 'ended' }),
   },

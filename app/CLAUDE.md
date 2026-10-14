@@ -40,7 +40,7 @@ src/
       glow.ts, ch1-ui.css  shared glow values · designer UI kit (verbatim copy)
       windows/           full-view windows: the paper and Station 2's search
       Chapter1.tsx       composition: canvas, HUD, windows, pointer lock, keys, pause, ending
-    ch2/                 Chapter 2 "The Cache" (designer layout + islands, other views PLACEHOLDER, real rules)
+    ch2/                 Chapter 2 "The Cache" (designer world + HUD + Step 7 film, real rules)
       config.ts          ALL tunable numbers + script texts, CUTSCENE beat times, flag values; BODY = layout physics
       layout.json        designer's level data (verbatim copy of handoff/design-to-app/assets/ch2/layout.json)
       layout.ts          adapter over layout.json: buildSurfaces(installed), PADS, ITEMS, NPCS, token orbs,
@@ -50,10 +50,15 @@ src/
                          c03220's posts, forge rounds, cutscene beats
       steps.ts           the chain (pickups checked by state, so wandering ahead is fine) + `goalOf` for the map
       world/*.js         designer world modules, VERBATIM copies (env + RENDER, islands, bridges, lasers,
-                         clouds, util, motion.js = pure motion formulas the rules use); not linted/formatted
+                         clouds, forge, playerOrb, fxFlashback, step7 director, npcs, crowd, trails, agents, util, motion.js = pure motion formulas); not linted/formatted
       World.tsx          3D views: `WorldModule` mounts a designer module (create after fonts → object →
                          update(t, dt, state) → dispose); PLACEHOLDER views for the rest; `Anchor` = drei Html
-      Screen.tsx         DOM views: log ribbon, minimap + full map (M), Step 0 intro, Step 7 cutscene overlay
+      Screen.tsx         Step 0 intro (PLACEHOLDER; tornado export pending)
+      hud/               accepted HUD port: tokens, quests, dialogue, log, inventory, map + poison layers
+      ui/                designer CSS, icons.js and map.js, copied verbatim
+      Cutscene.tsx       accepted Step 7 DOM: memories (real Ch1 prompt), echoes, letterbox, subtitles, fade
+      Rendering.tsx      bloom + AgX, separate FlashbackEffect pass, early still/shader warm-up, quality monitor
+      presentation.ts    memory URLs + quality tiers; Canvas owns DPR so HUD updates cannot reset it
       Chapter2.tsx       composition: canvas, camera, shooter, keys, HUD, pause, end card
       reach.test.ts      autopilot runs and jumps every gap of the golden path (on layout.json)
   screens/start|game/    start screen (designer port) · game host
@@ -80,7 +85,7 @@ Adding a designer model: copy the .glb to `src/assets/models/`, `useGLTF(url)` i
 
 ## Chapter 2 in one paragraph
 Same store + steps + views shape, plus a mutable `store.sim` (platform world, body, input, bits, spits) that changes every frame and is read by views in `useFrame`/rAF, never through React. `tick(dt)` steps the physics in ≤ 1/60 s sub-steps, then hazards, forge, targeting, steps. Views write only `sim.input` (ThirdPerson) and call actions (`use`, `shoot`, `think`, `toggleMap`, `travel`).
-**The level is the designer's `layout.json`** (DECISIONS 2026-10-14). `layout.ts` adapts it; ids map 1:1 except pickups (`ITEM_IDS`: `piece-7731` → `p7731` …) and NPCs (`FLAC38347` → `flac`). Islands, bridges, slabs and lifts are `solid: false` (floors, like the designer's page). Movement numbers come from its `physics` block (config.ts `BODY`). **New layout.json version:** copy it over verbatim, run `npx vitest run src/levels/ch2` (reach.test.ts walks the golden path), look at it. **World visuals = the designer's modules** in `world/` (contract `handoff/app-to-design/2026-10-14-ch2-world-as-modules.md`): `createX(ctx) → {object, update(t, dt, state), dispose()}`. New version: copy `handoff/design-to-app/assets/ch2/world/*.js` over verbatim. Mount a new one with `<WorldModule create={…} state={() => …} clock="game"|"render" U={U} />` in World.tsx: `clock="game"` (store time) for anything that hits, so it matches the rules; `U` (uTime, uPsy) is the app's. `world/util.js` touches OffscreenCanvas at import, so only `motion.js` may be imported by rules/tests. Render settings (camera, fog, bloom, env) come from `env.js` `RENDER` (`WORLD_RENDER`). Still placeholders: Old Board, NPCs, crowd, pickups, pads, forge, ribbons, bits, player orb (designer part 3 + forge slice). Dev hook `window.__ch2view.yaw/pitch` turns the camera. Screen layer slots: §4 of `2026-10-13-ch2-greybox-and-contract.md`. Dev hook: `window.__ch2` (store; `__ch2.sim` for the body).
+**The level is the designer's `layout.json`** (DECISIONS 2026-10-14). `layout.ts` adapts it; ids map 1:1 except pickups (`ITEM_IDS`: `piece-7731` → `p7731` …) and NPCs (`FLAC38347` → `flac`). Islands, bridges, slabs and lifts are `solid: false` (floors, like the designer's page). Movement numbers come from its `physics` block (config.ts `BODY`). **New layout.json version:** copy it over verbatim, run `npx vitest run src/levels/ch2` (reach.test.ts walks the golden path), look at it. **World visuals = the designer's modules** in `world/` (contract `handoff/app-to-design/2026-10-14-ch2-world-as-modules.md`): `createX(ctx) → {object, update(t, dt, state), dispose()}`. New version: copy `handoff/design-to-app/assets/ch2/world/*.js` over verbatim. Mount a new one with `<WorldModule create={…} state={() => …} clock="game"|"render" U={U} />` in World.tsx: `clock="game"` (store time) for anything that hits, so it matches the rules; `U` (uTime, uPsy) is the app's. `world/util.js` touches OffscreenCanvas at import, so only the pure `motion.js` and `step7.js` may be imported by rules/tests. Render settings (camera, fog, bloom, env) come from `env.js` `RENDER` (`WORLD_RENDER`). Still placeholders: Old Board, pickups, pads, ribbons, bits and Step 6 proof/absorption (designer part 3 + remaining forge slice). Forge and playerOrb modules are integrated; Step 7 uses step7.js and a separate fxFlashback effect pass. Dev hook `window.__ch2view.yaw/pitch` turns the camera. Screen layer slots: §4 of `2026-10-13-ch2-greybox-and-contract.md`. Dev hook: `window.__ch2` (store; `__ch2.sim` for the body).
 
 ## Conventions
 - **Swappable views** (Julius 2026-10-13): assets and levels change; a placeholder (e.g. ch2's NPC agents as glowing spheres) gets replaced by a detailed model later. Keep state and behaviour in the store/logic, and give each visible thing one view component behind a small stable interface (pose, state, colour, events) that the placeholder and the final asset both implement. Poses, anchors, colliders and targets come from layout data, not mesh internals, so swapping a model never touches gameplay code.
@@ -95,10 +100,11 @@ Same store + steps + views shape, plus a mutable `store.sim` (platform world, bo
 
 ## Status (2026-10-14)
 - **Ch2 is the current level.** Playable end to end (script v3.2) on the **designer's layout.json v2 (findings fixed), island models and world modules part 1+2** (sky/city/env, islands, bridges, red laser scanners, text clouds; rules on `motion.js`): all 8 steps, platforming, hazards, the forge fight, the cutscene timeline, `poisoned` in the save. Julius approved the gap choices and the merge plan "my game, their world".
-- **Waiting on:** designer: part 3 modules (oldBoard, crowd, npcs, pickups, pads, trails), the forge + poisoned orb slice, Step 7 camera keyframes; feedback on `app-to-design/2026-10-14-ch2-modules-1-integrated.md` (bloom match screenshots).
-- **Next for the engineer:** integrate `design-to-app/2026-10-14-ch2-hud-and-map.md` (HUD + map export, `--color-poison` → `--color-violet` for Ch1) — arrived, not read yet.
+- **Integrated by External engineer (Codex):** accepted HUD/map, Ch1 violet-token migration, Step 7 director + memory stills + flashback/poison effect, forge and player-orb modules. `CUTSCENE` and store log/HUD beats read the verbatim `world/step7.js`; the camera applies its exact cuts/FOV. Hazards and ambient placeholders are hidden during the film. Replay skips apply lasting state without transient animations.
+- **Waiting on designer:** remaining part 3 modules (oldBoard, pickups, pads, ribbons and flood-bit meshes), Step 0 tornado, audio, remaining Step 6 proof/fold/absorption visuals, whole-game map regions. The richer NPCs/crowd are now integrated (external designer delivery): see `handoff/app-to-design/2026-10-14-external-engineer-ch2-visual-gaps.md`. Earlier vibe-scene decorations have no confirmed keep/drop decision.
+- **Next for the engineer:** designer review of the new screenshots; integrate the remaining exports when delivered. Cross-chapter map travel and Ch1 room restoration still need engineering alongside the designer's regions export.
 - Ch1 end card → **CONTINUE** into Ch2 (`continueFrom` in the global store; the game host remounts on `run`). All chapters stay unlocked until the final refinement pass.
-- Tests: 48 unit (incl. physics, a Ch2 playthrough, golden-path reachability on layout.json) + 5 e2e (Ch1 chain ends with CONTINUE → Ch2 intro).
+- Tests: 50 unit + 9 browser tests (full suite repeated five times during integration); covers the actual film effect pipeline, memories, replay, high-DPI cap, dialogue, inventory, decoys and map-pad clicks in addition to the original smoke paths.
 - **Ch1 is marked done for now** (Julius). Fine-tuning comes after all chapters.
 - Done: start screen (designer v1), Chapter 1 full chain (intro → wake → prompt → 4 flag stations → impossible flag 5 → zz entry → GET→MKCOL message → ending); HUD, tokens, hints, debug panel, save of the player's message.
 - Story v2 in: real `flag{32 hex}` flags (copy + paste; COPY buttons on in-world flags), the real "OH MY GOD! … other agents!" thought, real board folder names in the ending, finishing a chapter unlocks the next model.
@@ -108,3 +114,22 @@ Same store + steps + views shape, plus a mutable `store.sim` (platform world, bo
 - Waiting on: Julius playtest (especially: is the dark room readable on a real GPU?); designer: wake sound, feedback on `handoff/app-to-design/2026-10-12-ch1-room-and-stations-integrated.md`.
 - Not yet: no audio. HUD and the paper/S2 windows still have the placeholder look (UI kit used on the depot and station screens only).
 - Known limits: after leaving a machine the browser may need a click to re-lock the mouse (game keeps running, shows "click to look around"); e2e renders on the GPU (Vulkan, ~35 FPS, full suite ≈ 30 s); `E2E_SWIFTSHADER=1` falls back to CPU WebGL (~1 FPS, timeouts ×15); DOM screens are never hidden by 3D objects (fine in this room).
+
+## External engineer intake (2026-10-14)
+- **External engineer (Codex)** inspected the inherited checkout at Julius's request. See `EXTERNAL-ENGINEER.md` for evidence, remaining work and role boundaries.
+- Status correction to the earlier bullets: the HUD/map integration is already present as uncommitted work; the accepted Step 7 cutscene, forge and player-orb modules have arrived but are not integrated.
+- Current checkout passes 48 unit tests, lint, the production build and all 5 browser smoke tests. Visual review of the new HUD/map remains; next is the accepted cutscene and its export/performance updates.
+- This intake changed documentation only and preserved existing implementation edits.
+
+## External engineer implementation (2026-10-14, after intake)
+- Julius authorized tackling the remaining work, then asked to leave NPC/crowd parity highlighted as open work. The intake above is historical; the integration status above is current.
+- Quality: high = MSAA 4 / DPR ≤ 1.5; mid = MSAA 0; low = MSAA 0 / DPR .75. `?quality=high|mid|low` fixes a tier for reproduction; otherwise drei PerformanceMonitor lowers it as needed and retains the tier for this chapter run, avoiding quality oscillation during the film. `?nofx` retains text/still memories without postprocessing.
+- Render performance: world and static HUD parts are memoized; transforms still read the store per frame. This removed unnecessary scene reconciliation and restored ~60 fps for the full 37 s film at 1920×1080 on the Iris Xe with the low tier. Measurements and comparison screenshots are in `handoff/app-to-design/shots-2026-10-14-external-engineer/`.
+- Designer exports stay byte-identical. No new NPC art or story was invented. Continue to sign engineering changes and handoffs **External engineer (Codex)**.
+
+
+## External engineer NPC/crowd integration (2026-10-14)
+- **External engineer (Codex)** integrated the external designer's five verbatim exports: npcs, crowd, trails, agents and updated util. The generic three NPCs and 12-agent crowd are replaced by the approved animated artwork, 70–90 ambient agents, seven Reset Run runners and ten Flood traffic emitters.
+- The app owns V8SAME's exit, dialogue and poses. Handle labels and HUD bubble anchors follow the animated centres. Game-time deltas drive NPCs/crowd/trails, so map/pause freezes them; both crowd and effects stop and hide during Step 7. Each module is disposed on teardown.
+- Browser regression covers animation/emission, map pause, V8SAME exit, film hiding and replay; five repeated runs passed. Existing eight browser checks, 50 unit tests, lint and production build passed.
+- Remaining art and uncertain earlier cosmic decorations are still open. See the new outgoing NPC/crowd integration handoff for screenshots and measured performance.

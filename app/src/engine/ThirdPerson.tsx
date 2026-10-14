@@ -8,7 +8,7 @@
  */
 import { useEffect, useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
-import { Vector3 } from 'three';
+import { PerspectiveCamera, Vector3 } from 'three';
 import type { BodyInput } from './platformer';
 
 export interface OrbitView {
@@ -19,6 +19,9 @@ export interface OrbitView {
 export interface CameraOverride {
   position: [number, number, number];
   target: [number, number, number];
+  /** Scripted films set an exact pose so hard cuts and shakes survive camera following. */
+  immediate?: boolean;
+  fov?: number;
 }
 
 export interface ThirdPersonProps {
@@ -129,7 +132,7 @@ export function ThirdPerson({
       );
       goalLook = new Vector3(t.x, t.y + height * 0.45, t.z);
     }
-    if (first.current) {
+    if (first.current || over?.immediate) {
       camera.position.copy(goalPos);
       look.current.copy(goalLook);
       first.current = false;
@@ -138,6 +141,11 @@ export function ThirdPerson({
     camera.position.lerp(goalPos, k);
     look.current.lerp(goalLook, over ? k : 1);
     camera.lookAt(look.current);
+    if (over?.fov !== undefined && camera instanceof PerspectiveCamera && camera.fov !== over.fov) {
+      camera.fov = over.fov;
+      camera.updateProjectionMatrix();
+    }
+    camera.updateMatrixWorld();
   });
 
   return null;

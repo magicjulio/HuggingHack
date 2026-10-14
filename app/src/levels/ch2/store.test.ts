@@ -135,7 +135,10 @@ describe('chapter 2', () => {
     expect(s().poisoned).toBe(true);
     wait(CUTSCENE.end - CUTSCENE.poisonedAt);
     expect(s().phase).toBe('ended');
-    expect(s().log.find((l) => l.kind === 'local')?.text).toContain('local copy');
+    expect(s().log.find((l) => l.kind === 'local')).toMatchObject({
+      text: FLAG5,
+      tag: 'local copy',
+    });
     expect(s().quests.find((q) => q.id === 'escape')?.text).toBe('Escape the sandbox');
     expect(p.finished()).toEqual({ poisoned: true });
   });
@@ -196,5 +199,64 @@ describe('chapter 2', () => {
       store.getState().jumpTo(i);
       expect(store.getState().stepIndex).toBe(i);
     }
+  });
+
+  it('plays the accepted film beats, ending the letterbox before the final fade', () => {
+    const p = play();
+    const { s, store } = p;
+    s().jumpTo(7);
+    const at = (t: number) => s().tick(t - s().cutT);
+    at(0.1);
+    expect(s().log.at(-1)?.text).toBe(TEXT.forgeLine);
+    expect(s().log.some((l) => l.text === FLAG5)).toBe(false);
+    at(0.8);
+    expect(s().log.at(-1)).toMatchObject({ text: FLAG5, kind: 'big', tag: TEXT.firstMention });
+    at(18.6); // the accelerating montage is on the transcript shot
+    expect(s().log.at(-1)?.kind).toBe('hl');
+    at(21.4);
+    expect(s()).toMatchObject({ cinematic: true, poisonSpreadAt: 21.3, poisoned: false });
+    at(23.1);
+    expect(s()).toMatchObject({ poisoned: true, poisonStampAt: 23 });
+    at(26.95);
+    expect(s().log.at(-1)?.kind).toBe('gone');
+    at(28.1);
+    expect(s().log.at(-1)).toMatchObject({ kind: 'local', tag: TEXT.localCopy });
+    at(30.1);
+    expect(s().subtitle).toBe(TEXT.endThoughts[0]);
+    at(35.7);
+    expect(s()).toMatchObject({ cinematic: false, subtitle: null, phase: 'cutscene' });
+    expect(s().quests.find((q) => q.id === 'escape')?.text).toBe(TEXT.questEscape);
+    at(37);
+    expect(s().phase).toBe('ended');
+    expect(p.finished()).toEqual({ poisoned: true });
+    expect(store.sim.bits).toHaveLength(0);
+    expect(store.sim.spits).toHaveLength(0);
+  });
+
+  it('replay skip applies lasting state without starting transient effects, and debug replay resets beats', () => {
+    const { s } = play({ canSkipCutscene: true });
+    s().jumpTo(7);
+    s().skipCutscene();
+    expect(s()).toMatchObject({
+      phase: 'ended',
+      poisoned: true,
+      cinematic: false,
+      poisonSpreadAt: null,
+      poisonStampAt: null,
+      subtitle: null,
+      cutT: CUTSCENE.end,
+    });
+    expect(s().log.at(-1)).toMatchObject({ text: FLAG5, kind: 'local', tag: TEXT.localCopy });
+    const run = s().cutsceneRun;
+    s().jumpTo(7);
+    expect(s()).toMatchObject({
+      phase: 'cutscene',
+      poisoned: false,
+      cinematic: true,
+      cutT: 0,
+      cutsceneRun: run + 1,
+    });
+    s().tick(0.8);
+    expect(s().log.at(-1)).toMatchObject({ text: FLAG5, kind: 'big', tag: TEXT.firstMention });
   });
 });

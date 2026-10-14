@@ -309,7 +309,7 @@ test('chapter 2: intro, real keys move the orb, forge, cutscene, poisoned in the
     }
   }`);
   await ch2Wait(page, "s.phase === 'cutscene'", 15_000);
-  await expect(page.locator('.c2-letterbox.on')).toBeVisible();
+  await expect(page.locator('.ch2-film.is-cine .c2-lb--t')).toBeVisible();
 
   // the cutscene runs without input (fast-forward), then the end card; the save is poisoned
   await page.evaluate(`{ for (let i = 0; i < 400; i++) window.__ch2.getState().tick(0.1); }`);

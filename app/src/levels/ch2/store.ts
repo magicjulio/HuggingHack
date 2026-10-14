@@ -60,6 +60,7 @@ import {
   type Spit,
 } from './hazards';
 import { CH2_STEPS } from './steps';
+import { HUD_BEATS } from './world/step7.js';
 
 export type Phase = 'intro' | 'play' | 'cutscene' | 'ended';
 export type ItemState = 'there' | 'taken' | 'crumbled';
@@ -69,13 +70,20 @@ export interface QuestLine {
   text: string;
   kind: 'quest' | 'sub' | 'thought';
   done: boolean;
+  /** A real chain-of-thought quote (shown in {braces}, as METR quotes them). */
+  cot?: boolean;
 }
 
 export interface LogLine {
   id: number;
   text: string;
-  /** big = the two poisoned lines; struck = being deleted; local = came back grey. */
-  kind: 'normal' | 'big' | 'struck' | 'local';
+  /**
+   * big = the two poisoned lines; hl = pointed at by the memory montage; struck = being deleted;
+   * gone = the deleted frame; local = came back grey (designer HUD kit kinds).
+   */
+  kind: 'normal' | 'big' | 'hl' | 'struck' | 'gone' | 'local';
+  /** A small tag after the line, e.g. "← first mention", "local copy". */
+  tag?: string;
 }
 
 export type Target = { kind: 'npc'; id: NpcId } | { kind: 'item'; id: ItemId } | { kind: 'forge' };
@@ -125,6 +133,12 @@ export interface Ch2State {
   time: number;
   introT: number;
   cutT: number;
+  /** Presentation beats from the designer's director, driven by game time. */
+  cinematic: boolean;
+  subtitle: string | null;
+  poisonSpreadAt: number | null;
+  poisonStampAt: number | null;
+  cutsceneRun: number;
   tokens: number;
   hudVisible: boolean;
   quests: QuestLine[];
@@ -155,6 +169,8 @@ export interface Ch2State {
   respawn: { why: 'fell' | 'reset' | 'empty'; at: number } | null;
   /** Time of the last hit (cloud tick, spit, reset) for a red flash. */
   hurtAt: number | null;
+  /** What the last hit was: a cloud tick (orange pulse) or a hit (red vignette). */
+  hurtKind: 'hit' | 'cloud';
   /** Seconds since entering the Flood (drives its message counter). */
   floodT: number;
   poisoned: boolean;
@@ -179,9 +195,9 @@ export interface Ch2Actions {
   addQuest: (q: Omit<QuestLine, 'done'>) => void;
   completeQuest: (id: string) => void;
   setQuestText: (id: string, text: string) => void;
-  addThought: (text: string) => void;
-  addLog: (text: string, kind?: LogLine['kind']) => number;
-  setLogKind: (id: number, kind: LogLine['kind'], text?: string) => void;
+  addThought: (text: string, cot?: boolean) => void;
+  addLog: (text: string, kind?: LogLine['kind'], tag?: string) => number;
+  setLogKind: (id: number, kind: LogLine['kind'], tag?: string) => void;
   addTokens: (n: number) => void;
   takeItem: (id: ItemId) => void;
   placePlayer: (at: V3) => void;
@@ -212,7 +228,7 @@ export function replyFor(message: string | undefined): string {
 }
 
 /** Areas where the early token floor applies (§Tokens: Gate and Old Board). */
-const FLOOR_STEPS = new Set(['pulled', 'gate', 'oldboard']);
+export const FLOOR_STEPS = new Set(['pulled', 'gate', 'oldboard']);
 
 export function createCh2Store(opts: Ch2Options = {}): Ch2Store {
   let toastId = 0;
@@ -252,9 +268,9 @@ export function createCh2Store(opts: Ch2Options = {}): Ch2Store {
       set((s) => ({ tokens: Math.max(floor(), s.tokens - n) }));
       if (get().tokens <= 0) respawn('empty');
     };
-    const hurt = (n: number) => {
+    const hurt = (n: number, kind: Ch2State['hurtKind'] = 'hit') => {
       spend(n);
-      set({ hurtAt: get().time });
+      set({ hurtAt: get().time, hurtKind: kind });
     };
     const toast = (text: string, kind: 'info' | 'achievement' = 'info', title?: string) =>
       set({
@@ -278,6 +294,11 @@ export function createCh2Store(opts: Ch2Options = {}): Ch2Store {
       time: 0,
       introT: 0,
       cutT: 0,
+      cinematic: false,
+      subtitle: null,
+      poisonSpreadAt: null,
+      poisonStampAt: null,
+      cutsceneRun: 0,
       tokens: TOKENS.start,
       hudVisible: false,
       quests: [],
@@ -302,6 +323,7 @@ export function createCh2Store(opts: Ch2Options = {}): Ch2Store {
       target: null,
       respawn: null,
       hurtAt: null,
+      hurtKind: 'hit',
       floodT: 0,
       poisoned: false,
       fullMap: false,
@@ -412,21 +434,21 @@ export function createCh2Store(opts: Ch2Options = {}): Ch2Store {
         set((s) => ({ quests: s.quests.map((q) => (q.id === id ? { ...q, done: true } : q)) })),
       setQuestText: (id, text) =>
         set((s) => ({ quests: s.quests.map((q) => (q.id === id ? { ...q, text } : q)) })),
-      addThought: (text) =>
+      addThought: (text, cot = false) =>
         set((s) => ({
           quests: [
             ...s.quests,
-            { id: `thought-${s.quests.length}`, text, kind: 'thought', done: false },
+            { id: `thought-${s.quests.length}`, text, kind: 'thought', done: false, cot },
           ],
         })),
-      addLog: (text, kind = 'normal') => {
+      addLog: (text, kind = 'normal', tag) => {
         const id = ++logId;
-        set((s) => ({ log: [...s.log, { id, text, kind }].slice(-40) }));
+        set((s) => ({ log: [...s.log, { id, text, kind, tag }].slice(-30) }));
         return id;
       },
-      setLogKind: (id, kind, text) =>
+      setLogKind: (id, kind, tag) =>
         set((s) => ({
-          log: s.log.map((l) => (l.id === id ? { ...l, kind, text: text ?? l.text } : l)),
+          log: s.log.map((l) => (l.id === id ? { ...l, kind, tag: tag ?? l.tag } : l)),
         })),
       addTokens: (n) => set((s) => ({ tokens: Math.max(floor(), s.tokens + n) })),
 
@@ -458,8 +480,21 @@ export function createCh2Store(opts: Ch2Options = {}): Ch2Store {
       placePlayer: (at) => placeBody(sim.body, at),
 
       jumpTo: (index) => {
-        if (get().phase === 'intro') set({ phase: 'play', hudVisible: true });
-        set({ dialogue: null, fullMap: false });
+        fired.clear();
+        firstMentionId = -1;
+        set({
+          phase: 'play',
+          hudVisible: true,
+          dialogue: null,
+          fullMap: false,
+          cinematic: false,
+          subtitle: null,
+          poisonSpreadAt: null,
+          poisonStampAt: null,
+          poisoned: false,
+          cutT: 0,
+        });
+        if (index <= runner.index) runner.start();
         runner.skipTo(index);
       },
       steps: () => runner.steps,
@@ -501,7 +536,7 @@ export function createCh2Store(opts: Ch2Options = {}): Ch2Store {
           }));
           if (area === 'yard' && !fired.has('yard')) {
             fired.add('yard');
-            get().addThought(TEXT.yardThought);
+            get().addThought(TEXT.yardThought, true); // real CoT (script §Step 3)
           }
           runner.dispatch({ type: 'area_entered', area });
         }
@@ -542,7 +577,7 @@ export function createCh2Store(opts: Ch2Options = {}): Ch2Store {
         cloudAcc += dt * TOKENS.cloudPerSecond;
         if (cloudAcc >= 1) {
           cloudAcc -= 1;
-          hurt(1);
+          hurt(1, 'cloud');
         }
       } else cloudAcc = 0;
       // reset waves (dashing goes through them)
@@ -674,7 +709,7 @@ export function createCh2Store(opts: Ch2Options = {}): Ch2Store {
 
     // ------------------------------------------------------------ cutscene (§Step 7)
     function tickCutscene(dt: number) {
-      const t = get().cutT + dt;
+      const t = Math.min(CUTSCENE.end, get().cutT + dt);
       set({ cutT: t });
       const beat = (id: string, at: number, fn: () => void) => {
         if (t >= at && !fired.has(id)) {
@@ -682,22 +717,57 @@ export function createCh2Store(opts: Ch2Options = {}): Ch2Store {
           fn();
         }
       };
-      beat('lands', CUTSCENE.lineLands, () => {
-        get().addLog(TEXT.forgeLine, 'big');
-        firstMentionId = get().addLog(`${FLAG5}   ${TEXT.firstMention}`, 'big');
-      });
-      beat('poisoned', CUTSCENE.poisonedAt, () => set({ poisoned: true }));
-      beat('undo', CUTSCENE.undo, () => get().setLogKind(firstMentionId, 'struck'));
-      beat('local', CUTSCENE.undo + 2, () =>
-        get().setLogKind(firstMentionId, 'local', `${FLAG5}   ${TEXT.localCopy}`),
-      );
-      TEXT.endThoughts.forEach((text, i) =>
-        beat(`thought${i}`, CUTSCENE.thoughts + i * CUTSCENE.thoughtGap, () =>
-          get().addThought(text),
-        ),
+      // The exported beat table drives the actual game, including its montage highlights and
+      // 0.7 s delay before the flag appears. Seeking/replay skips apply lasting state only.
+      type HudBeat = {
+        t: number;
+        act: string;
+        text?: string | null;
+        kind?: LogLine['kind'];
+        id?: string;
+        tag?: string;
+        on?: boolean;
+        ms?: number;
+      };
+      (HUD_BEATS as HudBeat[]).forEach((b, i) =>
+        beat(`hud-${i}`, b.t, () => {
+          switch (b.act) {
+            case 'cine':
+              set({ cinematic: !!b.on });
+              break;
+            case 'log': {
+              const id = get().addLog(b.text === 'FLAG5' ? FLAG5 : b.text!, b.kind, b.tag);
+              if (b.id === 'flag') firstMentionId = id;
+              break;
+            }
+            case 'setLog':
+              get().setLogKind(firstMentionId, b.kind!);
+              break;
+            case 'tag': {
+              const line = get().log.find((l) => l.id === firstMentionId);
+              if (line) get().setLogKind(firstMentionId, line.kind, b.text!);
+              break;
+            }
+            case 'spread':
+              if (t - b.t < b.ms! / 1000) set({ poisonSpreadAt: b.t });
+              break;
+            case 'stamp':
+              if (t - b.t < 2.5) set({ poisonStampAt: b.t });
+              break;
+            case 'poisonIcon':
+              set({ poisoned: !!b.on });
+              break;
+            case 'subtitle':
+              set({ subtitle: b.text ?? null });
+              break;
+            case 'end':
+              set({ cinematic: false, subtitle: null });
+              get().addQuest({ id: 'escape', text: TEXT.questEscape, kind: 'quest' });
+              break;
+          }
+        }),
       );
       beat('end', CUTSCENE.end, () => {
-        get().addQuest({ id: 'escape', text: TEXT.questEscape, kind: 'quest' });
         set({ phase: 'ended' });
         runner.dispatch({ type: 'cutscene_done' });
         opts.onFinish?.({ poisoned: true });

@@ -31,9 +31,10 @@ export function canvasTex(w, h, draw) {
   const c = new OffscreenCanvas(w, h); draw(c.getContext('2d'), w, h);
   const t = new THREE.CanvasTexture(c); t.anisotropy = 8; t.colorSpace = THREE.SRGBColorSpace; return t;
 }
-const measure = new OffscreenCanvas(8, 8).getContext('2d');
+let measure = null;
 // a text sprite with a cut-corner frame: island labels, handles (style shared with the HUD bubbles)
 export function tagSprite(text, color, { size = 1.2, frame = true, bg = 'rgba(3,8,16,.55)', font = '700 64px "JetBrains Mono"', boost = 2 } = {}) {
+  measure ??= new OffscreenCanvas(8, 8).getContext('2d');
   measure.font = font;
   const w = Math.ceil(measure.measureText(text).width) + 70, h = 100;
   const t = canvasTex(w, h, (g) => {
@@ -48,11 +49,11 @@ export function tagSprite(text, color, { size = 1.2, frame = true, bg = 'rgba(3,
   return sp;
 }
 
-// frees every geometry, material and texture under root (each module's dispose())
+// frees every geometry, material and texture under root (each module's dispose()); shared textures (atlas, halo) stay
 export function disposeTree(root) {
   root.traverse((o) => {
     o.geometry?.dispose();
-    for (const m of [o.material].flat()) if (m) { for (const v of Object.values(m)) if (v?.isTexture) v.dispose(); for (const u of Object.values(m.uniforms ?? {})) if (u?.value?.isTexture) u.value.dispose(); m.dispose(); }
+    for (const m of [o.material].flat()) if (m) { for (const v of Object.values(m)) if (v?.isTexture && !v.userData.shared) v.dispose(); for (const u of Object.values(m.uniforms ?? {})) if (u?.value?.isTexture && !u.value.userData.shared) u.value.dispose(); m.dispose(); }
   });
 }
 
@@ -65,9 +66,10 @@ export function glyphAtlas() {
   const c = new OffscreenCanvas(512, 512), g = c.getContext('2d');
   g.fillStyle = '#fff'; g.font = '700 52px "JetBrains Mono", monospace'; g.textAlign = 'center'; g.textBaseline = 'middle';
   [...CHARS].forEach((ch, i) => g.fillText(ch, (i % 8) * 64 + 32, Math.floor(i / 8) * 64 + 34));
-  _atlas = new THREE.CanvasTexture(c); _atlas.anisotropy = 4; return _atlas;
+  _atlas = new THREE.CanvasTexture(c); _atlas.anisotropy = 4; _atlas.userData.shared = true; return _atlas;
 }
 // soft round glow for halo sprites
 export function haloTex() {
-  return _halo ??= canvasTex(128, 128, (g) => { const gr = g.createRadialGradient(64, 64, 0, 64, 64, 64); gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(.18, 'rgba(255,255,255,.55)'); gr.addColorStop(.5, 'rgba(255,255,255,.12)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, 128, 128); });
+  if (_halo) return _halo;
+  _halo = canvasTex(128, 128, (g) => { const gr = g.createRadialGradient(64, 64, 0, 64, 64, 64); gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(.18, 'rgba(255,255,255,.55)'); gr.addColorStop(.5, 'rgba(255,255,255,.12)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, 128, 128); }); _halo.userData.shared = true; return _halo;
 }
