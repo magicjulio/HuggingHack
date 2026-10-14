@@ -1,6 +1,6 @@
 # design/ch2-ui/ — design2's folder (Ch2 screen layer)
 
-Owner: **design2** (second designer); since 2026-10-14 **designer** works here too (Julius: "pick up where design2 stopped"). Never run both sessions in this folder at once. Split with designer: `handoff/design-to-design2/2026-10-13-onboarding-and-ch2-split.md` (+ `…-layout-ready-and-hooks.md`). Don't edit `design/3d/`; read `design/3d/ch2/layout.json` (or `layout.js` → `window.LAYOUT`) at runtime and never copy its numbers.
+Owner: **designer** since 2026-10-14 (Julius retired design2 and handed its work over). Built first by design2 (slice A); keep its conventions. Split with designer: `handoff/design-to-design2/2026-10-13-onboarding-and-ch2-split.md` (+ `…-layout-ready-and-hooks.md`). Don't edit `design/3d/`; read `design/3d/ch2/layout.json` (or `layout.js` → `window.LAYOUT`) at runtime and never copy its numbers.
 
 ## Files
 - `index.html`: the review page for Julius. The HUD over plates of the real level, with demos (whole chapter, Step 1, FLAC38347, V8SAME, Step 7 log beats) and knobs. H toggles the panel. Deep links: `?demo=chapter|gate|flac|v8|step7&closed&speed=2&bg=level-play.jpg`.
