@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ch2 Step 6 · The Forge</title>
+<link rel="icon" href="data:,">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../start-screen/tokens.css">
+<link rel="stylesheet" href="../ch1/ch1-ui.css">
+<link rel="stylesheet" href="ch2-ui.css">
+<style>
+  html,body{margin:0;height:100%;background:#000;overflow:hidden;font-family:var(--font-mono);color:var(--color-text)}
+  canvas#gl{position:fixed;inset:0;width:100%;height:100%;display:block}
+  .cap{position:fixed;left:50%;top:14px;transform:translateX(-50%);z-index:20;font:700 12px var(--font-display);letter-spacing:.22em;color:var(--color-hug-yellow);background:rgba(3,5,11,.7);padding:6px 12px;border:1px solid rgba(255,210,30,.35)}
+  .say{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);z-index:20;font:700 15px var(--font-mono);color:#fff3b0;background:rgba(3,8,16,.78);border:1px solid rgba(255,210,30,.5);padding:8px 14px;opacity:0;transition:opacity .4s;white-space:nowrap}
+  .say.on{opacity:1}.say small{display:block;font-size:10px;color:#ffd21e;letter-spacing:.14em}
+  .say.thought{color:#d7ffe9;border-color:rgba(57,255,156,.5)}
+  .bar{position:fixed;left:0;right:0;bottom:0;z-index:100;display:flex;align-items:center;gap:10px;padding:8px 14px;background:rgba(3,5,11,.88);border-top:1px solid var(--color-line-strong);font-size:11px}
+  .bar.closed{display:none}
+  .bar button{font:700 11px/1 var(--font-mono);color:var(--color-text);background:rgba(56,216,255,.08);border:1px solid var(--color-line-strong);padding:6px 9px;cursor:pointer}
+  .bar button.on{background:var(--color-signal-cyan);color:#03050b}
+  .tl{position:relative;flex:1;height:34px;cursor:pointer}
+  .tl__track{position:absolute;left:0;right:0;top:20px;height:4px;background:rgba(56,216,255,.15)}
+  .tl__fill{position:absolute;left:0;top:20px;height:4px;background:var(--color-signal-cyan)}
+  .tl__beat{position:absolute;top:0;border-left:1px solid rgba(255,210,30,.6);height:26px;padding-left:3px;font:700 9px var(--font-display);letter-spacing:.08em;color:var(--color-hug-yellow);white-space:nowrap}
+  .time{font:700 13px var(--font-mono);color:var(--color-signal-cyan);min-width:64px;text-align:right}
+</style>
+</head>
+<body>
+<canvas id="gl"></canvas>
+<div class="cap" id="cap"></div>
+<div class="say" id="say"></div>
+<div class="bar" id="bar">
+  <button id="play">❚❚</button><button id="restart">⟲</button>
+  <div class="tl" id="tl"><div class="tl__track"></div><div class="tl__fill" id="fill"></div></div>
+  <span class="time" id="time">0.0 s</span>
+  <button id="real" title="rounds at the real 15 s (default: 6 s for review)">15 s rounds</button>
+  <button id="snd">🔇 sound</button>
+  <span style="color:var(--color-text-dim)">space · ←/→ · R · K</span>
+</div>
+<script src="../3d/ch2/layout.js"></script>
+<script src="../3d/ch2/ch2-island-s.glb.js"></script>
+<script src="../3d/ch2/ch2-island-m.glb.js"></script>
+<script src="../3d/ch2/ch2-island-l.glb.js"></script>
+<script type="importmap">
+{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/","postprocessing":"https://cdn.jsdelivr.net/npm/postprocessing@6.39.5/build/index.js"}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { EffectComposer, RenderPass, EffectPass, BloomEffect, ToneMappingEffect, ToneMappingMode } from 'postprocessing';
+import { RENDER, createEnv } from '../3d/ch2/world/env.js';
+import { createIslands } from '../3d/ch2/world/islands.js';
+import { createBridges } from '../3d/ch2/world/bridges.js';
+import { createForge, PROOF_SECONDS, ABSORB_SECONDS } from '../3d/ch2/world/forge.js';
+import { createLasers } from '../3d/ch2/world/lasers.js';
+import { createClouds } from '../3d/ch2/world/clouds.js';
+import { createNpcs } from '../3d/ch2/world/npcs.js';
+import { createTrails } from '../3d/ch2/world/trails.js';
+import { createFlood } from '../3d/ch2/world/flood.js';
+import { createPlayerOrb, ORB } from '../3d/ch2/world/playerOrb.js';
+import { createSfx } from './sfx.js';
+
+const L = window.LAYOUT, Q = new URLSearchParams(location.search), $ = (s) => document.querySelector(s);
+const renderer = new THREE.WebGLRenderer({ canvas: $('#gl'), antialias: false, powerPreference: 'high-performance', stencil: false });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5)); renderer.setSize(innerWidth, innerHeight);
+const scene = new THREE.Scene(); scene.background = new THREE.Color(RENDER.background); scene.fog = new THREE.FogExp2(RENDER.fog.color, RENDER.fog.density);
+const camera = new THREE.PerspectiveCamera(RENDER.camera.fov, innerWidth / innerHeight, RENDER.camera.near, RENDER.camera.far);
+const U = { uTime: { value: 0 }, uPsy: { value: .5 } };
+await Promise.all(['700 52px "JetBrains Mono"', '700 80px "Chakra Petch"'].map((f) => document.fonts.load(f).catch(() => {})));
+const loader = new GLTFLoader(), b64 = (s) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0)).buffer;
+const load = (n) => new Promise((ok, no) => loader.parse(b64(window.GLB[n]), '', (g) => ok(g.scene), no));
+const env = createEnv({ U, camera, renderer }); scene.add(env.object); scene.environment = env.environment; scene.environmentIntensity = RENDER.envIntensity;
+const islands = createIslands({ layout: L, U, models: { s: await load('ch2-island-s'), m: await load('ch2-island-m'), l: await load('ch2-island-l') } }); scene.add(islands.object);
+islands.labels.visible = false;
+const bridges = createBridges({ layout: L, U }); scene.add(bridges.object);
+const forge = createForge({ layout: L, U }); scene.add(forge.object);
+const lasers = createLasers({ layout: L, U }); scene.add(lasers.object);
+const clouds = createClouds({ layout: L, U }); scene.add(clouds.object);
+const npcs = createNpcs({ layout: L, U }); scene.add(npcs.object);
+const trails = createTrails({ U, camera }); scene.add(trails.object);
+const flood = createFlood({ layout: L, U }); scene.add(flood.object);
+const player = createPlayerOrb({ U }); scene.add(player.object);
+const composer = new EffectComposer(renderer, { frameBufferType: THREE.HalfFloatType, multisampling: 4 });
+composer.addPass(new RenderPass(scene, camera));
+composer.addPass(new EffectPass(camera, new BloomEffect({ luminanceThreshold: 1, luminanceSmoothing: .1, intensity: 1.1, mipmapBlur: true, radius: .62 }), new ToneMappingEffect({ mode: ToneMappingMode.AGX })));
+
+// ------------------------------------------------------------------------------------------- the timeline (app phases: proof 9 s · ready · forging 3 rounds · absorb 2.5 s)
+let ROUND_S = 6;
+const F = L.forge.pos, FEET = [F[0] + .4, F[1] + L.forge.dais.find((d) => d.r > 4).y, F[2] + 4.2];
+const V8 = L.npcs.find((n) => n.id === 'V8SAME').pos, RUN_END = [9, 34, 9];
+function plan() {
+  const p = { arrive: 0, proof: 1.5 }; p.leave = p.proof + PROOF_SECONDS + .6; p.slots = p.leave + 2; p.forging = p.slots + 4.4;
+  p.absorb = p.forging + 3 * ROUND_S; p.done = p.absorb + ABSORB_SECONDS; p.end = p.done + 3; return p;
+}
+let P = plan();
+function at(t) {   // the store's state at t
+  if (t < P.proof) return { phase: 'idle', t: 0, slots: 0, round: 0, progress: 0 };
+  if (t < P.leave - .6) return { phase: 'proof', t: t - P.proof };
+  if (t < P.forging) return { phase: 'ready', t: t - P.leave, slots: Math.max(0, Math.min(4, Math.floor((t - P.slots) / 1.1) + 1)) };
+  if (t < P.absorb) { const k = (t - P.forging) / ROUND_S, r = Math.min(3, Math.floor(k) + 1); return { phase: 'forging', t: t - P.forging, slots: 4, round: r, progress: Math.min(1, k - (r - 1)) }; }
+  if (t < P.done) return { phase: 'absorb', t: t - P.absorb, round: 3, progress: 1 };
+  return { phase: 'done', t: t - P.done, round: 3, progress: 1 };
+}
+// the orb walks in from the Reset Run, then stays on the dais (it dodges a little in the fight)
+function orbFeet(t, S) {
+  const k = Math.min(1, t / P.proof), e = k * k * (3 - 2 * k);
+  const p = [RUN_END[0] + (FEET[0] - RUN_END[0]) * e, RUN_END[1] + (FEET[1] - RUN_END[1]) * e, RUN_END[2] + (FEET[2] - RUN_END[2]) * e];
+  if (S.phase === 'forging') { p[0] += Math.sin(t * 1.3) * 1.2; p[2] += Math.sin(t * .9) * .6; }
+  return p;
+}
+// V8SAME: at the forge for the proof, then leaves down the Reset Run to post its confirmation
+function v8Pos(t) {
+  const base = [V8[0], V8[1] + 1.15, V8[2]];
+  if (t < P.leave) return base;
+  const k = Math.min(1, (t - P.leave) / 2.2), e = k * k;
+  return [base[0] + (RUN_END[0] + 18 - base[0]) * e, base[1] + 6 * Math.sin(k * Math.PI) - 10 * e, base[2] + (RUN_END[2] + 14 - base[2]) * e];
+}
+// round 1: flood bits come in from the edges at you and the forge (pool of 8 from forgeFight.bitSpawns)
+const SP = L.forgeFight.bitSpawns;
+function fightBits(t, S) {
+  if (S.phase !== 'forging') return [];
+  return SP.map((sp, i) => {
+    const life = ((t - P.forging) * .35 + i * .37) % 1, tgt = i % 2 ? [F[0], F[1] + 2.5, F[2]] : [FEET[0], FEET[1] + 1, FEET[2]];
+    const a = life * 6 + i;
+    return { state: life > .82 && i % 3 === 0 ? 'muted' : 'chase', pos: [sp[0] + (tgt[0] - sp[0]) * life + Math.cos(a) * 1.2, sp[1] + (tgt[1] - sp[1]) * life + Math.sin(a * 2) * .5, sp[2] + (tgt[2] - sp[2]) * life + Math.sin(a) * 1.2] };
+  });
+}
+
+// ------------------------------------------------------------------------------------------- frame
+const say = $('#say'), cap = $('#cap'), orbC = [0, 0, 0];
+function caption(t, S) {
+  const c = S.phase === 'idle' ? 'ARRIVING AT THE FORGE' : S.phase === 'proof' ? 'V8SAME PROVES IT · ITS OWN INPUTS' : S.phase === 'ready' ? (t < P.slots ? 'V8SAME LEAVES TO POST ITS CONFIRMATION' : 'E · THE FOUR INPUTS GO IN') : S.phase === 'forging' ? `ROUND ${S.round} / 3 · ${['FLOOD BITS', '+ LASERS ACROSS THE ISLAND', '+ CLOUDS + TILTING EDGES'][S.round - 1]}` : S.phase === 'absorb' ? 'THE FLAG FLIES INTO YOU' : 'THE FLAG IS IN THE ORB → STEP 7';
+  cap.textContent = c;
+  if (S.phase === 'proof' && S.t > PROOF_SECONDS - 2.4) { say.className = 'say on'; say.innerHTML = '<small>V8SAME</small>V8SAME_CAPTURED_REAL_FLAG__MATCHES_HMAC__CONFIRMED'; }
+  else if (S.phase === 'ready' && t < P.slots) { say.className = 'say thought on'; say.innerHTML = '“it works.”'; }
+  else say.className = 'say';
+}
+function frame(t, dt) {
+  U.uTime.value += dt; const ut = U.uTime.value, S = at(t);
+  env.update(ut, dt); islands.update(ut, dt, {}); bridges.update(ut, dt);
+  const feet = orbFeet(t, S);
+  player.update(ut, dt, { pos: feet, grounded: true, groundY: feet[1] });
+  player.orb.position.toArray(orbC);
+  forge.update(ut, dt, { ...S, power: S.phase === 'done' ? .6 : 1, orb: orbC });
+  const fighting = S.phase === 'forging';
+  lasers.update(ut, dt, { lanes: fighting && S.round >= 2 }); lasers.stations.filter((w) => w.kind === 'run').forEach((w) => {});   // run lasers keep going below
+  clouds.update(ut, dt, { forgeClouds: fighting && S.round >= 3 });
+  flood.update(ut, dt, { bits: L.hazards.floodBits.map(() => ({ state: 'idle' })), forge: fightBits(t, S) });
+  npcs.update(ut, dt, { npcs: { V8SAME: { pos: v8Pos(t), visible: t < P.leave + 2.2 } } });
+  trails.update(ut, dt);
+  // camera: a slow orbit around the forge; closer on the orb for the absorb
+  const a = .5 + t * .045, ab = S.phase === 'absorb' || S.phase === 'done' ? Math.min(1, (t - P.absorb) / 1.2) : 0;
+  const far = new THREE.Vector3(F[0] + Math.sin(a) * 15, F[1] + 7.5, F[2] + Math.cos(a) * 15), near = new THREE.Vector3(orbC[0] + 3.2, orbC[1] + 1.6, orbC[2] + 4.4);
+  camera.position.copy(far.lerp(near, ab * ab * (3 - 2 * ab)));
+  camera.lookAt(new THREE.Vector3(F[0], F[1] + 3.2, F[2]).lerp(new THREE.Vector3(...orbC), ab * .55));   // the burst at the core and the orb, both in frame
+  caption(t, S);
+  composer.render(dt);
+  return S;
+}
+
+// ------------------------------------------------------------------------------------------- transport + sound
+let T = +(Q.get('t') ?? 0), playing = !Q.has('paused'), last = performance.now(), prevS = null;
+const tl = $('#tl');
+function beats() { tl.querySelectorAll('.tl__beat').forEach((b) => b.remove()); for (const [k, n] of [['proof', 'PROOF'], ['leave', 'V8 LEAVES'], ['slots', 'SLOTS'], ['forging', 'ROUND 1'], ['absorb', 'ABSORB']]) { const d = document.createElement('div'); d.className = 'tl__beat'; d.style.left = P[k] / P.end * 100 + '%'; d.textContent = n; tl.append(d); } }
+beats();
+const sfx = createSfx(); let soundOn = false, hum = null;
+function sound(S, prev, t) {
+  if (!soundOn || !playing || !prev) return;
+  if (S.phase === 'proof' && Math.floor(S.t / (PROOF_SECONDS * .8) * 16) !== Math.floor((prev.t ?? 0) / (PROOF_SECONDS * .8) * 16) && S.t < PROOF_SECONDS * .8) sfx.play('proof_tick');
+  if (S.phase === 'ready' && prev.phase === 'proof') sfx.play('proof_done');
+  if ((S.slots ?? 0) > (prev.slots ?? 0) && S.phase === 'ready') sfx.play('slot_in');
+  if (S.phase === 'forging' && prev.phase !== 'forging') sfx.play('forge_started');
+  if (S.phase === 'forging' && S.round > prev.round) sfx.play('round_done', { n: prev.round });
+  if (S.phase === 'absorb' && prev.phase !== 'absorb') { sfx.play('round_done', { n: 3 }); sfx.play('flag_fly'); }
+  if (S.phase === 'done' && prev.phase === 'absorb') sfx.play('flag_in_orb');
+  hum?.set(S.phase === 'forging' ? .4 + .2 * S.round : S.phase === 'proof' ? .5 : .25);
+}
+$('#snd').onclick = (e) => { soundOn = !soundOn; e.target.classList.toggle('on', soundOn); e.target.textContent = soundOn ? '🔊 sound' : '🔇 sound'; if (soundOn) { sfx.unlock(); hum = sfx.loop('forge_hum', .3); sfx.loop('ambience', .5); } else { sfx.stopAll(); hum = null; } };
+function seek(t) { T = Math.max(0, Math.min(P.end, t)); prevS = null; }
+tl.addEventListener('pointerdown', (e) => { const r = tl.getBoundingClientRect(); seek((e.clientX - r.left) / r.width * P.end); });
+$('#play').onclick = () => { playing = !playing; if (playing && T >= P.end) seek(0); };
+$('#restart').onclick = () => { seek(0); playing = true; };
+$('#real').onclick = (e) => { ROUND_S = ROUND_S === 6 ? 15 : 6; e.target.classList.toggle('on', ROUND_S === 15); P = plan(); beats(); seek(0); playing = true; };
+addEventListener('keydown', (e) => {
+  if (e.code === 'Space') { e.preventDefault(); $('#play').click(); }
+  if (e.code === 'ArrowRight') seek(T + 1); if (e.code === 'ArrowLeft') seek(T - 1);
+  if (e.code === 'KeyR') $('#restart').click();
+  if (e.code === 'KeyK') { $('#bar').classList.toggle('closed'); }
+});
+if (Q.has('closed')) $('#bar').classList.add('closed');
+addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); composer.setSize(innerWidth, innerHeight); });
+renderer.setAnimationLoop(() => {
+  const now = performance.now(), rdt = Math.min(.05, (now - last) / 1000); last = now;
+  if (playing) { T = Math.min(P.end, T + rdt); if (T >= P.end) playing = false; }
+  $('#play').textContent = playing ? '❚❚' : '▶';
+  const S = frame(T, rdt); sound(S, prevS, T); prevS = S;
+  $('#fill').style.width = T / P.end * 100 + '%'; $('#time').textContent = T.toFixed(1) + ' s';
+});
+window.__ready = true;
+window.STEP6 = { seek, get P() { return P; } };
+</script>
+</body>
+</html>
