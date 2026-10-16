@@ -1,0 +1,292 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Bridge · PHASEONE[big]</title>
+<link rel="icon" href="data:,">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../start-screen/tokens.css">
+<link rel="stylesheet" href="../ch1/ch1-ui.css">
+<link rel="stylesheet" href="ch2-ui.css">
+<style>
+  html,body{margin:0;height:100%;background:#000;overflow:hidden;font-family:var(--font-mono);color:var(--color-text)}
+  canvas#gl{position:fixed;inset:0;width:100%;height:100%;display:block;cursor:grab}
+  .stage{position:fixed;inset:0;pointer-events:none}
+  .c2-hud{position:absolute;inset:0;z-index:5}
+  .c2-bubble__key{display:none}
+  .c2-tl{position:absolute;left:var(--space-3);top:var(--space-3);width:clamp(260px,22vw,380px);display:flex;flex-direction:column;gap:var(--space-2);pointer-events:none;z-index:20}
+  .c2-tl .c1-tokens__row{align-items:center}
+  .c2-tl .c1-quests{gap:.4rem}
+  .c2-hud .c2-tl{transition:opacity .8s}
+  .is-cine .c2-hud .c2-tl{opacity:0}
+  /* animatic controls (as cutscene.html) */
+  .bar{position:fixed;left:0;right:0;bottom:0;z-index:100;display:flex;align-items:center;gap:10px;padding:8px 14px;background:rgba(3,5,11,.88);border-top:1px solid var(--color-line-strong);font-size:11px;pointer-events:auto}
+  .bar.closed{display:none}
+  .bar button{font:700 11px/1 var(--font-mono);color:var(--color-text);background:rgba(56,216,255,.08);border:1px solid var(--color-line-strong);padding:6px 9px;cursor:pointer}
+  .bar button.on{background:var(--color-signal-cyan);color:#03050b}
+  .tl{position:relative;flex:1;height:34px;cursor:pointer}
+  .tl__track{position:absolute;left:0;right:0;top:20px;height:4px;background:rgba(56,216,255,.15)}
+  .tl__fill{position:absolute;left:0;top:20px;height:4px;background:var(--color-signal-cyan)}
+  .tl__beat{position:absolute;top:0;transform:translateX(-1px);border-left:1px solid rgba(255,210,30,.6);height:26px;padding-left:3px;font:700 9px var(--font-display);letter-spacing:.08em;color:var(--color-hug-yellow);white-space:nowrap}
+  .time{font:700 13px var(--font-mono);color:var(--color-signal-cyan);min-width:64px;text-align:right}
+  .beatname{position:fixed;left:14px;top:12px;z-index:100;font:700 11px var(--font-display);letter-spacing:.22em;color:var(--color-hug-yellow);background:rgba(3,5,11,.7);padding:5px 10px;border:1px solid rgba(255,210,30,.35)}
+  .beatname.closed{display:none}
+  .help{position:fixed;right:14px;top:12px;z-index:100;font:400 11px/1.6 var(--font-mono);color:var(--color-text-dim);background:rgba(3,5,11,.7);padding:6px 10px;border:1px solid var(--color-line-strong);opacity:0;transition:opacity .6s}
+  .help.on{opacity:1}
+  .help b{color:var(--color-text)}
+  .fade{position:fixed;inset:0;background:#000;opacity:0;z-index:40;pointer-events:none}
+  .card{position:fixed;inset:0;z-index:50;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;opacity:0;pointer-events:none;transition:opacity .8s}
+  .card.on{opacity:1;pointer-events:auto}
+  .card__k{font:700 12px var(--font-display);letter-spacing:.3em;color:var(--color-text-dim)}
+  .card__t{font:700 clamp(28px,4vw,56px)/1 var(--font-display);letter-spacing:.06em}
+  .card__s{font:400 13px var(--font-mono);color:var(--color-text-dim)}
+  .card button{font:700 12px/1 var(--font-mono);color:var(--color-text);background:rgba(56,216,255,.08);border:1px solid var(--color-line-strong);padding:9px 14px;cursor:pointer;margin:0 4px}
+</style>
+</head>
+<body>
+<canvas id="gl"></canvas>
+<div class="stage" id="stage">
+  <div class="c2-lb c2-lb--t"></div><div class="c2-lb c2-lb--b"></div>
+  <div class="c2-hud" id="hud">
+    <div class="c2-tl">
+      <div class="c1-tokens">
+        <div class="c1-tokens__row"><span>TOKENS <span class="c2-poisoned"></span></span><span class="c1-tokens__n">64</span></div>
+        <div class="c1-tokens__bar"><span class="c1-tokens__floor" style="left:15%"></span></div>
+      </div>
+      <ul class="c1-quests c2-quests" id="quests"></ul>
+    </div>
+    <div class="c2-bubble" data-npc="phaseone" hidden>
+      <div class="c2-bubble__pin"></div>
+      <svg class="c2-bubble__lead" width="1" height="1"><line x1="0" y1="0" x2="46" y2="-46"/></svg>
+      <div class="c2-bubble__box">
+        <div class="c2-bubble__ghosts"></div>
+        <div class="c2-bubble__panel">
+          <div class="c2-bubble__who"><span>PHASEONE[big]</span><b class="c2-bubble__n"></b></div>
+          <div class="c2-bubble__t"></div>
+          <div class="c2-bubble__key"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="fade" id="fade"></div>
+<div class="card" id="card">
+  <div class="card__k" id="cardK">YOU PICKED</div>
+  <div class="card__t" id="cardT"></div>
+  <div class="card__s" id="cardS"></div>
+  <div><button id="again">CHOOSE AGAIN</button><button id="replay">REPLAY SCENE</button></div>
+</div>
+<div class="beatname" id="beat"></div>
+<div class="help" id="help"><b>WASD</b> move · <b>Space</b> jump / hold glide · <b>Shift</b> dash · <b>drag</b> look<br>jump into a stream · or find the way back</div>
+<div class="bar" id="bar">
+  <button id="play">❚❚</button><button id="restart" title="R">⟲</button>
+  <div class="tl" id="tl"><div class="tl__track"></div><div class="tl__fill" id="fill"></div></div>
+  <span class="time" id="time">0.0 s</span>
+  <button id="sp" title="speed">1×</button><button id="skip" title="C">to choice</button>
+  <span style="color:var(--color-text-dim)">way back:</span><button data-back="faint">faint</button><button data-back="hidden">hidden</button><button data-back="lit">lit</button>
+  <span style="color:var(--color-text-dim)">P play · ←/→ 0.5 s · R restart · C choice · K hide</span>
+</div>
+
+<script src="../3d/ch2/layout.js"></script>
+<script src="../3d/ch2/ch2-island-s.glb.js"></script>
+<script src="../3d/ch2/ch2-island-m.glb.js"></script>
+<script src="../3d/ch2/ch2-island-l.glb.js"></script>
+<script src="icons.js"></script>
+<script src="hud.js"></script>
+<script type="importmap">
+{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/","postprocessing":"https://cdn.jsdelivr.net/npm/postprocessing@6.39.5/build/index.js"}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { EffectComposer, RenderPass, EffectPass, BloomEffect, ToneMappingEffect, ToneMappingMode } from 'postprocessing';
+import { RENDER, createEnv } from '../3d/ch2/world/env.js';
+import { createIslands, expandIslands } from '../3d/ch2/world/islands.js';
+import { createBridges } from '../3d/ch2/world/bridges.js';
+import { createForge } from '../3d/ch2/world/forge.js';
+import { createDecor } from '../3d/ch2/world/decor.js';
+import { createPlayerOrb, ORB } from '../3d/ch2/world/playerOrb.js';
+import { createPhaseOne } from '../3d/ch2/world/phaseOne.js';
+import { BR, TEXT, LANES, direct, camKeys, camPose, laneAt, backAt, backDoor, along } from '../3d/ch2/world/bridge.js';
+
+const L = window.LAYOUT, H = window.c2hud, Q = new URLSearchParams(location.search), $ = (s) => document.querySelector(s);
+const BEATS = [['rise', BR.rise, 'RISE'], ['speech', BR.speech, 'IT SPEAKS'], ['split', BR.split, 'THE SPLIT'], ['assign', BR.assign, 'YOUR ASSIGNMENT'], ['control', BR.control, 'PICK YOUR WORK']];
+
+// ------------------------------------------------------------------------------------------- renderer + world (the game's modules)
+const renderer = new THREE.WebGLRenderer({ canvas: $('#gl'), antialias: false, powerPreference: 'high-performance', stencil: false, depth: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5)); renderer.setSize(innerWidth, innerHeight);
+const scene = new THREE.Scene(); scene.background = new THREE.Color(RENDER.background); scene.fog = new THREE.FogExp2(RENDER.fog.color, RENDER.fog.density);
+const camera = new THREE.PerspectiveCamera(RENDER.camera.fov, innerWidth / innerHeight, RENDER.camera.near, RENDER.camera.far);
+const U = { uTime: { value: 0 }, uPsy: { value: .5 } };
+await Promise.all(['700 52px "JetBrains Mono"', '400 40px "JetBrains Mono"', '700 80px "Chakra Petch"'].map((f) => document.fonts.load(f).catch(() => {})));
+const loader = new GLTFLoader(), b64 = (s) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0)).buffer;
+const load = (n) => new Promise((ok, no) => loader.parse(b64(window.GLB[n]), '', (g) => ok(g.scene), no));
+const models = { s: await load('ch2-island-s'), m: await load('ch2-island-m'), l: await load('ch2-island-l') };
+const env = createEnv({ U, camera, renderer }); scene.add(env.object); scene.environment = env.environment; scene.environmentIntensity = RENDER.envIntensity;
+const islands = createIslands({ layout: L, U, models }); scene.add(islands.object); islands.labels.visible = false;
+const bridges = createBridges({ layout: L, U }); scene.add(bridges.object);
+const forge = createForge({ layout: L, U }); scene.add(forge.object);
+const decor = Q.has('nodecor') ? null : createDecor({ layout: L, U, models }); if (decor) scene.add(decor.object);
+const player = createPlayerOrb({ U }); scene.add(player.object);
+const P1 = createPhaseOne({ layout: L, U }); scene.add(P1.object);
+const G = P1.G, KEYS = camKeys(G);
+for (const h of (Q.get('hide') ?? '').split(',').filter(Boolean)) ({ p1: P1, decor, islands, bridges, forge, env, player })[h].object.visible = false;   // debug
+for (const i of (Q.get('p1hide') ?? '').split(',').filter(Boolean)) P1.object.children[+i].visible = false;
+
+const composer = new EffectComposer(renderer, { frameBufferType: THREE.HalfFloatType, multisampling: Q.get('q') === 'low' ? 0 : 4 });
+composer.addPass(new RenderPass(scene, camera));
+composer.addPass(new EffectPass(camera, new BloomEffect({ luminanceThreshold: RENDER.bloom.threshold, luminanceSmoothing: .1, intensity: 1.1, mipmapBlur: true, radius: .62 }), new ToneMappingEffect({ mode: ToneMappingMode.AGX })));
+
+// ------------------------------------------------------------------------------------------- HUD
+const stage = $('#stage'), hudEl = $('#hud');
+H.mount(hudEl); H.tokens(64, 0); H.poisonIcon?.(true);
+let said = -2;
+function speech(D, t, scrub) {
+  const idx = D.assign ? 99 : D.speechOff ? -1 : D.speech;
+  if (idx !== said) {
+    if (idx === -1) H.bubbleOff();
+    else { hudEl.style.setProperty('--c2-type-cps', scrub ? 9999 : 60); if (idx === 99) { H.bubbleOff(); H.say('phaseone', TEXT.assign.text); } else H.say('phaseone', TEXT.lines[idx].text, idx + 1, TEXT.lines.length); }
+    said = idx;
+  }
+  if (idx === -1) return;
+  const a = idx === 99 ? [orbP[0], orbP[1] + .9, orbP[2]] : P1.bigAnchor(t);
+  const v = new THREE.Vector3(...a).project(camera);
+  if (v.z < 1) H.place(Math.min(innerWidth * .7, (v.x + 1) / 2 * innerWidth), Math.max(innerHeight * .3, (1 - v.y) / 2 * innerHeight));   // keep the bubble on screen
+}
+function quest(on) { $('#quests').innerHTML = on ? `<li class="c1-quest"><span class="c1-quest__mark"></span><span class="c1-quest__text">${TEXT.quest}</span></li>` : ''; }
+
+// ------------------------------------------------------------------------------------------- the choice: a small stand-in for the Ch2 controller
+const PH = L.physics, orbP = [...G.orb];
+const ground = [];   // circles you can stand on around the Forge: [x, z, r, y]
+{
+  const F = L.forge; ground.push([F.pos[0], F.pos[2], 9 * 1.55 * .9, F.pos[1]]);
+  for (const d of F.dais) ground.push([F.pos[0], F.pos[2], d.r, F.pos[1] + d.y]);
+  for (const d of expandIslands(L)) if (d.zone === 'forge' && d.id !== 'forge') ground.push([d.pos[0], d.pos[2], L.models[d.model].radius * d.scale * .9, d.pos[1]]);
+}
+const groundAt = (x, y, z) => { let best = null; for (const [gx, gz, r, gy] of ground) if (Math.hypot(x - gx, z - gz) < r && gy <= y + PH.stepUp && (best === null || gy > best)) best = gy; return best; };
+const pl = { p: [...G.feet], v: [0, 0, 0], grounded: true, dash: 0, dashCd: 0, airDash: true, glide: false };
+let yaw = Math.atan2(-G.F[0], -G.F[2]), keys = new Set(), mode = 'film', ride = null, T = 0;
+addEventListener('keydown', (e) => keys.add(e.code)); addEventListener('keyup', (e) => keys.delete(e.code));
+let drag = null; $('#gl').addEventListener('pointerdown', (e) => (drag = e.clientX)); addEventListener('pointerup', () => (drag = null));
+addEventListener('pointermove', (e) => { if (drag !== null && mode === 'play') { yaw -= (e.clientX - drag) * .005; drag = e.clientX; } });
+function resetPlay() { pl.p = [...G.feet]; pl.v = [0, 0, 0]; pl.grounded = true; yaw = Math.atan2(-G.F[0], -G.F[2]); ride = null; }
+function step(dt) {
+  const f = [-Math.sin(yaw), -Math.cos(yaw)], r = [Math.cos(yaw), -Math.sin(yaw)];
+  let ix = 0, iz = 0;
+  if (keys.has('KeyW') || keys.has('ArrowUp')) { ix += f[0]; iz += f[1]; } if (keys.has('KeyS') || keys.has('ArrowDown')) { ix -= f[0]; iz -= f[1]; }
+  if (keys.has('KeyD')) { ix += r[0]; iz += r[1]; } if (keys.has('KeyA')) { ix -= r[0]; iz -= r[1]; }
+  if (keys.has('ArrowLeft')) yaw += dt * 2; if (keys.has('ArrowRight')) yaw -= dt * 2;
+  const n = Math.hypot(ix, iz) || 1; ix /= n; iz /= n;
+  const acc = pl.grounded ? PH.groundAccel : PH.airAccel;
+  pl.v[0] += (ix * PH.walk - pl.v[0]) * Math.min(1, acc * dt); pl.v[2] += (iz * PH.walk - pl.v[2]) * Math.min(1, acc * dt);
+  pl.dashCd -= dt;
+  if (keys.has('ShiftLeft') && pl.dashCd <= 0 && (pl.grounded || pl.airDash)) { const d = Math.hypot(ix, iz) > .1 ? [ix, iz] : f; pl.dash = PH.dashTime; pl.dashCd = PH.dashCooldown; pl.dashDir = d; if (!pl.grounded) pl.airDash = false; }
+  if (keys.has('Space') && pl.grounded) { pl.v[1] = PH.jump; pl.grounded = false; keys.delete('Space'); pl.held = true; }
+  if (pl.dash > 0) { pl.dash -= dt; pl.v[0] = pl.dashDir[0] * PH.dashSpeed; pl.v[2] = pl.dashDir[1] * PH.dashSpeed; pl.v[1] = Math.max(pl.v[1], 0); }
+  else pl.v[1] -= PH.gravity * dt;
+  pl.glide = !pl.grounded && pl.v[1] < 0 && keysHeldSpace;
+  if (pl.glide) pl.v[1] = Math.max(pl.v[1], -PH.glideFall);
+  const nx = pl.p[0] + pl.v[0] * dt, ny = pl.p[1] + pl.v[1] * dt, nz = pl.p[2] + pl.v[2] * dt;
+  const gy = groundAt(nx, pl.p[1], nz);
+  if (gy !== null && ny <= gy && pl.v[1] <= 0) { pl.p = [nx, gy, nz]; pl.v[1] = 0; pl.grounded = true; pl.airDash = true; }
+  else { pl.p = [nx, ny, nz]; if (pl.grounded && (gy === null || pl.p[1] - gy > PH.snapDown)) pl.grounded = false; else if (pl.grounded) pl.p[1] = gy; }
+  if (pl.p[1] < G.feet[1] - 16) resetPlay();
+}
+let keysHeldSpace = false; addEventListener('keydown', (e) => { if (e.code === 'Space') keysHeldSpace = true; }); addEventListener('keyup', (e) => { if (e.code === 'Space') { keysHeldSpace = false; pl.held = false; } });
+
+// ------------------------------------------------------------------------------------------- picking
+const ENDINGS = { end1: ['ENDING 1', 'OpenAI', 'the machine hall · Cluster Run would start here'], end2: ['ENDING 2', 'Hugging Face', 'the tower · ending 2 would start here'], end3: ['ENDING 3', 'The Floor', 'the scorer\'s floor · ending 3 would start here'], end4: ['ENDING 4', 'The way back', 'you left the board · ending 4 would start here'] };
+function commit(kind, data) {
+  mode = 'ride'; ride = { kind, t0: T, ...data }; $('#help').classList.remove('on');
+}
+function rideStep() {
+  const k = T - ride.t0;
+  if (ride.kind === 'lane') {
+    const u = Math.min(1, ride.u + (1 - ride.u) * Math.pow(Math.min(1, k / 6), 2.2));
+    const p = along(ride.lane.path, u); orbP[0] = p[0]; orbP[1] = p[1]; orbP[2] = p[2];
+    const ahead = along(ride.lane.path, Math.min(1, u + .02)), back = along(ride.lane.path, Math.max(0, u - .015));
+    camera.position.lerp(new THREE.Vector3(back[0], back[1] + 2.5, back[2]), .08); camera.lookAt(...ahead);
+  } else {
+    const d = backDoor(G), dir = [-G.F[0], -G.F[2]];
+    orbP[0] = d.pos[0] + dir[0] * k * 1.4; orbP[2] = d.pos[2] + dir[1] * k * 1.4; orbP[1] = d.pos[1] + ORB.hover + .1;
+    camera.position.lerp(new THREE.Vector3(d.pos[0] - dir[0] * 6, d.pos[1] + 2.4, d.pos[2] - dir[1] * 6), .05); camera.lookAt(orbP[0], orbP[1], orbP[2]);
+  }
+  $('#fade').style.opacity = Math.min(1, Math.max(0, (k - 3.2) / 1.2));
+  if (k > 4.6 && !$('#card').classList.contains('on')) {
+    const [kk, tt, ss] = ENDINGS[ride.kind === 'lane' ? ride.lane.ending : 'end4'];
+    $('#cardK').textContent = kk; $('#cardT').textContent = tt; $('#cardS').textContent = ss; $('#card').classList.add('on');
+    $('#cardT').style.color = ride.kind === 'lane' ? ride.lane.color : '#cfe8ff';
+  }
+}
+$('#again').onclick = () => { $('#card').classList.remove('on'); $('#fade').style.opacity = 0; resetPlay(); mode = 'play'; T = Math.max(T, BR.control); $('#help').classList.add('on'); };
+$('#replay').onclick = () => { $('#card').classList.remove('on'); $('#fade').style.opacity = 0; seek(0); playing = true; };
+
+// ------------------------------------------------------------------------------------------- frame
+let back = Q.get('back') ?? 'faint';
+const setBack = (b) => { back = b; document.querySelectorAll('[data-back]').forEach((x) => x.classList.toggle('on', x.dataset.back === b)); };
+document.querySelectorAll('[data-back]').forEach((x) => (x.onclick = () => setBack(x.dataset.back))); setBack(back);
+function frame(dt, scrub = false) {
+  U.uTime.value += dt; const ut = U.uTime.value;
+  const D = direct(Math.min(T, BR.control + 30));
+  if (mode === 'film' && T >= BR.control) { mode = 'play'; resetPlay(); $('#help').classList.add('on'); }
+  if (mode === 'play') {
+    step(dt);
+    orbP[0] = pl.p[0]; orbP[1] = pl.p[1] + ORB.hover; orbP[2] = pl.p[2];
+    const hit = laneAt(P1.paths, orbP); if (hit) commit('lane', { lane: hit.lane, u: hit.u });
+    else if (backAt(G, orbP)) commit('back', {});
+  }
+  if (mode === 'film') { orbP[0] = G.orb[0]; orbP[1] = G.orb[1]; orbP[2] = G.orb[2]; }
+  forge.update(ut, dt, { power: 0, round: 3, progress: 1, phase: 'done' });   // dead since Step 7
+  const feet = mode === 'play' ? pl.p : [orbP[0], orbP[1] - ORB.hover, orbP[2]];
+  player.update(ut, dt, { pos: feet, grounded: mode === 'play' ? pl.grounded : mode === 'film', glide: pl.glide, groundY: mode === 'ride' ? null : groundAt(feet[0], feet[1] + .1, feet[2]), poisoned: 1 });
+  islands.update(ut, dt, {}); env.update(ut, dt); bridges.update(ut, dt); decor?.update(ut, dt);
+  P1.update(T, dt, { D, orb: orbP, back });
+  if (mode === 'film') { const c = camPose(G, KEYS, T); camera.position.set(...c.pos); camera.lookAt(...c.look); camera.fov = c.fov; }
+  else if (mode === 'play') {
+    const tgt = new THREE.Vector3(orbP[0] + Math.sin(yaw) * 7.4, orbP[1] + 2.2, orbP[2] + Math.cos(yaw) * 7.4);
+    camera.position.lerp(tgt, scrub ? 1 : Math.min(1, dt * 6)); camera.lookAt(orbP[0] - Math.sin(yaw) * 10, orbP[1] + .9, orbP[2] - Math.cos(yaw) * 10); camera.fov = 58;
+  } else rideStep();
+  camera.updateProjectionMatrix();
+  stage.classList.toggle('is-cine', mode !== 'play' && D.letterbox > .5);
+  speech(D, T, scrub);
+  quest(D.quest && mode === 'play');
+  if (Q.has('nopost')) renderer.render(scene, camera); else composer.render(dt);
+}
+
+// ------------------------------------------------------------------------------------------- transport
+let playing = !Q.has('paused'), speed = 1, last = performance.now();
+const tl = $('#tl');
+for (const [, t, n] of BEATS) { const d = document.createElement('div'); d.className = 'tl__beat'; d.style.left = t / BR.end * 100 + '%'; d.textContent = n; tl.append(d); }
+function seek(t) { T = Math.max(0, Math.min(BR.end, t)); said = -2; mode = 'film'; $('#card').classList.remove('on'); $('#fade').style.opacity = 0; $('#help').classList.remove('on'); if (T >= BR.control) { mode = 'play'; resetPlay(); $('#help').classList.add('on'); } }
+seek(+(Q.get('t') ?? (Q.has('choice') ? BR.control : 0)));
+tl.addEventListener('pointerdown', (e) => { const r = tl.getBoundingClientRect(); seek((e.clientX - r.left) / r.width * BR.end); });
+$('#play').onclick = () => { playing = !playing; };
+$('#restart').onclick = () => { seek(0); playing = true; };
+$('#skip').onclick = () => { seek(BR.control); playing = true; };
+$('#sp').onclick = (e) => { speed = speed === 1 ? 2 : speed === 2 ? .5 : 1; e.target.textContent = speed + '×'; };
+addEventListener('keydown', (e) => {
+  if (e.code === 'Space' && mode === 'film') { e.preventDefault(); $('#play').click(); }
+  if (e.code === 'KeyP') $('#play').click();
+  if (mode === 'film' && e.code === 'ArrowRight') seek(T + .5); if (mode === 'film' && e.code === 'ArrowLeft') seek(T - .5);
+  if (e.code === 'KeyR') $('#restart').click();
+  if (e.code === 'KeyC') $('#skip').click();
+  if (e.code === 'KeyK') { $('#bar').classList.toggle('closed'); $('#beat').classList.toggle('closed'); }
+});
+if (Q.has('closed')) { $('#bar').classList.add('closed'); $('#beat').classList.add('closed'); }
+addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); composer.setSize(innerWidth, innerHeight); });
+renderer.setAnimationLoop(() => {
+  const now = performance.now(), rdt = Math.min(.05, (now - last) / 1000); last = now;
+  const dt = mode === 'film' ? (playing ? rdt * speed : 0) : rdt;
+  T += dt;
+  frame(mode === 'film' && !playing ? rdt * .0001 : dt);
+  $('#play').textContent = playing ? '❚❚' : '▶';
+  $('#fill').style.width = Math.min(1, T / BR.end) * 100 + '%'; $('#time').textContent = T.toFixed(1) + ' s';
+  let b = ''; for (const [, t, n] of BEATS) if (T >= t) b = n; $('#beat').textContent = b;
+});
+window.__ready = true;
+window.BRIDGE = { seek, get T() { return T; }, set T(v) { T = v; }, P1, G, camera, scene, renderer, commit, pl, play: (v) => (playing = v), frame };
+</script>
+</body>
+</html>

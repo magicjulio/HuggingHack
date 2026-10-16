@@ -72,7 +72,7 @@
   H.clearLog = () => { logBody.innerHTML = ''; lines.clear(); t0 = performance.now(); };
 
   // ── bubble ────────────────────────────────────────
-  const NPC = { c03220: 'c03220', flac: 'FLAC38347', v8same: 'V8SAME' };
+  const NPC = { c03220: 'c03220', flac: 'FLAC38347', v8same: 'V8SAME', phaseone: 'PHASEONE[big]' };
   let bub, typing;
   H.say = function (npc, text, i = 1, n = 1) {
     bub = $('.c2-bubble', root);

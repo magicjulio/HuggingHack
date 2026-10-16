@@ -63,11 +63,19 @@ src/
       presentation.ts    memory URLs + quality tiers; Canvas owns DPR so HUD updates cannot reset it
       Chapter2.tsx       composition: canvas, camera, shooter, keys, HUD, pause, end card
       reach.test.ts      autopilot runs and jumps every gap of the golden path (on layout.json)
+    end1/                Ending 1 "Cluster Run" (OpenAI infra race; the swing prototype, plain three.js, not R3F)
+      End1.tsx           mounts the game in a div, passes best time + callbacks, disposes on unmount
+      game/*.js          ported from prototypes/end1-swing/ (compact style, not linted/formatted): clusterRun.js =
+                         the prototype's main.js as a factory createClusterRun(root, opts) → {dispose}; markup.js
+                         (its HUD/overlay DOM); player.js (all movement tuning in `T`), world.js, enemies.js, fx.js,
+                         audio.js (+ setAudioPaused), textures.js — otherwise unchanged
+      end1.css, DESIGN.md  the prototype's styles scoped under .end1 · how it plays (prototype's design notes)
   screens/start|game/    start screen (designer port) · game host
 src/assets/models/       designer .glb files (verbatim copies) · sprites/ designer bug SVGs · fonts/ typeface JSON
 scripts/make-typeface.py woff2 → three.js typeface JSON (3D letters)
 e2e/smoke.spec.ts        Playwright: menu → chapter 1 → end card → menu; Esc pauses over a machine, step back leaves; in-world S1/S3/S4, S5 → board;
                          chapter 2: intro, real keys move/jump, forge, cutscene, `poisoned` in the save
+e2e/end1.spec.ts         Playwright: pick E1 → countdown → aim at a port and swing → BACK TO MENU disposes the game
 ```
 
 ## Architecture in one paragraph
@@ -89,6 +97,9 @@ Adding a designer model: copy the .glb to `src/assets/models/`, `useGLTF(url)` i
 Same store + steps + views shape, plus a mutable `store.sim` (platform world, body, input, bits, spits) that changes every frame and is read by views in `useFrame`/rAF, never through React. `tick(dt)` steps the physics in ≤ 1/60 s sub-steps, then hazards, forge, targeting, steps. Views write only `sim.input` (ThirdPerson) and call actions (`use`, `shoot`, `think`, `toggleMap`, `travel`).
 **The level is the designer's `layout.json`** (DECISIONS 2026-10-14). `layout.ts` adapts it; ids map 1:1 except pickups (`ITEM_IDS`: `piece-7731` → `p7731` …) and NPCs (`FLAC38347` → `flac`). Islands, bridges, slabs and lifts are `solid: false` (floors, like the designer's page). Movement numbers come from its `physics` block (config.ts `BODY`). **New layout.json version:** copy it over verbatim, run `npx vitest run src/levels/ch2` (reach.test.ts walks the golden path), look at it. **World visuals = the designer's modules** in `world/` (contract `handoff/app-to-design/2026-10-14-ch2-world-as-modules.md`): `createX(ctx) → {object, update(t, dt, state), dispose()}`. New version: copy `handoff/design-to-app/assets/ch2/world/*.js` over verbatim. Mount a new one with `<WorldModule create={…} state={() => …} clock="game"|"render" U={U} />` in World.tsx: `clock="game"` (store time) for anything that hits, so it matches the rules; `U` (uTime, uPsy) is the app's. `world/util.js` touches OffscreenCanvas at import, so only the pure `motion.js` and `step7.js` may be imported by rules/tests. Render settings (camera, fog, bloom, env) come from `env.js` `RENDER` (`WORLD_RENDER`). No placeholder view is left: every world view is a designer module, the Step 0 intro runs on step0.js (camera override ends on the play pose), Step 6 on forge.js phases, Step 7 on step7.js and a separate fxFlashback effect pass. Sound: the store pushes one-shot names into `sim.sounds` at the source (never WebAudio in the store); `Sound.tsx` empties the queue each frame. Dev hook `window.__ch2view.yaw/pitch` turns the camera. Screen layer slots: §4 of `2026-10-13-ch2-greybox-and-contract.md`. Dev hook: `window.__ch2` (store; `__ch2.sim` for the body).
 
+## Ending 1 in one paragraph
+Julius picked the swing prototype as is ("plays very good"), so it stays the prototype's own imperative three.js loop rather than a rewrite into the store + steps + R3F shape: `createClusterRun(root, opts)` builds its DOM (markup.js) and renderer inside `root`, registers every window/document listener through `on()` and every timeout through `later()`, and `dispose()` removes them, cancels the rAF, frees GPU resources (`forceContextLoss`), silences the audio and empties `root`. App contract: `opts.best` (save `bestTimes.end1`), `opts.onFinish(result)` (→ `recordBestTime` + `finishChapter`), `opts.onExit` (BACK TO MENU buttons on the overlays), `opts.debug` (`window.__end1` test hooks: `start()`, `advance(n, dt, bot)`, `setAim`, `press`, `render`). The Esc → pointer-unlock → pause flow is the prototype's. Tuning: `T` in player.js; the seeded course in world.js; zones/hints in clusterRun.js. Endings are catalogue entries with `ending: true`: selectable on the start screen, never a `nextChapter` (the PHASEONE scene picks them, not built yet).
+
 ## Conventions
 - **Swappable views** (Julius 2026-10-13): assets and levels change; a placeholder (e.g. ch2's NPC agents as glowing spheres) gets replaced by a detailed model later. Keep state and behaviour in the store/logic, and give each visible thing one view component behind a small stable interface (pose, state, colour, events) that the placeholder and the final asset both implement. Poses, anchors, colliders and targets come from layout data, not mesh internals, so swapping a model never touches gameplay code.
 - **Designer files** (`src/styles/tokens.css`, `fonts/`, `public/favicon.svg`, `levels/ch1/ch1-ui.css`, `assets/models/*.glb`, `assets/sprites/*.svg`) are verbatim copies from `handoff/design-to-app/assets/`. Re-copy on a new version. CSS is excluded from Prettier (`.prettierignore`) so copies stay byte-identical.
@@ -99,6 +110,11 @@ Same store + steps + views shape, plus a mutable `store.sim` (platform world, bo
 - **Simulated only:** in-game commands/tools are fake; no real commands or exploit code.
 - **Dev hook:** in dev builds or with `?debug`, the chapter store is `window.__ch1` / `window.__ch2` (used by e2e).
 - **drei `<Html>`** (DOM pinned in 3D): keep it mounted and toggle its children, with an explicit `portal` (ch2 `Anchor`, ch1 `ScreenHtml`); mounting/unmounting it during a render races in React 19.
+
+## Status (2026-10-16)
+- **Ending 1 integrated** from `prototypes/end1-swing/` (Julius's pick, handoff `story-to-build/2026-10-16-end1-swing-promoted.md`): playable as **E1 "Cluster Run"** on the start screen; best time in the save; finishing marks `end1` completed. Gameplay, look and tuning are the prototype's, unchanged. Endings 2–4 are redacted locked rows (they replace the old ch3/ch4 placeholders).
+- **Not yet:** Ch2 end card → `PHASEONE[big]` scene → ending choice (script missing; the Ch2 end card still says "next chapter not written yet"). Moving enemies (the requested change) wait on Julius's answers in that handoff. Sandbox-door opening: open question there too.
+- Report: `handoff/build-to-story/2026-10-16-end1-integrated.md`. Tests: 53 unit + 10 browser tests.
 
 ## Status (2026-10-14, evening)
 - **Engineer (back from the external engineer's work):** integrated the designer's world modules part 3 (Old Board, pads + lifts, pickups, props, flood, ribbons), the forge ending (proof, slots, fold, absorb), decor, sound (sfx.js) and the Step 0 tornado intro. Intro, sound, forge ending and decor are the designer's **drafts**: Julius reviews them in the game; re-copy on a new export. Report: `handoff/app-to-design/2026-10-14-ch2-modules-3-intro-forge-sound-integrated.md`.

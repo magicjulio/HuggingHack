@@ -178,6 +178,7 @@ function Shooter({ canvas }: { canvas: React.RefObject<HTMLCanvasElement | null>
 function Ch2View({
   color,
   onExit,
+  onContinue,
   ch1Message,
   installed,
 }: LevelProps & { ch1Message: string; installed: string[] }) {
@@ -336,8 +337,8 @@ function Ch2View({
         <div className="ch2-card">
           <div>
             <h2>{TEXT.chapterEndCard}</h2>
-            <div className="placeholder-tag">PLACEHOLDER · next chapter not written yet</div>
             <div>
+              {onContinue && <button onClick={onContinue}>CONTINUE</button>}
               <button onClick={onExit}>BACK TO MENU</button>
             </div>
           </div>

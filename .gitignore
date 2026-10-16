@@ -1,0 +1,9 @@
+# Python bytecode and caches
+__pycache__/
+*.py[cod]
+
+# Local environment and editor files
+.env
+.env.*
+!.env.example
+.DS_Store

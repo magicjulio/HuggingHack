@@ -25,6 +25,8 @@ export interface SaveData {
   installed: Record<string, string[]>;
   /** Lasting conditions carried between chapters, e.g. 'poisoned' (Ch2 ending → Ch3). */
   status: string[];
+  /** Best run time in seconds per level, for timed levels (Ending 1 race). */
+  bestTimes: Record<string, number>;
 }
 
 /** What a finished chapter hands to the save. */
@@ -54,6 +56,10 @@ interface GameState {
   nextChapter: (id: string) => string | null;
   /** End card CONTINUE: select the next chapter and start it straight away. */
   continueFrom: (id: string) => boolean;
+  /** Start a level straight away (the bridge's pick); unbuilt ones show the host's placeholder. */
+  startChapter: (id: string) => void;
+  /** Keep `seconds` as the level's best time if it beats the saved one. */
+  recordBestTime: (id: string, seconds: number) => void;
 }
 
 const defaultSave: SaveData = {
@@ -64,6 +70,7 @@ const defaultSave: SaveData = {
   messages: {},
   installed: {},
   status: [],
+  bestTimes: {},
 };
 
 /** Fill missing fields with defaults and drop selections that no longer exist or are locked. */
@@ -130,7 +137,7 @@ export const useGame = create<GameState>()(
       nextChapter: (id) => {
         const i = CHAPTERS.findIndex((c) => c.id === id);
         const next = i < 0 ? undefined : CHAPTERS[i + 1];
-        return next?.playable ? next.id : null;
+        return next?.playable && !next.ending ? next.id : null;
       },
       continueFrom: (id) => {
         const next = get().nextChapter(id);
@@ -142,6 +149,14 @@ export const useGame = create<GameState>()(
         }));
         return true;
       },
+      startChapter: (id) =>
+        set((s) => ({ save: { ...s.save, selectedChapter: id }, screen: 'game', run: s.run + 1 })),
+      recordBestTime: (id, seconds) =>
+        set((s) => {
+          const old = s.save.bestTimes[id];
+          if (old !== undefined && old <= seconds) return {};
+          return { save: { ...s.save, bestTimes: { ...s.save.bestTimes, [id]: seconds } } };
+        }),
     }),
     {
       name: 'rogue-on-hf-save',

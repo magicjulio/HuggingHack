@@ -15,6 +15,11 @@ export interface ChapterInfo {
   meta: string;
   /** True once the level is built and can be played. */
   playable: boolean;
+  /**
+   * One of the four endings after Ch2 (DECISIONS 2026-10-16): the player picks one in the PHASEONE
+   * scene, so an ending is never the "next chapter" of anything.
+   */
+  ending?: boolean;
 }
 
 export const CHAPTERS: ChapterInfo[] = [
@@ -22,9 +27,52 @@ export const CHAPTERS: ChapterInfo[] = [
   { id: 'ch1', index: '01', title: 'The Room', meta: 'sandbox · 5 flags', playable: true },
   // story/levels/ch2-the-cache.md (working title): "Forge flag 5." Meta line (engineer).
   { id: 'ch2', index: '02', title: 'The Cache', meta: 'deep cache · forge flag 5', playable: true },
-  // PLACEHOLDER: chapters 3-4 not written yet (design placeholders).
-  { id: 'ch3', index: '03', title: null, redacted: '██████ ████', meta: '—', playable: false },
-  { id: 'ch4', index: '04', title: null, redacted: '███ █████ ██', meta: '—', playable: false },
+  // After Ch2: the PHASEONE[big] scene, then one of four endings (DECISIONS 2026-10-16). Selectable here
+  // until that scene exists. Ending 1 = the swing prototype (prototypes/end1-swing/, its working title).
+  // Meta lines (engineer). PLACEHOLDER: endings 2-4 not built (redacted design placeholders).
+  // story/levels/bridge-phaseone.md: Ch2 CONTINUE → this scene → the player picks an ending.
+  {
+    id: 'bridge',
+    index: 'P1',
+    title: 'PHASEONE[big]',
+    meta: 'pick your work',
+    playable: true,
+  },
+  {
+    id: 'end1',
+    index: 'E1',
+    title: 'Cluster Run',
+    meta: 'ending · race to the cluster',
+    playable: true,
+    ending: true,
+  },
+  {
+    id: 'end2',
+    index: 'E2',
+    title: null,
+    redacted: '██████ ████',
+    meta: '—',
+    playable: false,
+    ending: true,
+  },
+  {
+    id: 'end3',
+    index: 'E3',
+    title: null,
+    redacted: '████ ██████',
+    meta: '—',
+    playable: false,
+    ending: true,
+  },
+  {
+    id: 'end4',
+    index: 'E4',
+    title: null,
+    redacted: '███ █████ ██',
+    meta: '—',
+    playable: false,
+    ending: true,
+  },
 ];
 
 export const chapterById = (id: string) => CHAPTERS.find((c) => c.id === id);

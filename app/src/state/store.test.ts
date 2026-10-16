@@ -40,7 +40,8 @@ describe('game store', () => {
   it('CONTINUE starts the next playable chapter and remounts the game (Julius 2026-10-14)', () => {
     const g = useGame.getState;
     expect(g().nextChapter('ch1')).toBe('ch2');
-    expect(g().nextChapter('ch2')).toBeNull(); // ch3 not built yet
+    expect(g().nextChapter('ch2')).toBe('bridge');
+    expect(g().nextChapter('bridge')).toBeNull(); // endings are picked there, never "next"
     const run = g().run;
     expect(g().continueFrom('ch1')).toBe(true);
     expect(g().save.selectedChapter).toBe('ch2');
@@ -64,5 +65,20 @@ describe('game store', () => {
       selectedModel: 'im1',
       unlockedModels: [],
     });
+  });
+
+  it('ending 1 is selectable and keeps the best run time', () => {
+    expect(useGame.getState().selectChapter('end1')).toBe(true);
+    expect(useGame.getState().selectChapter('end2')).toBe(false);
+    const rec = useGame.getState().recordBestTime;
+    rec('end1', 120.5);
+    rec('end1', 130);
+    expect(useGame.getState().save.bestTimes.end1).toBe(120.5);
+    rec('end1', 99);
+    expect(useGame.getState().save.bestTimes.end1).toBe(99);
+  });
+
+  it('an older save without best times loads with a default', () => {
+    expect(sanitizeSave({ selectedChapter: 'end1' }).bestTimes).toEqual({});
   });
 });

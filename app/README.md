@@ -47,6 +47,17 @@ Handy URL flags (combine with `&`):
 | T · Esc | think · pause |
 | Enter | skip the ending cutscene (only on a replay) |
 
+**Ending 1 "Cluster Run" (the swing race, pick E1 on the start screen):**
+| Key | Action |
+|---|---|
+| click | start the run / resume (locks the mouse) |
+| mouse | look and aim (crosshair) |
+| hold right mouse (or F) | connect a line to the aimed port and swing; let go to fly |
+| left click (hold) | hacking laser |
+| Space | connected: zip in and launch · on a roof: jump |
+| W / S · A / D | reel in / let out · steer the swing, drift |
+| R · Esc | restart the run · pause |
+
 The Ch1 end card's **CONTINUE** goes straight into Chapter 2. Chapter 2's level is the designer's `src/levels/ch2/layout.json`.
 
 Chapter 2 now uses the accepted HUD/map and Step 7 poisoning film, including the forge and player-orb modules. The approved animated NPCs, 70–90-agent crowd, Reset Run runners and Flood message trails are integrated. Old Board, pickups, pads and several other visuals still await designer exports. See [the external engineer's work record](EXTERNAL-ENGINEER.md).
@@ -55,7 +66,7 @@ Chapter 2 now uses the accepted HUD/map and Step 7 poisoning film, including the
 | Command | What it does |
 |---|---|
 | `npm test` | unit tests (Vitest), incl. full Chapter 1 and 2 playthroughs and a Ch2 golden-path jump check |
-| `npm run test:e2e` | browser smoke tests (Playwright, uses your installed Google Chrome) |
+| `npm run test:e2e` | browser smoke tests (Playwright, uses your installed Google Chrome), incl. an Ending 1 run |
 | `npm run lint` / `npm run typecheck` | code checks |
 | `npm run format` | format code (Prettier) |
 | `npm run build` | static production build in `dist/` |

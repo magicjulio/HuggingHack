@@ -1,0 +1,83 @@
+# ASCENT — Ending 2 playable slice
+
+Fly with the swarm into a colossal Hugging Face headquarters, fight through its atrium, and call your own squad to push up the tower.
+
+## Director's verdict and next steps · 2026-10-16
+
+This is an **okay MVP**, but it is not yet an engaging, finished game. The current experience feels boring, and its visuals feel like an early teenage coding project. Treat the prototype as a proof that the slice can run from intro to end card, not as an accepted gameplay or art direction.
+
+The next phase is substantial refinement:
+
+- Replace the placeholder look with much stronger, cohesive assets across the whole game: player, enemies, allies, weapons, effects, dropship, headquarters, atrium, lift, HUD, and end card. Improve silhouettes, materials, lighting, animation, and visual feedback so each action reads clearly and feels deliberate.
+- Add visible pickups that the player can collect, with a satisfying pickup animation and useful combat rewards. Explore a clear, readable loot loop inspired by games such as Minecraft or Fortnite; decide what loot does as part of the combat redesign.
+- Improve aiming substantially. It is currently hard to tell exactly what the player is aiming at. Make the reticle and target feedback easy to see, communicate when cover blocks a shot, and make the relationship between shoulder aim and the rifle's point of impact clear.
+- Rework the entire combat experience for richer, more engaging play. The current loop of crouch, aim, fire, and call in allies is too repetitive. Develop meaningful decisions and varied encounters around movement, cover, enemy behavior, weapons, squad tactics, loot, and floor progression.
+- Replace the improvised Hugging Face faces on the building and enemies with accurate uses of the official logo. Start from Hugging Face's [official brand assets page](https://huggingface.co/brand) and its [official brand-assets repository](https://huggingface.co/datasets/huggingface/brand-assets). Use the actual smile logo on the headquarters and enemy faces, then add the weapons or shields around it. Check the supplied brand guidance when adapting the asset for in-game use.
+- Playtest and iterate on the redesigned game feel and encounters. Reassess pacing, challenge, feedback, and the value of the subagent ability before extending the climb.
+
+Keep the grand tower, armada approach, squad-assault premise, poisoned `KAM1196A`, and spawn-subagents fantasy as direction to build on. Do not treat the current placeholder art or combat tuning as approved final choices.
+
+Run `prototypes/serve.sh` from the repository root and open **http://localhost:8765/end2-ascent/**. Desktop keyboard and mouse; click JOIN THE SWARM to capture the mouse. Standalone three.js ES modules, using the existing vendored library; no build, downloads, or external assets.
+
+## The playable sequence
+
+1. A roughly 35-second steerable dropship approach. Forward flight is automatic. Dodge three broad hovering obstacles while the enormous headquarters and its emblem emerge through fog. Collisions jolt the camera and briefly delay flight. Final landing alignment is automatic.
+2. Floor 1: three waves of 4, 5, and 6 smiling gunner/shield enemies in an atrium with staggered cover and open flank lanes. Two permanent allied orbs accompany you. Clearing the floor enables the lift.
+3. Walk onto the far lift and press E. A nine-second ride on a moving platform pulls the camera back through the tower's exterior structure.
+4. Floor 2: nine enemies, more shields, stronger shots and more concurrent attackers. Clearing the encounter produces the SLICE COMPLETE card with elapsed time, takedowns, call-ins, and retries. The real finale and the scorer-file revelation are beyond this slice.
+
+The player is KAM1196A, represented by a poisoned green orb in an armored biped. Poison has no additional mechanical penalty. Story framing remains metaphorical; the prototype contains no real intrusion techniques.
+
+## Controls
+
+| Input | Flight | Combat |
+|---|---|---|
+| WASD / arrow keys | Steer horizontally / vertically | Move relative to camera |
+| Mouse | — | Look |
+| Left mouse, held | — | Fire pulse rifle |
+| Right mouse, held | — | Shoulder aim; stand to fire when crouched |
+| C | — | Toggle crouch |
+| Shift | — | Sprint; cannot fire while sprinting |
+| Space | — | Short directional dodge |
+| Q | — | Spawn subagents near the aimed point |
+| E | — | Activate cleared lift when nearby |
+| Esc | Pause | Pause |
+| R on defeat | — | Retry current floor |
+
+The pause/defeat screens also offer a complete approach restart. Completing the slice offers another full run.
+
+## Combat loop
+
+Crouch behind physical cover, watch the red targeting lines and orange projectiles, rise into shoulder aim, fire controlled bursts, then move before pressure builds. The laser rifle has unlimited ammunition and heat: uninterrupted fire overheats it, while pauses cool it. Hip fire has spread; shoulder aim is precise. Shots originate at the rifle muzzle and stop at cover, even if the camera can see a target around it. Camera collision pulls the view inward near walls.
+
+Gunners approach and fire telegraphed bursts. Shield-bearers turn more slowly, absorb most frontal damage, and lower their shields during attack windows. Flanking or distracting them is faster than firing continuously into the shield. Enemy shots travel and can be dodged. Health regenerates after four seconds without damage. Defeat restarts the current floor, restores the call-in, and adds ten seconds to elapsed time.
+
+Floor 1 limits simultaneous enemy attacks and reduces shot damage. Floor 2 raises pressure. A perfect-aim automated player clears considerably faster than a first human run; human pacing and difficulty still need playtesting.
+
+## Spawn subagents
+
+Q selects a nearby deployment point along your aim, clamped to the current floor and a 16-unit reach. Three mint orbs arrive with streaks, ground rings, rising animations, particles, and a bass sound. Enemies within seven units briefly stagger. The orbs acquire targets, fire autonomously, draw attention, and move sideways around shield enemies. They expire after 12 seconds or can be destroyed; the ability recharges in 24 seconds from activation.
+
+Two blue permanent allies provide weaker background support. Temporary agents deal substantially more damage. Their HUD shows active lifetime and the next call's cooldown. Friendly shots do not damage the player.
+
+## Files and tuning
+
+- `main.js`: the central **T** block at the top contains gameplay, encounter, camera, flight, world dimensions, and effects tuning; also player movement, rifle, camera, state flow, audio, HUD, and collision helpers.
+- `actors.js`: enemy/ally models, combat AI, projectiles, shielding, and call-ins.
+- `world.js`: two cover layouts, atrium, tower shell, fleet, and moving lift.
+- `flight.js`: reusable approach sequence and craft controls.
+- `index.html`: single-page shell and HUD.
+- `smoke.mjs`: reproducible headless integration playthrough using the existing app's Playwright dependency.
+
+Geometry/art proportions remain local to their modules. Gameplay balancing belongs in T. Test hooks are exposed only when the URL contains `?test=1`.
+
+## Validation and known gaps
+
+- Full approach → three floor-1 waves → activated lift → floor-2 encounter → completion card passed in headless Chromium with software WebGL, with zero console errors. Run `node prototypes/end2-ascent/smoke.mjs` with the server running (set `CHROME_PATH` if needed). Independent actor checks cover frontal/rear shield damage, line-of-sight blocking, cooldown, expiry, reset/disposal, and the simultaneous-attack caps.
+- This is a procedural-art prototype: simple geometric bodies and synth sounds, no imported character animation, voice acting, music, or production effects.
+- Navigation uses collision sliding and local steering, not a navigation mesh. Actors can take awkward routes around cover. Permanent allies are resilient background support rather than fully simulated squadmates.
+- Floor 2 reuses the atrium architecture with a different cover layout. The rest of the climb, actual finale, campaign integration, saves, controller/mobile support, and settings menu are not built.
+- Flight has a fixed forward route and assisted landing. The landing-to-combat handoff is a cut.
+- The lift camera is scripted. The tower beyond the two playable floors is scenery.
+- Human feel, difficulty, audio balance, integrated-GPU performance, and browsers other than Chromium remain unverified. Pointer lock requires a desktop browser and user click.
+- The automated combat player uses perfect target knowledge and accelerated simulation; its finish time is not a human playtime benchmark.

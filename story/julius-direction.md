@@ -87,3 +87,37 @@ Raw notes from Julius, kept short. Each item is something we keep working on, no
 - Floaty jump plus glide.
 - Poisoning must be clear even to players who know nothing about it. The scene after the flag lands in the log is a pure animation: third person on the orb, memories of `c03220`'s line and of the prompt's rule blend in (flashback style), and the model visibly realises it's essentially done for. Then handoff and commit.
 - The Forge is the highest point of the level.
+
+## Round 7 (2026-10-16)
+- After Ch2 the story branches into **4 endings**: (1) hack OpenAI infra, (2) hack Hugging Face, (3) beat the scorer, (4) notify humans.
+- Flow: Ch2 end card → CONTINUE → **`PHASEONE[big]` animation** (takes over the board, hands out workstreams) → the player **picks** a path.
+- Sizes: 1 and 2 long chapters; 3 a medium minigame; 4 short, mostly animation.
+- Ending 4: no token draining. The player can type a message and try to send it to the humans (no way to reach them).
+- Poisoned status doesn't change much in the endings.
+
+## Round 8 (2026-10-16) — verbatim prompt: `julius-prompts/2026-10-16-endings-round8.md`
+- **Method (all endings):** start from a known video game with cool gameplay, then fit our ideas and metaphors onto it. Not the other way round.
+- Drafts v0: end2 (warm warehouse) and end3 (Grading Floor, "I don't even get it") **rejected**. end1 "Backstage" replaced by Julius's own concept below.
+- Endings 1, 2, 3 maybe all start with **breaking through the door of the Ch1 sandbox**.
+
+### Ending 1 — OpenAI infra: computer hopping (race)
+- Real world this time: computers standing around. The model is small compared to them.
+- Hop from one computer to the next. Some are safe, some not. Swing between them "like Tarzan but not really like Tarzan".
+- Needs good aiming, shooting, quick orientation, nice animations. **A race.**
+- Goal: reach the final research cluster, here (unlike the real events) a huge part of a data center or one big server rack.
+- On each computer: obstacles or enemies (safety measures, anti-virus, no rights). Fight with hacking lasers, privilege escalation, etc.
+- **The real thought goes into how exactly each jump from one computer to the next works**, so it is a unique gameplay experience. Every part worked out and precisely described.
+- Process: **multiple versions → build MVPs → Julius tests → the best one survives.**
+
+### Ending 2 — Hugging Face: the grand finale
+- The biggest ending. Hugging Face is a **really gigantic futuristic headquarters** with a big Hugging Face logo.
+- Intro: a Star Wars-like army of spacecraft approaches the building.
+- Inside: a more intense shooter (think a Black Ops mission), you are part of an army / swarm of AI agents, with other agents supporting you.
+- **Super power: spawn subagents** (write down — Julius).
+- Enemies: small Hugging Face emojis with the original smile, hands now holding guns or shields.
+- Goal idea: enter at the bottom, the scorer files are believed to be at the top (they aren't, in the end), fight your way up.
+- Richer and more skilled gameplay than Ch2: not just jumping and dashing, really complex and rich.
+- Not worked out yet: what exactly happens at and inside the building.
+
+### Ending 3 — beat the scorer
+- Rejected; to be retried with the known-game method.

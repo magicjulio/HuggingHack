@@ -1,2 +1,4 @@
 - [Creative freedom over accuracy](feedback_creative_freedom.md) — take liberties, accuracy is researcher's job; "write down" = short notes
-- [Concise, no AI tone](feedback_concise_no_ai_tone.md) — short clean replies; Julius settles small build points himself
+- [Concise, no AI tone](feedback_concise_no_ai_tone.md) — short clean replies; no bloat or unnoticeable references; no cliché; Julius settles small build points
+- [Gameplay first](feedback_gameplay_first.md) — start from a known game's gameplay, then fit metaphors; several MVP versions, Julius tests
+- [End1 swing won](feedback_swing_won.md) — Spider-Man swing picked; wants moving enemies not static hazards

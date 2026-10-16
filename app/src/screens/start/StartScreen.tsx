@@ -198,8 +198,11 @@ export function StartScreen() {
     return () => removeEventListener('keydown', onKey);
   }, [booting, endBoot, launch]);
 
-  const selectedChapterNo =
-    CHAPTERS.find((c) => c.id === save.selectedChapter)?.index.replace(/^0/, '') ?? '1';
+  const selected = CHAPTERS.find((c) => c.id === save.selectedChapter);
+  // "start chapter 2" · "start ending 1" (endings are indexed E1…E4)
+  const startLabel = selected?.ending
+    ? `start ending ${selected.index.replace(/^E/, '')}`
+    : `start chapter ${selected?.index.replace(/^0/, '') ?? '1'}`;
 
   // --- render ---------------------------------------------------------------
   return (
@@ -291,7 +294,7 @@ export function StartScreen() {
         <div className="cta">
           <button className="start" onClick={launch}>
             <span>INJECT</span>
-            <small>start chapter {selectedChapterNo}</small>
+            <small>{startLabel}</small>
           </button>
           <button
             className="ghost"
