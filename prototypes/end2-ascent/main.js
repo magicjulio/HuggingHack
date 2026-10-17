@@ -2,6 +2,9 @@ import * as THREE from "three";
 import { createWorld } from "./world.js";
 import { createActors } from "./actors.js";
 import { createFlight } from "./flight.js";
+import { P, loadBrand, loadFonts, applyEnvironment } from "./art.js";
+import { buildPlayer } from "./models.js";
+import { createRenderer } from "./post.js";
 
 // All gameplay, camera, encounter and presentation tuning lives here.
 export const T = {
@@ -141,18 +144,17 @@ export const T = {
 };
 const $ = (id) => document.getElementById(id),
   canvas = $("c");
-const renderer = new THREE.WebGLRenderer({
-  canvas,
-  antialias: true,
-  powerPreference: "high-performance",
+await loadFonts();
+const brand = await loadBrand();
+const gfx = createRenderer(canvas, {
+  pixelRatio: T.fx.maxPixelRatio,
+  exposure: T.fx.exposure,
 });
-renderer.setPixelRatio(Math.min(devicePixelRatio, T.fx.maxPixelRatio));
-renderer.setSize(innerWidth, innerHeight);
-renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = T.fx.exposure;
+const renderer = gfx.renderer;
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x101b28);
 scene.fog = new THREE.Fog(0x101b28, T.fx.fogNear, T.fx.fogFar);
+applyEnvironment(renderer, scene, 0.4);
 const camera = new THREE.PerspectiveCamera(
   T.camera.fov,
   innerWidth / innerHeight,
@@ -208,90 +210,10 @@ const stats = {
   hits: 0,
 };
 let playerHeight = T.player.height;
-const body = new THREE.Group();
+const playerModel = buildPlayer();
+const body = playerModel.root;
 scene.add(body);
-const armor = new THREE.MeshStandardMaterial({
-  color: 0x394957,
-  metalness: 0.7,
-  roughness: 0.42,
-});
-const trim = new THREE.MeshStandardMaterial({
-  color: 0xb3c3bd,
-  metalness: 0.65,
-  roughness: 0.4,
-});
-const dark = new THREE.MeshStandardMaterial({
-  color: 0x111d26,
-  roughness: 0.7,
-});
-const green = new THREE.MeshStandardMaterial({
-  color: 0x659b36,
-  emissive: 0x427719,
-  emissiveIntensity: 1.6,
-  roughness: 0.25,
-});
-function part(geo, mat, x, y, z, parent = body) {
-  const m = new THREE.Mesh(geo, mat);
-  m.position.set(x, y, z);
-  parent.add(m);
-  return m;
-}
-part(new THREE.BoxGeometry(0.78, 0.73, 0.43), armor, 0, 1.12, 0);
-part(new THREE.BoxGeometry(0.51, 0.17, 0.49), trim, 0, 0.82, 0);
-part(new THREE.SphereGeometry(0.29, 20, 12), green, 0, 1.76, 0);
-part(new THREE.TorusGeometry(0.32, 0.065, 6, 24), armor, 0, 1.75, 0.02);
-part(new THREE.BoxGeometry(0.27, 0.32, 0.47), trim, -0.52, 1.37, 0);
-part(new THREE.BoxGeometry(0.27, 0.32, 0.47), trim, 0.52, 1.37, 0);
-const legL = part(
-    new THREE.BoxGeometry(0.25, 0.69, 0.28),
-    armor,
-    -0.23,
-    0.4,
-    0,
-  ),
-  legR = part(new THREE.BoxGeometry(0.25, 0.69, 0.28), armor, 0.23, 0.4, 0);
-part(new THREE.BoxGeometry(0.28, 0.15, 0.46), dark, -0.23, 0.09, -0.08);
-part(new THREE.BoxGeometry(0.28, 0.15, 0.46), dark, 0.23, 0.09, -0.08);
-part(new THREE.BoxGeometry(0.19, 0.37, 0.2), dark, -0.46, 1.11, -0.18);
-const gun = part(
-  new THREE.BoxGeometry(0.23, 0.24, 0.92),
-  dark,
-  0.46,
-  1.5,
-  -0.56,
-);
-part(new THREE.BoxGeometry(0.09, 0.07, 0.5), green, 0, 0.14, -0.1, gun);
-const muzzle = part(
-  new THREE.CylinderGeometry(0.065, 0.085, 0.25, 8),
-  trim,
-  0,
-  0,
-  -0.54,
-  gun,
-);
-muzzle.rotation.x = Math.PI / 2;
-const glow = part(
-  new THREE.SphereGeometry(0.1, 8, 6),
-  new THREE.MeshBasicMaterial({ color: 0xc5ff73 }),
-  0,
-  0,
-  -0.69,
-  gun,
-);
-glow.visible = false;
-const groundRing = part(
-  new THREE.RingGeometry(0.48, 0.55, 32),
-  new THREE.MeshBasicMaterial({
-    color: 0x8abc53,
-    transparent: true,
-    opacity: 0.4,
-    side: THREE.DoubleSide,
-  }),
-  0,
-  0.025,
-  0,
-);
-groundRing.rotation.x = -Math.PI / 2;
+const glow = playerModel.muzzle;
 body.visible = false;
 
 // Short-lived effects use shared geometry; the caps bound long sessions.
@@ -493,7 +415,8 @@ const actors = createActors(scene, T, {
     alive: state === "combat" && health > 0,
     height: playerHeight,
   }),
-});
+  getCamera: () => camera,
+}, brand);
 
 function toast(text, duration = 2.5) {
   $("toast").textContent = text;
@@ -769,19 +692,16 @@ function updatePlayer(dt) {
   dodgeCooldown = Math.max(0, dodgeCooldown - dt);
   body.position.copy(pos);
   body.rotation.set(0, yaw, 0);
-  body.scale.y = THREE.MathUtils.lerp(
-    body.scale.y,
-    isLow ? 0.57 : 1,
-    1 - Math.exp(-dt * 18),
-  );
-  const stride =
-    Math.sin(runTime * (speed > 6 ? 14 : 10)) *
-    Math.min(velocity.length() * 0.08, 0.4);
-  legL.rotation.x = stride;
-  legR.rotation.x = -stride;
-  body.rotation.z = dodge > 0 ? -0.3 : 0;
-  gun.rotation.x = -pitch;
-  glow.visible = fireCooldown > T.weapon.interval - 0.04;
+  playerModel.update(dt, {
+    speed: velocity.length(),
+    crouch: isLow,
+    pitch,
+    heat: heat / 100,
+    firing: fireCooldown > T.weapon.interval - 0.04 ? 1 : 0,
+    dodge: dodge > 0,
+    time: runTime,
+    hurt: Math.max(0, 1 - (runTime - lastDamage) * 3),
+  });
   if (runTime - lastDamage > T.player.regenDelay)
     health = Math.min(T.player.health, health + dt * T.player.regen);
 }
@@ -1108,11 +1028,12 @@ function frame(now) {
   const dt = Math.min((now - last) / 1000, 0.04);
   last = now;
   tick(dt);
-  renderer.render(scene, camera);
+  if (gfx.grade) gfx.grade.uniforms.hurt.value = Math.min(1, damageFlash);
+  gfx.render(scene, camera);
   requestAnimationFrame(frame);
 }
 addEventListener("resize", () => {
-  renderer.setSize(innerWidth, innerHeight);
+  gfx.resize();
   camera.aspect = innerWidth / innerHeight;
   camera.updateProjectionMatrix();
 });

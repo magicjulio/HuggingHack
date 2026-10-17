@@ -1,8 +1,9 @@
 import * as THREE from "three";
+import { buildDefender, buildAgent } from "./models.js";
 
 // Actor positions are feet; every projectile checks the same world obstruction
 // hook as the player's rifle, so cover works for both teams.
-export function createActors(scene, T, hooks) {
+export function createActors(scene, T, hooks, brand) {
   const A = T.actors;
   const enemies = [],
     allies = [],
@@ -12,156 +13,16 @@ export function createActors(scene, T, hooks) {
   const geo = (g) => (geometries.add(g), g);
   const mat = (m) => (materials.add(m), m);
   const sphere = geo(new THREE.SphereGeometry(1, 20, 14));
-  const box = geo(new THREE.BoxGeometry(1, 1, 1));
-  const ring = geo(new THREE.TorusGeometry(0.66, 0.035, 6, 36));
-  const disc = geo(new THREE.CircleGeometry(1, 32));
-  const yellow = mat(
-    new THREE.MeshStandardMaterial({
-      color: 0xffcf34,
-      roughness: 0.38,
-      metalness: 0.15,
-    }),
-  );
-  const dark = mat(
-    new THREE.MeshStandardMaterial({
-      color: 0x182736,
-      roughness: 0.4,
-      metalness: 0.7,
-    }),
-  );
-  const brass = mat(
-    new THREE.MeshStandardMaterial({
-      color: 0xd48b1b,
-      roughness: 0.35,
-      metalness: 0.6,
-    }),
-  );
-  const cyan = mat(new THREE.MeshBasicMaterial({ color: 0x50edff }));
-  const mint = mat(new THREE.MeshBasicMaterial({ color: 0xc3ff75 }));
   const bulletMaterial = mat(new THREE.MeshBasicMaterial({ color: 0xff7049 }));
-  const healthMaterial = mat(
-    new THREE.MeshBasicMaterial({ color: 0xffb24b, depthTest: false }),
-  );
-  const healthBackMaterial = mat(
-    new THREE.MeshBasicMaterial({ color: 0x1c2430, depthTest: false }),
-  );
-  const faceCanvas = document.createElement("canvas");
-  faceCanvas.width = faceCanvas.height = 256;
-  const ctx = faceCanvas.getContext("2d");
-  ctx.fillStyle = "#3f2a13";
-  ctx.lineWidth = 11;
-  ctx.lineCap = "round";
-  ctx.strokeStyle = "#3f2a13";
-  // Hugging Face's delighted closed eyes and open smile remain readable at range.
-  for (const x of [81, 175]) {
-    ctx.beginPath();
-    ctx.moveTo(x - 20, 106);
-    ctx.quadraticCurveTo(x, 80, x + 20, 106);
-    ctx.stroke();
-  }
-  ctx.beginPath();
-  ctx.moveTo(77, 130);
-  ctx.quadraticCurveTo(128, 145, 179, 130);
-  ctx.bezierCurveTo(177, 207, 79, 207, 77, 130);
-  ctx.fill();
-  ctx.fillStyle = "#f77968";
-  ctx.beginPath();
-  ctx.ellipse(128, 177, 26, 12, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = "#f49a3a";
-  ctx.beginPath();
-  ctx.ellipse(51, 135, 18, 10, -0.12, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.beginPath();
-  ctx.ellipse(205, 135, 18, 10, 0.12, 0, Math.PI * 2);
-  ctx.fill();
-  const faceTexture = new THREE.CanvasTexture(faceCanvas);
-  faceTexture.colorSpace = THREE.SRGBColorSpace;
-  const faceMaterial = mat(
-    new THREE.MeshBasicMaterial({
-      map: faceTexture,
-      transparent: true,
-      depthWrite: false,
-      polygonOffset: true,
-      polygonOffsetFactor: -1,
-    }),
-  );
   let floorY = 0,
     cooldown = 0,
     sequence = 0;
   const up = new THREE.Vector3(0, 1, 0);
   const tmp = new THREE.Vector3();
 
-  function part(parent, geometry, material, position, scale) {
-    const m = new THREE.Mesh(geometry, material);
-    m.position.set(...position);
-    if (scale) m.scale.set(...scale);
-    parent.add(m);
-    return m;
-  }
-
   function enemyModel(kind) {
-    const mesh = new THREE.Group();
-    const body = part(mesh, sphere, yellow, [0, 1.3, 0], [0.78, 0.78, 0.66]);
-    part(mesh, disc, faceMaterial, [0, 1.32, 0.66], [0.71, 0.71, 1]);
-    part(mesh, box, dark, [0, 0.43, 0], [0.85, 0.34, 0.55]);
-    for (const side of [-1, 1]) {
-      part(mesh, box, dark, [side * 0.27, 0.19, 0.07], [0.3, 0.35, 0.54]);
-      // Palms and four little fingers, wrapped around the weapons.
-      part(mesh, sphere, yellow, [side * 0.78, 0.97, 0.25], [0.24, 0.25, 0.22]);
-      for (let i = 0; i < 4; i++)
-        part(
-          mesh,
-          sphere,
-          yellow,
-          [side * (0.65 + i * 0.075), 1.09, 0.36],
-          [0.055, 0.13, 0.07],
-        );
-    }
-    part(mesh, box, dark, [0.78, 0.96, 0.56], [0.22, 0.22, 0.83]);
-    part(mesh, box, brass, [0.78, 0.96, 1.02], [0.28, 0.28, 0.11]);
-    part(
-      mesh,
-      sphere,
-      bulletMaterial,
-      [0.78, 0.96, 1.08],
-      [0.065, 0.065, 0.045],
-    );
-    let shield = null;
-    if (kind === "shield") {
-      shield = new THREE.Group();
-      shield.position.set(-0.57, 0.97, 0.72);
-      mesh.add(shield);
-      part(shield, box, dark, [0, 0, 0], [0.94, 1.66, 0.13]);
-      const glass = mat(
-        new THREE.MeshStandardMaterial({
-          color: 0x55d9ff,
-          emissive: 0x167fa3,
-          emissiveIntensity: 0.65,
-          metalness: 0.6,
-          roughness: 0.3,
-          transparent: true,
-          opacity: 0.82,
-        }),
-      );
-      part(shield, box, glass, [0, 0, 0.09], [0.78, 1.48, 0.06]);
-      part(shield, disc, yellow, [0, 0.03, 0.135], [0.3, 0.3, 1]);
-      part(shield, disc, faceMaterial, [0, 0.03, 0.14], [0.3, 0.3, 1]);
-      for (const x of [-0.46, 0.46])
-        part(shield, box, brass, [x, 0, 0], [0.055, 1.69, 0.18]);
-    }
-    const health = new THREE.Group();
-    health.position.set(0, 2.45, 0);
-    mesh.add(health);
-    part(health, box, healthBackMaterial, [0, 0, 0], [1.06, 0.09, 0.025]);
-    const fill = part(
-      health,
-      box,
-      healthMaterial,
-      [0, 0, 0.02],
-      [1, 0.055, 0.025],
-    );
-    health.visible = false;
+    const model = buildDefender(brand, kind);
+    const mesh = model.root;
     const lineGeometry = new THREE.BufferGeometry().setFromPoints([
       new THREE.Vector3(),
       new THREE.Vector3(),
@@ -176,52 +37,18 @@ export function createActors(scene, T, hooks) {
     aimLine.visible = false;
     scene.add(aimLine);
     scene.add(mesh);
-    return { mesh, body, shield, health, fill, aimLine };
+    return { mesh, model, shield: model.shield, aimLine };
   }
 
   function addAlly(x, z, temporary, index = 0) {
-    const mesh = new THREE.Group();
+    const model = buildAgent(temporary ? "subagent" : "escort");
+    const mesh = model.root;
     mesh.position.set(x, floorY, z);
-    const shell = mat(
-      new THREE.MeshStandardMaterial({
-        color: temporary ? 0x9cffdf : 0x6ecaff,
-        emissive: temporary ? 0x249c77 : 0x174a91,
-        emissiveIntensity: 0.8,
-        metalness: 0.65,
-        roughness: 0.25,
-      }),
-    );
-    const orb = part(mesh, sphere, shell, [0, 1.35, 0], [0.41, 0.41, 0.41]);
-    const halo = part(mesh, ring, temporary ? mint : cyan, [0, 1.35, 0]);
-    halo.rotation.x = Math.PI / 2;
-    part(mesh, box, dark, [0, 1.35, 0.35], [0.52, 0.14, 0.17]);
-    part(
-      mesh,
-      box,
-      temporary ? mint : cyan,
-      [0, 1.35, 0.45],
-      [0.35, 0.055, 0.03],
-    );
-    part(mesh, box, dark, [0.35, 1.19, 0.18], [0.13, 0.17, 0.49]);
-    const arrivalMaterial = new THREE.MeshBasicMaterial({
-      color: 0xa8ffd1,
-      transparent: true,
-      opacity: 0.7,
-      depthWrite: false,
-    });
-    const arrival = new THREE.Mesh(ring, arrivalMaterial);
-    arrival.rotation.x = Math.PI / 2;
-    arrival.position.y = 0.06;
-    mesh.add(arrival);
-    arrival.visible = temporary;
     scene.add(mesh);
     const ally = {
       mesh,
+      model,
       pos: mesh.position,
-      orb,
-      halo,
-      shell,
-      arrival,
       temporary,
       hp: temporary ? 52 : 500,
       radius: 0.5,
@@ -240,9 +67,7 @@ export function createActors(scene, T, hooks) {
 
   function removeAlly(a) {
     scene.remove(a.mesh);
-    a.shell.dispose();
-    materials.delete(a.shell);
-    a.arrival.material.dispose();
+    a.model.dispose();
     const idx = allies.indexOf(a);
     if (idx >= 0) allies.splice(idx, 1);
   }
@@ -251,13 +76,7 @@ export function createActors(scene, T, hooks) {
     scene.remove(e.mesh, e.aimLine);
     e.aimLine.geometry.dispose();
     e.aimLine.material.dispose();
-    if (e.shield)
-      e.shield.traverse((o) => {
-        if (o.isMesh && o.material !== faceMaterial && o.material.transparent) {
-          o.material.dispose();
-          materials.delete(o.material);
-        }
-      });
+    e.model.dispose();
   }
 
   function clear() {
@@ -357,10 +176,11 @@ export function createActors(scene, T, hooks) {
     }
     e.hp -= damage;
     e.flash = 0.13;
-    e.health.visible = true;
-    e.fill.scale.x = Math.max(0, e.hp / e.maxHp);
-    e.fill.position.x = -(1 - e.fill.scale.x) / 2;
-    if (blocked) hooks.burst(center(e), 0x66daff, 3);
+    e.model.setHealth(Math.max(0, e.hp / e.maxHp));
+    if (blocked) {
+      e.shieldHit = 0.15;
+      hooks.burst(center(e), 0x66daff, 3);
+    }
     if (e.hp <= 0) {
       e.dead = true;
       removeEnemy(e);
@@ -432,20 +252,32 @@ export function createActors(scene, T, hooks) {
     hooks.sound("enemy");
   }
 
+  const lastPos = new WeakMap();
+  function syncEnemyModel(e, dt, time) {
+    const before = lastPos.get(e) || e.pos.clone();
+    const moving = e.pos.distanceToSquared(before) > 1e-5;
+    lastPos.set(e, e.pos.clone());
+    e.model.update(dt, {
+      time,
+      phase: e.phase,
+      flash: e.flash,
+      windup: e.windup > 0 ? 1 - e.windup / A.enemyTelegraph : 0,
+      firing: e.shots > 0,
+      exposed: e.expose > 0,
+      stagger: e.stagger,
+      moving,
+      camera: hooks.getCamera(),
+      shieldHit: e.shieldHit,
+    });
+  }
+
   function updateEnemy(e, dt, time, player) {
     if (e.dead) return;
     e.age += dt;
     e.expose = Math.max(0, e.expose - dt);
     e.stagger = Math.max(0, e.stagger - dt);
     e.flash = Math.max(0, e.flash - dt);
-    e.body.scale.set(0.78 + e.flash, 0.78 + e.flash, 0.66 + e.flash);
-    if (e.shield)
-      e.shield.rotation.y = THREE.MathUtils.damp(
-        e.shield.rotation.y,
-        e.expose > 0 || e.stagger > 0 ? -1.1 : 0,
-        10,
-        dt,
-      );
+    e.shieldHit = Math.max(0, (e.shieldHit || 0) - dt);
     const candidates = [
       player,
       ...allies.filter((a) => !a.dead && a.spawnAge > 0.3),
@@ -467,7 +299,6 @@ export function createActors(scene, T, hooks) {
     }
     e.target = target;
     facing(e, target.pos, dt);
-    e.health.rotation.y = -e.mesh.rotation.y; // Bars remain world-aligned, readable above the face.
     if (e.stagger > 0) {
       e.aimLine.visible = false;
       e.windup = 0;
@@ -550,19 +381,14 @@ export function createActors(scene, T, hooks) {
       removeAlly(a);
       return;
     }
-    if (a.temporary && a.spawnAge < 1) {
-      const progress = THREE.MathUtils.clamp(a.spawnAge / 0.7, 0, 1);
-      a.mesh.scale.setScalar(Math.max(0.01, progress));
-      a.orb.position.y = 0.2 + progress * 1.15;
-      a.arrival.scale.setScalar(1 + progress * 2);
-      a.arrival.material.opacity = (1 - progress) * 0.8;
-      return;
-    }
-    a.arrival.visible = false;
-    a.mesh.scale.setScalar(a.temporary && a.lifetime < 1 ? a.lifetime : 1);
-    a.orb.position.y = 1.35 + Math.sin(time * 3 + a.phase) * 0.12;
-    a.halo.rotation.z = time * 1.3 + a.phase;
-    a.shell.emissiveIntensity = a.hurt > 0 ? 3 : 0.8;
+    a.model.update(dt, {
+      time,
+      phase: a.phase,
+      arrive: a.temporary ? THREE.MathUtils.clamp(a.spawnAge / 0.7, 0, 1) : 1,
+      hurt: a.hurt,
+      fade: a.temporary && a.lifetime < 1 ? a.lifetime : 1,
+    });
+    if (a.temporary && a.spawnAge < 1) return;
     let target = null,
       best = Infinity;
     for (const e of enemies) {
@@ -587,6 +413,7 @@ export function createActors(scene, T, hooks) {
         const start = center(a),
           end = center(target);
         if (!hooks.blocked(start, end)) {
+          a.model.shoot();
           hooks.beam(start, end, a.temporary ? 0xa8ffd1 : 0x6bcfff);
           hitEnemy(
             target,
@@ -631,7 +458,10 @@ export function createActors(scene, T, hooks) {
   function update(dt, time) {
     cooldown = Math.max(0, cooldown - dt);
     const player = hooks.getPlayer();
-    for (const e of enemies) updateEnemy(e, dt, time, player);
+    for (const e of enemies) {
+      updateEnemy(e, dt, time, player);
+      if (!e.dead) syncEnemyModel(e, dt, time);
+    }
     for (const a of [...allies]) updateAlly(a, dt, time, player);
     for (let i = projectiles.length - 1; i >= 0; i--) {
       const p = projectiles[i],
@@ -688,7 +518,6 @@ export function createActors(scene, T, hooks) {
       clear();
       geometries.forEach((g) => g.dispose());
       materials.forEach((m) => m.dispose());
-      faceTexture.dispose();
     },
   };
 }
