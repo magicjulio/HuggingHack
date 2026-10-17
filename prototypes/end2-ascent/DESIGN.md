@@ -15,6 +15,17 @@ The next phase is substantial refinement:
 - Replace the improvised Hugging Face faces on the building and enemies with accurate uses of the official logo. Start from Hugging Face's [official brand assets page](https://huggingface.co/brand) and its [official brand-assets repository](https://huggingface.co/datasets/huggingface/brand-assets). Use the actual smile logo on the headquarters and enemy faces, then add the weapons or shields around it. Check the supplied brand guidance when adapting the asset for in-game use.
 - Playtest and iterate on the redesigned game feel and encounters. Reassess pacing, challenge, feedback, and the value of the subagent ability before extending the climb.
 
+## Asset pass · 2026-10-17
+
+First pass on the verdict above. A session on the dev box was killed by the out-of-memory killer about 11 minutes in; the work was finished from a second session. Everything is on branch `end2-ascent-assets`.
+
+- **New modules.** `art.js` (palette, procedural textures, materials, brand loader), `models.js` (player, defenders, agents, rifle, loot), `post.js` (renderer with bloom, vignette and a damage tint), `hud.css` (brand fonts, reticle states, buff chips). `lab.html` shows every model on a turntable: `?view=lineup|player|gunner|shield|agents|loot|badge`.
+- **Official logo.** `assets/hf-logo.svg` and `hf-logo-with-title.svg` are the unmodified brand files. The defenders' faces, the atrium wall and the tower in the approach all use the logo extruded along its own outline, with the SVG as the front face. Weapons and shields are added around it. Fonts (Chakra Petch, JetBrains Mono) are in `assets/fonts/` with their license.
+- **Loot.** Defenders drop pickups (shield-bearers almost always, gunners about 45%), weighted toward what you need. Walk over one to collect it: repair patch +35 integrity; coolant vents the rifle and stops heat for 6s; compute shard takes 10s off the subagent cooldown; overclock makes shots pierce shields for 8s. Pickups expire after 26s. These effects are first guesses and not tuned; the combat redesign still decides what loot should do.
+- **Aiming.** The screen reticle shows where the camera looks. A world marker shows where the rifle actually lands, with a laser while aiming down sights. Red means an enemy is under the rifle. Amber with a cross means cover is in the way, even if the camera can see the target around it.
+- **Not done:** the combat redesign itself (encounter variety, enemy behaviour, floors beyond two), the world and cover geometry, a new end card, audio, and human playtesting. `world.js` is unchanged apart from the logo. The notes about "no external assets" below predate this pass; `assets/` now exists.
+- `smoke.mjs` accepts `ASCENT_URL`. The game needs the `three/addons/` import-map entry, now in `index.html`.
+
 Keep the grand tower, armada approach, squad-assault premise, poisoned `KAM1196A`, and spawn-subagents fantasy as direction to build on. Do not treat the current placeholder art or combat tuning as approved final choices.
 
 Run `prototypes/serve.sh` from the repository root and open **http://localhost:8765/end2-ascent/**. Desktop keyboard and mouse; click JOIN THE SWARM to capture the mouse. Standalone three.js ES modules, using the existing vendored library; no build, downloads, or external assets.

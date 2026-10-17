@@ -48,6 +48,21 @@ console.log(
       );
   }),
 );
+// Loot: every type applies its effect; pickups exist as objects in the scene.
+console.log(
+  "loot",
+  await page.evaluate(() => {
+    const g = window.__ascent;
+    g.damagePlayer(50);
+    const hurt = g.snapshot.health;
+    g.applyLoot("patch");
+    const healed = g.snapshot.health;
+    g.applyLoot("coolant");
+    g.applyLoot("compute");
+    g.applyLoot("overclock");
+    return { hurt, healed, loot: g.snapshot.stats.loot };
+  }),
+);
 async function fight() {
   return await page.evaluate(() => {
     const g = window.__ascent;

@@ -1217,6 +1217,8 @@ if (new URLSearchParams(location.search).has("test"))
     beginFloor,
     callSquad,
     startLift,
+    applyLoot,
+    pickups,
     tick,
     fire,
     move,
