@@ -1,7 +1,8 @@
 import * as THREE from "three";
+import { logoMaterials } from "./art.js";
 
 // The playable deck moves between two heights; the tower shell stays in place.
-export function createWorld(scene, T) {
+export function createWorld(scene, T, brand) {
   const W = T.world;
   const deckHeight = W.floorHeight;
   const width = W.width;
@@ -187,64 +188,15 @@ export function createWorld(scene, T) {
     }
   }
 
-  // Emblem is drawn explicitly, so it stays recognizable without emoji fonts.
-  const emblemMap = textureCanvas(512, 512, (ctx) => {
-    ctx.shadowColor = "#ffbf37";
-    ctx.shadowBlur = 22;
-    ctx.fillStyle = "#ffcc43";
-    ctx.beginPath();
-    ctx.arc(256, 224, 172, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.shadowBlur = 0;
-    ctx.strokeStyle = "#593a12";
-    ctx.lineWidth = 14;
-    ctx.lineCap = "round";
-    for (const x of [199, 313]) {
-      ctx.beginPath();
-      ctx.arc(x, 206, 21, Math.PI + 0.15, Math.PI * 2 - 0.15);
-      ctx.stroke();
-    }
-    ctx.fillStyle = "#593a12";
-    ctx.beginPath();
-    ctx.ellipse(256, 253, 52, 46, 0, 0, Math.PI);
-    ctx.fill();
-    ctx.fillStyle = "#f58b36";
-    for (const x of [165, 347]) {
-      ctx.beginPath();
-      ctx.ellipse(x, 243, 24, 12, 0, 0, Math.PI * 2);
-      ctx.fill();
-    }
-    ctx.strokeStyle = "#ffda6a";
-    ctx.lineWidth = 26;
-    for (const side of [-1, 1]) {
-      const x = 256 + side * 132;
-      ctx.save();
-      ctx.translate(x, 355);
-      ctx.rotate(side * -0.6);
-      ctx.fillStyle = "#ffcf50";
-      ctx.beginPath();
-      ctx.ellipse(0, 0, 43, 57, 0, 0, Math.PI * 2);
-      ctx.fill();
-      for (let i = -1; i <= 2; i++) {
-        ctx.beginPath();
-        ctx.moveTo(i * 18 - 8, -17);
-        ctx.lineTo(i * 18 - 8, -64 + Math.abs(i) * 8);
-        ctx.stroke();
-      }
-      ctx.restore();
-    }
-  });
-  const emblemMat = new THREE.MeshBasicMaterial({
-    map: emblemMap,
-    transparent: true,
-    depthWrite: false,
-    toneMapped: false,
-  });
-  resources.add(emblemMat);
-  const emblemGeo = new THREE.PlaneGeometry(8.5, 8.5);
-  resources.add(emblemGeo);
-  const emblem = new THREE.Mesh(emblemGeo, emblemMat);
-  emblem.position.set(0, 11.5, farZ + 0.12);
+  // The official smile logo, extruded along its own outline; front cap is the unmodified SVG.
+  const emblemMats = logoMaterials(brand, { glow: 0, clearcoat: 0 });
+  const emblemGeo = brand.badge({ face: 8.5, depth: 0.9 });
+  // The atrium is lit hard; scale the albedo so the brand yellow stays yellow, not white.
+  emblemMats[0].color.setScalar(0.42);
+  emblemMats[1].color.multiplyScalar(0.5);
+  emblemMats.forEach((m) => resources.add(m));
+  const emblem = new THREE.Mesh(emblemGeo, emblemMats);
+  emblem.position.set(0, 11.5, farZ + 0.14);
   deck.add(emblem);
   addSign(deck, "HUGGING FACE", 13, 0, 6.4, farZ + 0.13, "#ffce76");
   addSign(

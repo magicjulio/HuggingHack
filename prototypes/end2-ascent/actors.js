@@ -163,10 +163,10 @@ export function createActors(scene, T, hooks, brand) {
     actor.pos.y = floorY;
   }
 
-  function hitEnemy(e, damage, shotOrigin, byAlly = false) {
+  function hitEnemy(e, damage, shotOrigin, byAlly = false, pierce = false) {
     if (!e || e.dead) return { blocked: false, killed: false };
     let blocked = false;
-    if (e.kind === "shield" && e.expose <= 0 && e.stagger <= 0) {
+    if (!pierce && e.kind === "shield" && e.expose <= 0 && e.stagger <= 0) {
       const incoming = shotOrigin.clone().sub(e.pos);
       incoming.y = 0;
       incoming.normalize();
@@ -186,7 +186,7 @@ export function createActors(scene, T, hooks, brand) {
       removeEnemy(e);
       hooks.burst(center(e), 0xffd64b, 14);
       hooks.sound("kill");
-      hooks.onKill(e.kind, byAlly);
+      hooks.onKill(e.kind, byAlly, e.pos.clone());
       return { blocked, killed: true };
     }
     return { blocked, killed: false };
@@ -501,6 +501,9 @@ export function createActors(scene, T, hooks, brand) {
     update,
     hitEnemy,
     callIn,
+    reduceCooldown(s) {
+      cooldown = Math.max(0, cooldown - s);
+    },
     clear,
     get ready() {
       return cooldown <= 0;

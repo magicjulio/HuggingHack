@@ -1,0 +1,117 @@
+/* HUD layer for ASCENT: brand fonts, aim reticle states and loot read-outs.
+   Loaded after the inline styles in index.html, so it can refine them. */
+@font-face {
+  font-family: "Chakra Petch";
+  font-weight: 500;
+  font-display: swap;
+  src: url("./assets/fonts/chakra-petch-latin-500-normal.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Chakra Petch";
+  font-weight: 700;
+  font-display: swap;
+  src: url("./assets/fonts/chakra-petch-latin-700-normal.woff2") format("woff2");
+}
+@font-face {
+  font-family: "JetBrains Mono";
+  font-weight: 400;
+  font-display: swap;
+  src: url("./assets/fonts/jetbrains-mono-latin-400-normal.woff2") format("woff2");
+}
+@font-face {
+  font-family: "JetBrains Mono";
+  font-weight: 700;
+  font-display: swap;
+  src: url("./assets/fonts/jetbrains-mono-latin-700-normal.woff2") format("woff2");
+}
+:root {
+  --display: "Chakra Petch", Inter, Arial, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, monospace;
+  --hf-yellow: #ffd21e;
+  --hf-orange: #ff9d00;
+}
+#title,
+#objective,
+#timer,
+#phase,
+#toast,
+#panel button,
+#ability,
+#stats {
+  font-family: var(--display);
+}
+.eyebrow,
+.label,
+#controls,
+#detail,
+#hint,
+#abilitydetail {
+  font-family: var(--mono);
+}
+#title {
+  font-weight: 700;
+  text-shadow: 0 0 40px #ffd21e33;
+}
+#toast {
+  font-weight: 700;
+  font-size: 22px;
+  letter-spacing: 3px;
+}
+
+/* Reticle: white = open, red = enemy under the rifle, amber = cover in the way. */
+#crosshair {
+  border-color: #eef8e8c0;
+  box-shadow: 0 0 0 1px #00000055;
+  transition:
+    width 0.1s,
+    height 0.1s,
+    border-color 0.08s,
+    background 0.08s;
+}
+#crosshair.onenemy {
+  border-color: #ff5a4a;
+  box-shadow: 0 0 12px #ff5a4a99;
+}
+#crosshair.onenemy:after {
+  background: #ff5a4a;
+}
+#crosshair.cover {
+  border: 1px dashed #ffb24b;
+  background: repeating-linear-gradient(45deg, #ffb24b22 0 3px, transparent 3px 6px);
+  box-shadow: 0 0 10px #ffb24b66;
+}
+#crosshair.cover:after {
+  width: 11px;
+  height: 11px;
+  background: linear-gradient(45deg, transparent 45%, #ffb24b 45% 55%, transparent 55%),
+    linear-gradient(-45deg, transparent 45%, #ffb24b 45% 55%, transparent 55%);
+}
+#crosshair.hit {
+  border-color: var(--hf-yellow);
+  box-shadow: 0 0 18px var(--hf-yellow);
+}
+
+/* Active loot effects, under the reticle. */
+#buffs {
+  position: absolute;
+  left: 50%;
+  top: calc(50% + 40px);
+  transform: translateX(-50%);
+  display: flex;
+  gap: 8px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 1.5px;
+}
+#buffs .buff {
+  padding: 3px 8px;
+  border: 1px solid currentColor;
+  background: #05101a99;
+  text-shadow: 0 0 8px currentColor;
+}
+#buffs .cool {
+  color: #5fe3ff;
+}
+#buffs .over {
+  color: #ff5fd6;
+}

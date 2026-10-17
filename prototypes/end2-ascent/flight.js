@@ -1,7 +1,8 @@
 import * as THREE from "three";
+import { logoMaterials } from "./art.js";
 
 // The approach owns this group only. Hide it to hand control to the ground game.
-export function createFlight(scene, T) {
+export function createFlight(scene, T, brand) {
   const C = T.flight;
   const root = new THREE.Group();
   root.name = "armada-approach";
@@ -80,66 +81,10 @@ export function createFlight(scene, T) {
     box(root, -48, 3, z, 2, 0.3, 9, 0x9fff9c, 2);
     box(root, 48, 3, z, 2, 0.3, 9, 0x9fff9c, 2);
   }
-  // Procedural mark: yellow smiling face, cheeks, hugging hands, readable at range.
-  const logoCanvas = document.createElement("canvas");
-  logoCanvas.width = logoCanvas.height = 512;
-  const g = logoCanvas.getContext("2d");
-  g.shadowColor = "#ffd359";
-  g.shadowBlur = 30;
-  g.fillStyle = "#ffd24a";
-  g.beginPath();
-  g.arc(256, 226, 161, 0, Math.PI * 2);
-  g.fill();
-  g.shadowBlur = 0;
-  g.fillStyle = "#4e342c";
-  g.beginPath();
-  g.ellipse(199, 207, 13, 19, -0.15, 0, Math.PI * 2);
-  g.fill();
-  g.beginPath();
-  g.ellipse(313, 207, 13, 19, 0.15, 0, Math.PI * 2);
-  g.fill();
-  g.lineWidth = 13;
-  g.lineCap = "round";
-  g.strokeStyle = "#4e342c";
-  g.beginPath();
-  g.arc(256, 224, 67, 0.15, Math.PI - 0.15);
-  g.stroke();
-  g.fillStyle = "#f4a643";
-  g.beginPath();
-  g.ellipse(157, 248, 27, 14, 0, 0, Math.PI * 2);
-  g.fill();
-  g.beginPath();
-  g.ellipse(355, 248, 27, 14, 0, 0, Math.PI * 2);
-  g.fill();
-  for (const side of [-1, 1]) {
-    g.save();
-    g.translate(256 + side * 130, 340);
-    g.rotate(side * -0.6);
-    g.fillStyle = "#ffdb63";
-    g.strokeStyle = "#dfa933";
-    g.lineWidth = 4;
-    g.beginPath();
-    g.ellipse(0, 0, 49, 37, 0, 0, Math.PI * 2);
-    g.fill();
-    g.stroke();
-    for (let i = 0; i < 4; i++) {
-      g.beginPath();
-      g.roundRect(-43 + i * 22, -69 + Math.abs(i - 1.5) * 8, 20, 67, 10);
-      g.fill();
-      g.stroke();
-    }
-    g.restore();
-  }
-  const logoTexture = new THREE.CanvasTexture(logoCanvas);
-  logoTexture.colorSpace = THREE.SRGBColorSpace;
+  // The official smile logo, extruded; it glows through the fog so the tower reads from afar.
   const logo = new THREE.Mesh(
-    new THREE.PlaneGeometry(210, 210),
-    new THREE.MeshBasicMaterial({
-      map: logoTexture,
-      transparent: true,
-      depthWrite: false,
-      toneMapped: false,
-    }),
+    brand.badge({ face: 210, depth: 22 }),
+    logoMaterials(brand, { glow: 0.9, clearcoat: 0.2 }),
   );
   logo.position.set(0, 230, 15);
   root.add(logo);

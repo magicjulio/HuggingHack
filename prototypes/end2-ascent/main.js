@@ -3,7 +3,7 @@ import { createWorld } from "./world.js";
 import { createActors } from "./actors.js";
 import { createFlight } from "./flight.js";
 import { P, loadBrand, loadFonts, applyEnvironment } from "./art.js";
-import { buildPlayer } from "./models.js";
+import { buildPlayer, buildPickup, LOOT } from "./models.js";
 import { createRenderer } from "./post.js";
 
 // All gameplay, camera, encounter and presentation tuning lives here.
@@ -165,8 +165,8 @@ scene.add(new THREE.HemisphereLight(0xcce8ff, 0x283042, 2.25));
 const sun = new THREE.DirectionalLight(0xffe7b1, 2.5);
 sun.position.set(15, 35, 20);
 scene.add(sun);
-const world = createWorld(scene, T),
-  flight = createFlight(scene, T);
+const world = createWorld(scene, T, brand),
+  flight = createFlight(scene, T, brand);
 const keys = new Set();
 let mouseFire = false,
   mouseAim = false,
@@ -298,6 +298,8 @@ function sound(name) {
     wave: [230, 460, 0.3, "sine"],
     lift: [70, 190, 0.6, "sine"],
     overheat: [120, 50, 0.3, "sawtooth"],
+    pickup: [520, 1040, 0.16, "sine"],
+    drop: [300, 600, 0.12, "triangle"],
   };
   const [a, b, d, type] = map[name] || [180, 360, 0.15, "sine"];
   o.type = type;
@@ -381,6 +383,84 @@ function move(p, delta, radius = T.player.radius) {
   }
   return p;
 }
+// ---- Loot: defenders drop pickups; walk over one to collect it.
+const pickups = [];
+let coolantUntil = -1,
+  overclockUntil = -1;
+const PICKUP = { radius: 1.5, life: 26, blink: 5 };
+function dropLoot(kind, at) {
+  if (Math.random() > (kind === "shield" ? 0.95 : 0.45)) return;
+  // Weighted by need: low health favours patches, a hot rifle favours coolant.
+  const weights = {
+    patch: health < 70 ? 4 : 1,
+    coolant: heat > 50 ? 3 : 1,
+    compute: actors.ready ? 0.6 : 2.5,
+    overclock: kind === "shield" ? 3 : 1,
+  };
+  let roll = Math.random() * Object.values(weights).reduce((a, b) => a + b, 0),
+    type = "patch";
+  for (const [k, w] of Object.entries(weights)) {
+    if ((roll -= w) <= 0) {
+      type = k;
+      break;
+    }
+  }
+  const model = buildPickup(type);
+  model.root.position.copy(at);
+  scene.add(model.root);
+  pickups.push({ type, model, age: 0, spawn: 0, collect: -1, phase: Math.random() * 6 });
+  sound("drop");
+}
+function applyLoot(type) {
+  const info = LOOT[type];
+  if (type === "patch") health = Math.min(T.player.health, health + 35);
+  else if (type === "coolant") {
+    heat = 0;
+    overheated = false;
+    coolantUntil = runTime + 6;
+  } else if (type === "compute") actors.reduceCooldown(10);
+  else overclockUntil = runTime + 8;
+  stats.loot = (stats.loot || 0) + 1;
+  toast(`${info.label} · ${info.detail}`, 1.8);
+  sound("pickup");
+  burst(pos.clone().add(new THREE.Vector3(0, 1.1, 0)), info.color, 12);
+}
+function updatePickups(dt) {
+  for (let i = pickups.length - 1; i >= 0; i--) {
+    const p = pickups[i];
+    p.age += dt;
+    p.spawn = Math.min(1, p.spawn + dt * 2.2);
+    if (p.collect >= 0) p.collect += dt * 4;
+    else if (
+      state === "combat" &&
+      health > 0 &&
+      p.spawn >= 0.5 &&
+      p.model.root.position.distanceTo(pos) < PICKUP.radius
+    ) {
+      p.collect = 0;
+      applyLoot(p.type);
+    }
+    const expired = p.age > PICKUP.life;
+    p.model.update(dt, {
+      time: runTime,
+      phase: p.phase,
+      spawn: p.spawn,
+      blink: p.age > PICKUP.life - PICKUP.blink,
+      collect: Math.max(0, p.collect),
+    });
+    if (p.collect >= 1 || expired) removePickup(i);
+  }
+}
+function removePickup(i) {
+  const p = pickups[i];
+  scene.remove(p.model.root);
+  p.model.dispose();
+  pickups.splice(i, 1);
+}
+function clearPickups() {
+  while (pickups.length) removePickup(pickups.length - 1);
+  coolantUntil = overclockUntil = -1;
+}
 function damagePlayer(amount) {
   if (
     state !== "combat" ||
@@ -406,8 +486,9 @@ const actors = createActors(scene, T, {
   beam,
   burst,
   sound,
-  onKill(kind, byAlly) {
+  onKill(kind, byAlly, at) {
     stats.kills++;
+    if (at) dropLoot(kind, at);
     if (byAlly) stats.allyKills++;
   },
   getPlayer: () => ({
@@ -490,6 +571,7 @@ function showOverlay(type) {
 function startRun() {
   initAudio();
   actors.clear();
+  clearPickups();
   world.root.visible = false;
   body.visible = false;
   flight.start();
@@ -517,6 +599,7 @@ function beginFloor(n, retry = false) {
   world.setLiftReady(false);
   pos.set(0, (n - 1) * T.world.floorHeight, 8);
   actors.reset(pos.y);
+  clearPickups();
   body.visible = true;
   state = "combat";
   phaseTime = 0;
@@ -765,6 +848,77 @@ function targetFromCamera() {
     enemy,
   };
 }
+// What a shot from `origin` along `dir` would hit: the nearest cover or enemy.
+function traceShot(origin, dir) {
+  let distance = worldHit(origin, dir, T.weapon.range),
+    target = null;
+  const sphere = new THREE.Sphere(),
+    hit = new THREE.Vector3();
+  ray.set(origin, dir);
+  for (const e of actors.enemies) {
+    if (e.dead || e.hp <= 0) continue;
+    sphere.center.copy(e.pos).add(new THREE.Vector3(0, 1.2, 0));
+    sphere.radius = e.radius || 0.75;
+    if (ray.intersectSphere(sphere, hit)) {
+      const d = hit.distanceTo(origin);
+      if (d < distance) {
+        target = e;
+        distance = d;
+      }
+    }
+  }
+  return { distance, target };
+}
+// ---- Aim read-out. The screen reticle is where the camera looks; the world
+// marker is where the rifle's shot lands. When cover is in the way the two
+// differ, and the reticle says so instead of leaving the player guessing.
+const aimRing = new THREE.Mesh(
+  new THREE.RingGeometry(0.2, 0.26, 32),
+  new THREE.MeshBasicMaterial({ transparent: true, depthTest: false, toneMapped: false }),
+);
+const aimDot = new THREE.Mesh(
+  new THREE.CircleGeometry(0.045, 12),
+  new THREE.MeshBasicMaterial({ depthTest: false, toneMapped: false }),
+);
+const aimMarker = new THREE.Group();
+aimMarker.add(aimRing, aimDot);
+aimMarker.renderOrder = aimRing.renderOrder = aimDot.renderOrder = 998;
+aimMarker.visible = false;
+scene.add(aimMarker);
+const aimLaser = new THREE.Line(
+  new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]),
+  new THREE.LineBasicMaterial({ transparent: true, opacity: 0.45, toneMapped: false }),
+);
+aimLaser.visible = false;
+aimLaser.frustumCulled = false;
+scene.add(aimLaser);
+let aimState = "clear";
+const AIM_COLOR = { clear: 0xdff7d0, enemy: 0xff5a4a, cover: 0xffb24b };
+function updateAim() {
+  const { point, enemy } = targetFromCamera();
+  const muzzlePos = new THREE.Vector3();
+  glow.getWorldPosition(muzzlePos);
+  const dir = point.clone().sub(muzzlePos);
+  const intended = dir.length();
+  dir.normalize();
+  const { distance, target } = traceShot(muzzlePos, dir);
+  const blockedByCover = distance < intended - 0.35 && !target;
+  aimState = blockedByCover ? "cover" : target ? "enemy" : "clear";
+  const end = muzzlePos.clone().addScaledVector(dir, Math.min(distance, T.weapon.range));
+  const color = AIM_COLOR[aimState];
+  aimRing.material.color.setHex(color);
+  aimDot.material.color.setHex(color);
+  aimMarker.position.copy(end);
+  aimMarker.quaternion.copy(camera.quaternion);
+  aimMarker.scale.setScalar(THREE.MathUtils.clamp(camera.position.distanceTo(end) * 0.05, 0.3, 3));
+  aimMarker.visible = state === "combat" && (mouseAim || aimState !== "clear");
+  const arr = aimLaser.geometry.attributes.position;
+  arr.setXYZ(0, muzzlePos.x, muzzlePos.y, muzzlePos.z);
+  arr.setXYZ(1, end.x, end.y, end.z);
+  arr.needsUpdate = true;
+  aimLaser.material.color.setHex(color);
+  aimLaser.visible = state === "combat" && mouseAim;
+}
 function fire() {
   if (
     fireCooldown > 0 ||
@@ -777,7 +931,7 @@ function fire() {
   )
     return;
   fireCooldown = T.weapon.interval;
-  heat += T.weapon.heatPerShot;
+  if (runTime >= coolantUntil) heat += T.weapon.heatPerShot;
   stats.shots++;
   const { point } = targetFromCamera();
   const muzzlePos = new THREE.Vector3();
@@ -793,28 +947,19 @@ function fire() {
       ),
     )
     .normalize();
-  let distance = worldHit(muzzlePos, dir, T.weapon.range),
-    target = null;
-  const sphere = new THREE.Sphere(),
-    hit = new THREE.Vector3();
-  ray.set(muzzlePos, dir);
-  for (const e of actors.enemies) {
-    if (e.dead || e.hp <= 0) continue;
-    sphere.center.copy(e.pos).add(new THREE.Vector3(0, 1.2, 0));
-    sphere.radius = e.radius || 0.75;
-    if (ray.intersectSphere(sphere, hit)) {
-      const d = hit.distanceTo(muzzlePos);
-      if (d < distance) {
-        target = e;
-        distance = d;
-      }
-    }
-  }
+  const { distance, target } = traceShot(muzzlePos, dir);
   const end = muzzlePos.clone().addScaledVector(dir, distance);
-  beam(muzzlePos, end);
-  burst(end, target ? 0xffd265 : 0x9ecd86, target ? 5 : 2);
+  const over = runTime < overclockUntil;
+  beam(muzzlePos, end, over ? 0xff5fd6 : 0xa9f278);
+  burst(end, target ? 0xffd265 : over ? 0xff5fd6 : 0x9ecd86, target ? 5 : 2);
   if (target) {
-    const result = actors.hitEnemy(target, T.weapon.damage, muzzlePos);
+    const result = actors.hitEnemy(
+      target,
+      T.weapon.damage,
+      muzzlePos,
+      false,
+      runTime < overclockUntil,
+    );
     hitTime = 0.12;
     hitBlocked = result.blocked;
     stats.hits++;
@@ -901,8 +1046,10 @@ function encounter(dt) {
 }
 function startLift() {
   state = "lift";
+  aimMarker.visible = aimLaser.visible = false;
   phaseTime = 0;
   actors.clear();
+  clearPickups();
   clearInput();
   body.position.copy(pos);
   toast("ASCENDING / FLOOR 02", 3);
@@ -964,6 +1111,18 @@ function updateHud() {
   $("crosshair").classList.toggle("aim", mouseAim);
   $("crosshair").classList.toggle("hit", hitTime > 0 && !hitBlocked);
   $("crosshair").classList.toggle("blocked", hitTime > 0 && hitBlocked);
+  $("crosshair").classList.toggle("onenemy", aimState === "enemy");
+  $("crosshair").classList.toggle("cover", aimState === "cover");
+  const buffs = [];
+  if (runTime < coolantUntil)
+    buffs.push(`<span class="buff cool">COOLANT ${Math.ceil(coolantUntil - runTime)}s</span>`);
+  if (runTime < overclockUntil)
+    buffs.push(`<span class="buff over">OVERCLOCK ${Math.ceil(overclockUntil - runTime)}s</span>`);
+  const buffHtml = combat ? buffs.join("") : "";
+  if ($("buffs").dataset.h !== buffHtml) {
+    $("buffs").dataset.h = buffHtml;
+    $("buffs").innerHTML = buffHtml;
+  }
   $("vitals").classList.toggle("hidden", !combat);
   $("ability").classList.toggle("hidden", !combat);
   $("controls").classList.toggle("hidden", !combat);
@@ -1017,6 +1176,8 @@ function tick(dt) {
       body.updateMatrixWorld(true);
       if (mouseFire) fire();
       actors.update(dt, runTime);
+      updatePickups(dt);
+      updateAim(dt);
       if (state === "combat") encounter(dt);
     } else updateLift(dt);
     world.update(dt, runTime);
