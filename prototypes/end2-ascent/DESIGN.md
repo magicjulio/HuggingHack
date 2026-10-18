@@ -28,6 +28,30 @@ First pass on the verdict above. A session on the dev box was killed by the out-
 
 Keep the grand tower, armada approach, squad-assault premise, poisoned `KAM1196A`, and spawn-subagents fantasy as direction to build on. Do not treat the current placeholder art or combat tuning as approved final choices.
 
+## Combat redesign v1 (proposal) · 2026-10-17
+
+Answers "crouch, aim, fire, call in allies is boring". Everything below is a proposal for Julius; every number goes in `T`.
+**Status:** designed and partly coded, **not yet in the game**. The run was stopped for budget before wiring. The game still plays the old loop described further down. Staged modules (none imported yet): `enemies.js`, `enemies-extra.js`, `encounter.js`, `projectiles.js`, `looks.js`, `actors.next.js`. To-do: `handoff/design-to-app/2026-10-17-ascent-combat.md`.
+
+**Loop: read → position → strike → push.** Every threat has a readable tell (a red line, a red floor ring, a charging beam, a yellow tether). You answer with position (cover, flank, vault, dodge), a target choice, and the squad. Each floor is a push from the entrance to the lift, in **beats** rather than identical waves; it ends with a hold at the lift.
+
+**Roster.** Each type asks a different question.
+| Type | Role | Answer |
+|---|---|---|
+| Gunner | Ducks behind cover, pops up for a telegraphed burst | Shoot the pop-up, aim over the cover lip, or flank |
+| Shield-bearer | Frontal block, advances, bashes you out of cover up close | Wait for its firing window, flank, overclock, or a squad drop |
+| **Hugger** (new) | Rusher. Low HP, fast, lunges *over* cover after a red floor ring | Kill it on approach or dodge the lunge (Space) |
+| **Warden** (new) | Heavy emplacement. Sweeping beam that cover blocks, armoured front, glowing rear core, vents after each sweep | Flank to the core, hit it while it vents, or let the squad turn it |
+| **Maintainer** (new) | Support. Hangs back and heals the most hurt defender through a visible tether; flees you | Priority target; always drops a compute shard |
+
+**Beats.** Floor 1 (easy, teaches one thing at a time): *breach* (gunners in cover) → *shield line* → *flank rush* (huggers from the balconies) → *hold the lift* while it powers up. Floor 2 (harder, damage ×1 instead of ×0.6, more attackers at once): *sentinel line* (Warden + Maintainer behind gunners) → *counter-push* (a shield wall advances on you) → *hold the ascent* under a flanking Warden, then a closing line that the climb goes on.
+
+**Your tools.** The rifle gains **crits** (rear hits ×1.5, the Warden's core ×2.5) and an **active vent** (R, or forced on overheat: tap R again inside the window for an instant vent and a short damage buff; miss and it jams). Movement gains a **vault** (Space into low cover) and **snap to cover** (sprint into cover = crouch).
+
+**Subagents (Q) create the decisions.** Q throws a beacon at the aimed point. After a short drop delay the squad **slams in**: a shockwave staggers everything nearby (shields swing open, Warden armour opens, lunges and heals are cut). For a few seconds they **taunt**: defenders turn to them, which bares a Warden's core or a shield-bearer's flank to you. **Q again while they are out = order**: aim at an enemy to focus it, or at the floor to move them there. So: drop on the enemy line for the stagger, behind you as a screen against huggers, or on the Warden's flank to turn it.
+
+**Loot** drops where defenders fall, often in the open, so grabbing it is a risk. Pickups pull toward you within a few metres. Patch (+35), coolant (no heat), compute shard (squad −10 s), overclock (pierce shields and armour). Maintainers always drop compute, Wardens overclock.
+
 Run `prototypes/serve.sh` from the repository root and open **http://localhost:8765/end2-ascent/**. Desktop keyboard and mouse; click JOIN THE SWARM to capture the mouse. Standalone three.js ES modules, using the existing vendored library; no build, downloads, or external assets.
 
 ## The playable sequence

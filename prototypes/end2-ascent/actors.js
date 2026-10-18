@@ -1,43 +1,167 @@
 import * as THREE from "three";
 import { buildDefender, buildAgent } from "./models.js";
+import { buildHugger, buildWarden, buildMaintainer } from "./enemies-extra.js";
+import { BEHAVIOUR, interrupt } from "./enemies.js";
+import { createProjectiles } from "./projectiles.js";
 
-// Actor positions are feet; every projectile checks the same world obstruction
-// hook as the player's rifle, so cover works for both teams.
+// Actors: defenders, the player's squad and escorts. Positions are feet; every
+// shot checks the same world obstruction hook as the player's rifle, so cover
+// works for both teams. Numbers: T.enemies (per kind), T.floors (per-floor
+// scaling), T.squad (subagents and escorts), T.crit. Behaviours per enemy kind
+// live in enemies.js; projectile logic in projectiles.js; every look (bolts,
+// beams, floor rings, impacts) comes from hooks.looks (looks.js, or fx.js).
 export function createActors(scene, T, hooks, brand) {
-  const A = T.actors;
+  const E = T.enemies,
+    S = T.squad;
+  const looks = hooks.looks;
   const enemies = [],
-    allies = [],
-    projectiles = [];
-  const geometries = new Set(),
-    materials = new Set();
-  const geo = (g) => (geometries.add(g), g);
-  const mat = (m) => (materials.add(m), m);
-  const sphere = geo(new THREE.SphereGeometry(1, 20, 14));
-  const bulletMaterial = mat(new THREE.MeshBasicMaterial({ color: 0xff7049 }));
+    allies = [];
   let floorY = 0,
+    floorN = 1,
     cooldown = 0,
-    sequence = 0;
-  const up = new THREE.Vector3(0, 1, 0);
-  const tmp = new THREE.Vector3();
+    orderCd = 0,
+    sequence = 0,
+    now = 0,
+    beacon = null;
+  let player = { pos: new THREE.Vector3(), alive: false, height: 1.8, isPlayer: true };
+  const tmp = new THREE.Vector3(),
+    tmp2 = new THREE.Vector3(),
+    seg = new THREE.Line3(),
+    closest = new THREE.Vector3();
+  const floorCfg = () => T.floors[floorN] || T.floors[1];
+  const builders = {
+    gunner: (b) => buildDefender(b, "gunner"),
+    shield: (b) => buildDefender(b, "shield"),
+    hugger: buildHugger,
+    warden: buildWarden,
+    maintainer: buildMaintainer,
+  };
 
-  function enemyModel(kind) {
-    const model = buildDefender(brand, kind);
-    const mesh = model.root;
-    const lineGeometry = new THREE.BufferGeometry().setFromPoints([
-      new THREE.Vector3(),
-      new THREE.Vector3(),
-    ]);
-    const lineMaterial = new THREE.LineBasicMaterial({
-      color: 0xff714f,
-      transparent: true,
-      opacity: 0.38,
-      depthWrite: false,
-    });
-    const aimLine = new THREE.Line(lineGeometry, lineMaterial);
-    aimLine.visible = false;
-    scene.add(aimLine);
-    scene.add(mesh);
-    return { mesh, model, shield: model.shield, aimLine };
+  // ------------------------------------------------------------ geometry
+  function hitCenter(e, lift = e.lift) {
+    return new THREE.Vector3(e.pos.x, e.pos.y + e.cfg.height + lift + e.dropY, e.pos.z);
+  }
+  function centerOf(t) {
+    if (t.cfg) return hitCenter(t);
+    if (t.isPlayer) return t.pos.clone().add(new THREE.Vector3(0, (t.height || 1.7) * 0.58, 0));
+    return t.pos.clone().add(new THREE.Vector3(0, 1.25, 0));
+  }
+  const angleDelta = (a, b) => Math.atan2(Math.sin(b - a), Math.cos(b - a));
+  const flatDist = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
+  const projectiles = createProjectiles({
+    looks,
+    blocked: (a, b) => hooks.blocked(a, b),
+    center: (t, isPlayer) => (isPlayer ? centerOf(player) : centerOf(t)),
+  });
+
+  // ------------------------------------------------------------ per-enemy looks
+  function look(e, key) {
+    e.looks ??= {};
+    if (!e.looks[key]) {
+      const [type, kind] = key.split(":");
+      e.looks[key] = looks[type](kind);
+    }
+    return e.looks[key];
+  }
+  function hideLook(e, key) {
+    e.looks?.[key]?.hide();
+  }
+
+  // ------------------------------------------------------------ spawning
+  function makeEnemy(kind, x, z, mode = "hold", delay = 0) {
+    const cfg = E[kind];
+    const model = builders[kind](brand);
+    const holder = new THREE.Group();
+    holder.add(model.root);
+    holder.position.set(x, floorY, z);
+    hooks.free(holder.position, cfg.radius);
+    scene.add(holder);
+    let aimLine = null;
+    if (kind === "gunner" || kind === "shield") {
+      aimLine = new THREE.Line(
+        new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]),
+        new THREE.LineBasicMaterial({ color: 0xff714f, transparent: true, opacity: 0.5, depthWrite: false }),
+      );
+      aimLine.visible = false;
+      aimLine.frustumCulled = false;
+      scene.add(aimLine);
+    }
+    const e = {
+      kind,
+      cfg,
+      model,
+      mesh: holder,
+      pos: holder.position,
+      aimLine,
+      hp: cfg.hp,
+      maxHp: cfg.hp,
+      radius: cfg.radius,
+      hitRadius: cfg.hit,
+      dead: false,
+      yaw: Math.PI,
+      timer: 0.7 + Math.random() * 1.3,
+      windup: 0,
+      shots: 0,
+      shotTimer: 0,
+      expose: 0,
+      stagger: 0,
+      flash: 0,
+      shieldHit: 0,
+      target: null,
+      age: 0,
+      seed: sequence++,
+      phase: Math.random() * 6,
+      mode,
+      lift: 0,
+      liftGoal: 0,
+      dropY: E.dropHeight,
+      spawn: -delay / E.dropTime,
+      lastPos: holder.position.clone(),
+      // gunner
+      post: null,
+      postTimer: 0,
+      flankedFor: 0,
+      atPost: false,
+      // shield
+      bash: 0,
+      bashCd: 0,
+      // hugger / warden
+      state: kind === "warden" ? "cool" : "approach",
+      tell: 0,
+      rec: 0,
+      cool: 0,
+      t: 0,
+      lungeTo: new THREE.Vector3(),
+      lungeDir: new THREE.Vector3(),
+      lungeLeft: 0,
+      lungeLen: 1,
+      aimPitch: 0,
+      // maintainer
+      healing: false,
+      healTick: 0,
+    };
+    if (kind === "warden") e.timer = cfg.cooldown;
+    holder.rotation.y = e.yaw;
+    holder.visible = e.spawn >= 0;
+    model.root.position.y = e.dropY;
+    enemies.push(e);
+    return e;
+  }
+
+  function spawnWave(spec, mode = "hold") {
+    for (const s of spec) makeEnemy(s.kind, s.x, s.z, s.mode || mode, s.delay || 0);
+  }
+
+  function removeEnemy(e) {
+    scene.remove(e.mesh);
+    if (e.aimLine) {
+      scene.remove(e.aimLine);
+      e.aimLine.geometry.dispose();
+      e.aimLine.material.dispose();
+    }
+    if (e.looks) for (const l of Object.values(e.looks)) l.dispose();
+    e.looks = null;
+    e.model.dispose();
   }
 
   function addAlly(x, z, temporary, index = 0) {
@@ -50,15 +174,18 @@ export function createActors(scene, T, hooks, brand) {
       model,
       pos: mesh.position,
       temporary,
-      hp: temporary ? 52 : 500,
+      hp: temporary ? S.hp : S.escortHp,
       radius: 0.5,
-      lifetime: temporary ? A.callDuration : Infinity,
-      spawnAge: temporary ? -0.18 * index : 2,
+      lifetime: temporary ? S.duration : Infinity,
+      spawnAge: temporary ? -0.15 * index : 2,
       shoot: 0.2 + index * 0.16,
       phase: Math.random() * 6,
       index,
       dead: false,
       target: null,
+      focus: null,
+      rally: null,
+      taunt: 0,
       hurt: 0,
     };
     allies.push(ally);
@@ -72,312 +199,456 @@ export function createActors(scene, T, hooks, brand) {
     if (idx >= 0) allies.splice(idx, 1);
   }
 
-  function removeEnemy(e) {
-    scene.remove(e.mesh, e.aimLine);
-    e.aimLine.geometry.dispose();
-    e.aimLine.material.dispose();
-    e.model.dispose();
+  function clearBeacon() {
+    if (!beacon) return;
+    beacon.ring.dispose();
+    beacon.column.dispose();
+    beacon = null;
   }
 
   function clear() {
     enemies.forEach(removeEnemy);
     enemies.length = 0;
     [...allies].forEach(removeAlly);
-    for (const p of projectiles) scene.remove(p.mesh);
-    projectiles.length = 0;
+    projectiles.clear();
+    clearBeacon();
   }
 
-  function reset(y) {
+  function reset(y, floor = 1) {
     clear();
     floorY = y;
+    floorN = floor;
     cooldown = 0;
+    orderCd = 0;
     sequence = 0;
     addAlly(-3, 5, false, 0);
     addAlly(3, 5, false, 1);
   }
 
-  function spawnWave(spec) {
-    for (let i = enemies.length - 1; i >= 0; i--)
-      if (enemies[i].dead) enemies.splice(i, 1);
-    for (const s of spec) {
-      const m = enemyModel(s.kind);
-      m.mesh.position.set(s.x, floorY, s.z);
-      const hp = s.kind === "shield" ? A.shieldHealth : A.gunnerHealth;
-      enemies.push({
-        ...m,
-        pos: m.mesh.position,
-        hp,
-        maxHp: hp,
-        kind: s.kind,
-        radius: 0.8,
-        dead: false,
-        yaw: Math.PI,
-        timer: 0.7 + Math.random() * 1.3,
-        windup: 0,
-        shots: 0,
-        shotTimer: 0,
-        expose: 0,
-        stagger: 0,
-        phase: Math.random() * 6,
-        flash: 0,
-        target: null,
-        age: 0,
-        seed: sequence++,
-      });
+  // ------------------------------------------------------------ damage
+  // How a shot from `origin` lands on `e`: shield fronts and Warden armour
+  // block unless opened (firing, venting, staggered) or pierced; rear hits crit.
+  function shotModifier(e, origin, pierce = false) {
+    if (!e || e.dead) return { mult: 0, blocked: false, crit: false };
+    tmp.subVectors(origin, e.pos).setY(0).normalize();
+    const dot = tmp.dot(tmp2.set(Math.sin(e.yaw), 0, Math.cos(e.yaw)));
+    const open = e.expose > 0 || e.stagger > 0;
+    const rear = dot < T.crit.rearArc;
+    if (e.kind === "warden") {
+      if (rear) return { mult: e.cfg.core, blocked: false, crit: true };
+      if (!pierce && !open) return { mult: e.cfg.armour, blocked: true, crit: false };
+      return { mult: 1, blocked: false, crit: false };
     }
+    if (e.kind === "shield" && !pierce && !open && dot > 0.3) return { mult: e.cfg.block, blocked: true, crit: false };
+    if (rear) return { mult: T.crit.rear, blocked: false, crit: true };
+    return { mult: 1, blocked: false, crit: false };
   }
 
-  function center(a, player = false) {
-    return a.pos
-      .clone()
-      .add(new THREE.Vector3(0, player ? (a.height || 1.7) * 0.58 : 1.25, 0));
-  }
-  function angleDelta(a, b) {
-    return Math.atan2(Math.sin(b - a), Math.cos(b - a));
-  }
-  function facing(e, target, dt) {
-    const desired = Math.atan2(target.x - e.pos.x, target.z - e.pos.z);
-    const delta = angleDelta(e.yaw, desired);
-    const speed =
-      e.kind === "shield" ? A.shieldTurnSpeed : A.shieldTurnSpeed * 2.5;
-    e.yaw += THREE.MathUtils.clamp(delta, -speed * dt, speed * dt);
-    e.mesh.rotation.y = e.yaw;
+  function hitEnemy(e, damage, origin, byAlly = false, pierce = false) {
+    if (!e || e.dead) return { blocked: false, killed: false, crit: false, damage: 0 };
+    const m = shotModifier(e, origin, pierce);
+    const dealt = damage * m.mult;
+    e.hp -= dealt;
+    e.flash = 0.13;
+    e.model.setHealth(Math.max(0, e.hp / e.maxHp));
+    if (m.blocked) {
+      e.shieldHit = 0.15;
+      hooks.burst(hitCenter(e), 0x66daff, 3);
+    }
+    if (e.hp <= 0) {
+      kill(e, byAlly);
+      return { blocked: m.blocked, killed: true, crit: m.crit, damage: dealt };
+    }
+    return { blocked: m.blocked, killed: false, crit: m.crit, damage: dealt };
   }
 
-  function moveToward(actor, goal, speed, dt, side) {
-    const direction = goal.clone().sub(actor.pos);
+  function kill(e, byAlly) {
+    const at = e.pos.clone(),
+      c = hitCenter(e);
+    e.dead = true;
+    removeEnemy(e);
+    hooks.burst(c, 0xffd64b, e.kind === "warden" ? 32 : 14);
+    looks.impact(c, "death-" + e.kind);
+    hooks.sound(e.kind === "warden" ? "kill-heavy" : "kill");
+    hooks.onKill(e.kind, byAlly, at);
+  }
+
+  function stagger(e, time) {
+    if (e.dead) return;
+    e.stagger = Math.max(e.stagger, time);
+    interrupt(e, api);
+  }
+
+  function hurtAlly(a, damage) {
+    a.hurt = 0.18;
+    if (a.temporary) {
+      a.hp -= damage;
+      if (a.hp <= 0) a.dead = true;
+    }
+    hooks.burst(centerOf(a), 0x8be4ff, 3);
+  }
+
+  // ------------------------------------------------------------ the toolkit behaviours use
+  const api = {
+    sound: (n) => hooks.sound(n),
+    center: centerOf,
+    face(e, pos, dt, rate = e.cfg.turn) {
+      const desired = Math.atan2(pos.x - e.pos.x, pos.z - e.pos.z);
+      e.yaw += THREE.MathUtils.clamp(angleDelta(e.yaw, desired), -rate * dt, rate * dt);
+      e.mesh.rotation.y = e.yaw;
+    },
+    facingWithin(e, pos, tolerance) {
+      return Math.abs(angleDelta(e.yaw, Math.atan2(pos.x - e.pos.x, pos.z - e.pos.z))) < tolerance;
+    },
+    // overLow: walk over low cover (huggers); pair with coverUnder() for the hop height.
+    moveToward(actor, goal, speed, dt, overLow = false) {
+      moveToward(actor, goal, speed, dt, actor.seed % 2 ? 1 : -1, overLow);
+    },
+    // Height of the low cover under an actor's footprint (0 if none).
+    coverUnder(e) {
+      let h = 0;
+      for (const c of hooks.colliders()) {
+        if (c.height > 2.2 || Math.abs(c.baseY - floorY) > 0.5) continue;
+        const r = e.radius * 0.8;
+        if (e.pos.x > c.minX - r && e.pos.x < c.maxX + r && e.pos.z > c.minZ - r && e.pos.z < c.maxZ + r) h = Math.max(h, c.height);
+      }
+      return h;
+    },
+    moveFree(e, delta) {
+      hooks.move(e.pos, delta, e.radius, true);
+      e.pos.y = floorY;
+    },
+    unstick(e) {
+      hooks.free(e.pos, e.radius);
+      e.pos.y = floorY;
+    },
+    strafe(e, speed, dt, time) {
+      const side = Math.sin(time * 0.55 + e.phase) * speed * 0.3 * dt;
+      hooks.move(e.pos, tmp.set(Math.cos(e.yaw) * side, 0, -Math.sin(e.yaw) * side), e.radius);
+    },
+    visibleFrom(e, target, lift = 0, ignoreLow = false) {
+      return !hooks.blocked(hitCenter(e, lift), centerOf(target), ignoreLow);
+    },
+    coverPost,
+    attackSlots() {
+      let busy = 0;
+      for (const o of enemies) if (!o.dead && (o.windup > 0 || o.shots > 0)) busy++;
+      return floorCfg().attackers - busy;
+    },
+    lungeSlots() {
+      let busy = 0;
+      for (const o of enemies) if (!o.dead && o.kind === "hugger" && (o.state === "tell" || o.state === "lunge")) busy++;
+      return floorCfg().lunges - busy;
+    },
+    aim(e, target) {
+      const a = hitCenter(e),
+        b = centerOf(target);
+      const attr = e.aimLine.geometry.attributes.position;
+      attr.setXYZ(0, a.x, a.y, a.z);
+      attr.setXYZ(1, b.x, b.y, b.z);
+      attr.needsUpdate = true;
+      e.aimLine.visible = true;
+    },
+    hideAim(e) {
+      if (e.aimLine) e.aimLine.visible = false;
+    },
+    shoot(e, target) {
+      const start = hitCenter(e),
+        goal = centerOf(target);
+      if (hooks.blocked(start, goal)) return;
+      const dir = goal.sub(start).normalize();
+      if (projectiles.spawn(e.kind, start, dir, e.cfg.boltSpeed, e.cfg.damage * floorCfg().damage)) {
+        looks.impact(start, "muzzle");
+        hooks.sound("enemy");
+      }
+    },
+    ring(e, pos, s) {
+      look(e, "ring:lunge").set(pos, s);
+    },
+    hideRing(e) {
+      hideLook(e, "ring:lunge");
+    },
+    damagePlayer: (amount, from) => hooks.damagePlayer(amount, from),
+    pushPlayer: (v) => hooks.pushPlayer(v),
+    allyNear(pos, r) {
+      return allies.find((a) => !a.dead && a.spawnAge > 0.7 && flatDist(a.pos, pos) < r);
+    },
+    hurtAlly,
+    beamOrigin(e) {
+      return new THREE.Vector3(
+        e.pos.x + Math.sin(e.yaw) * 0.9,
+        e.pos.y + e.cfg.beamHeight,
+        e.pos.z + Math.cos(e.yaw) * 0.9,
+      );
+    },
+    sweep(e, live, k, damage = 0) {
+      const o = api.beamOrigin(e);
+      const c = Math.cos(e.aimPitch);
+      const dir = new THREE.Vector3(Math.sin(e.yaw) * c, Math.sin(e.aimPitch), Math.cos(e.yaw) * c);
+      const len = hooks.rayLength(o, dir, e.cfg.range);
+      const end = o.clone().addScaledVector(dir, len);
+      hideLook(e, live ? "beam:warden-aim" : "beam:warden");
+      look(e, live ? "beam:warden" : "beam:warden-aim").set(o, end, { intensity: live ? 1 : 0.35 + 0.65 * k, time: now });
+      if (!live) return;
+      seg.set(o, end);
+      if (player.alive) {
+        seg.closestPointToPoint(centerOf(player), true, closest);
+        if (closest.distanceTo(centerOf(player)) < e.cfg.beamWidth) hooks.damagePlayer(damage, o, true);
+      }
+      for (const a of allies) {
+        if (a.dead || a.spawnAge < 0.7) continue;
+        seg.closestPointToPoint(centerOf(a), true, closest);
+        if (closest.distanceTo(centerOf(a)) < 0.6) hurtAlly(a, damage);
+      }
+      if (Math.random() < 0.25) looks.impact(end, "beam");
+    },
+    hideBeam(e) {
+      hideLook(e, "beam:warden");
+      hideLook(e, "beam:warden-aim");
+    },
+    mostDamaged(self, range) {
+      let best = null,
+        ratio = 0.999;
+      for (const o of enemies) {
+        if (o === self || o.dead || o.spawn < 1 || o.kind === "maintainer") continue;
+        const r = o.hp / o.maxHp;
+        if (r < ratio && o.pos.distanceTo(self.pos) < range) {
+          ratio = r;
+          best = o;
+        }
+      }
+      return best;
+    },
+    heal(e, patient, amount) {
+      patient.hp = Math.min(patient.maxHp, patient.hp + amount);
+      patient.model.setHealth(patient.hp / patient.maxHp);
+      const from = e.model.emitter ? e.model.emitter.getWorldPosition(new THREE.Vector3()) : hitCenter(e);
+      look(e, "beam:tether").set(from, hitCenter(patient), { intensity: 0.8, time: now });
+      e.healTick += amount;
+      if (e.healTick >= 10) {
+        looks.number(hitCenter(patient).add(tmp.set(0, 0.9, 0)), "+" + Math.round(e.healTick), "heal");
+        e.healTick = 0;
+      }
+    },
+    hideTether(e) {
+      hideLook(e, "beam:tether");
+    },
+  };
+
+  // Low cover between the defender and the threat: the far side of the nearest
+  // suitable block, spread along it so several defenders can share one.
+  function coverPost(e, threat) {
+    const cfg = e.cfg,
+      W = T.world;
+    let best = null,
+      bestScore = Infinity;
+    for (const c of hooks.colliders()) {
+      if (c.height > 2.2) continue;
+      const cx = (c.minX + c.maxX) / 2,
+        cz = (c.minZ + c.maxZ) / 2,
+        hx = (c.maxX - c.minX) / 2,
+        hz = (c.maxZ - c.minZ) / 2;
+      let dx = cx - threat.x,
+        dz = cz - threat.z;
+      const len = Math.hypot(dx, dz);
+      if (len < 0.01) continue;
+      dx /= len;
+      dz /= len;
+      const reach = Math.abs(dx) * hx + Math.abs(dz) * hz + e.radius + 0.2;
+      const slot = (e.seed % 3) - 1;
+      const px = THREE.MathUtils.clamp(cx + dx * reach + slot * hx * 0.55 * Math.abs(dz), -W.width / 2 + 1, W.width / 2 - 1);
+      const pz = THREE.MathUtils.clamp(cz + dz * reach + slot * hz * 0.55 * Math.abs(dx), W.farZ + 1, W.nearZ - 1);
+      const toThreat = Math.hypot(px - threat.x, pz - threat.z);
+      if (toThreat < cfg.postMin || toThreat > cfg.postMax) continue;
+      const d = Math.hypot(px - e.pos.x, pz - e.pos.z);
+      if (d > cfg.postSearch) continue;
+      let taken = 0;
+      for (const o of enemies) if (o !== e && !o.dead && o.post && Math.hypot(o.post.x - px, o.post.z - pz) < 1.2) taken += 6;
+      const score = d + taken;
+      if (score < bestScore) {
+        bestScore = score;
+        best = new THREE.Vector3(px, floorY, pz);
+      }
+    }
+    return best;
+  }
+
+  function moveToward(actor, goal, speed, dt, side, overLow = false) {
+    const direction = tmp.subVectors(goal, actor.pos);
     direction.y = 0;
     if (direction.lengthSq() < 0.09) return;
     direction.normalize();
     const start = actor.pos.clone();
-    hooks.move(actor.pos, direction.multiplyScalar(speed * dt), actor.radius);
+    hooks.move(actor.pos, direction.clone().multiplyScalar(speed * dt), actor.radius, overLow);
     if (actor.pos.distanceToSquared(start) < speed * dt * speed * dt * 0.15) {
       // Sliding along cover corners avoids getting stuck against the first block.
-      const tangent = new THREE.Vector3(
-        direction.z * side,
-        0,
-        -direction.x * side,
-      );
-      hooks.move(actor.pos, tangent, actor.radius);
+      hooks.move(actor.pos, new THREE.Vector3(direction.z * side, 0, -direction.x * side).multiplyScalar(speed * dt), actor.radius, overLow);
     }
     actor.pos.y = floorY;
   }
 
-  function hitEnemy(e, damage, shotOrigin, byAlly = false, pierce = false) {
-    if (!e || e.dead) return { blocked: false, killed: false };
-    let blocked = false;
-    if (!pierce && e.kind === "shield" && e.expose <= 0 && e.stagger <= 0) {
-      const incoming = shotOrigin.clone().sub(e.pos);
-      incoming.y = 0;
-      incoming.normalize();
-      const front = new THREE.Vector3(Math.sin(e.yaw), 0, Math.cos(e.yaw));
-      blocked = incoming.dot(front) > 0.3;
-      if (blocked) damage *= A.shieldReduction;
+  // ------------------------------------------------------------ the squad call
+  // Q: beacon at the aimed point → after T.squad.dropDelay the squad slams in,
+  // staggering and taunting nearby defenders. Q while a squad is out: order it
+  // (focus the aimed enemy, or move to the aimed point).
+  function callIn(point, focus = null) {
+    if (cooldown <= 0 && !beacon) {
+      deploy(point);
+      return "deploy";
     }
-    e.hp -= damage;
-    e.flash = 0.13;
-    e.model.setHealth(Math.max(0, e.hp / e.maxHp));
-    if (blocked) {
-      e.shieldHit = 0.15;
-      hooks.burst(center(e), 0x66daff, 3);
+    const squad = allies.filter((a) => a.temporary && !a.dead);
+    if (squad.length && orderCd <= 0) {
+      orderCd = S.orderCooldown;
+      for (const a of squad) {
+        a.focus = focus && !focus.dead ? focus : null;
+        a.rally = focus ? null : point.clone().setY(floorY);
+      }
+      looks.impact(focus ? hitCenter(focus) : point.clone().setY(floorY + 0.2), "order");
+      hooks.sound("order");
+      return focus ? "focus" : "move";
     }
-    if (e.hp <= 0) {
-      e.dead = true;
-      removeEnemy(e);
-      hooks.burst(center(e), 0xffd64b, 14);
-      hooks.sound("kill");
-      hooks.onKill(e.kind, byAlly, e.pos.clone());
-      return { blocked, killed: true };
-    }
-    return { blocked, killed: false };
+    return false;
   }
 
-  function callIn(point) {
-    if (cooldown > 0) return false;
-    cooldown = A.callCooldown;
-    for (let i = 0; i < A.callCount; i++) {
-      const angle = (i / A.callCount) * Math.PI * 2;
+  function deploy(point) {
+    cooldown = S.cooldown;
+    const pos = point.clone().setY(floorY);
+    beacon = { pos, t: S.dropDelay, ring: looks.ring("beacon"), column: looks.beam("beacon") };
+    hooks.sound("beacon");
+    if (S.dropDelay <= 0) land();
+  }
+
+  function updateBeacon(dt) {
+    if (!beacon) return;
+    beacon.t -= dt;
+    const k = 1 - Math.max(0, beacon.t) / Math.max(0.001, S.dropDelay);
+    beacon.ring.set(beacon.pos, { radius: S.shockRadius, progress: k, alpha: 0.5 + k * 0.5, time: now });
+    beacon.column.set(beacon.pos.clone().setY(floorY + 40), beacon.pos, { intensity: 0.3 + 0.7 * k, time: now });
+    if (beacon.t <= 0) land();
+  }
+
+  function land() {
+    const point = beacon.pos.clone();
+    clearBeacon();
+    for (let i = 0; i < S.count; i++) {
+      const angle = (i / S.count) * Math.PI * 2;
       const p = point.clone();
-      p.y = floorY;
-      const displacement = new THREE.Vector3(
-        Math.cos(angle) * 1.3,
-        0,
-        Math.sin(angle) * 1.3,
-      );
-      hooks.move(p, displacement, 0.5);
+      hooks.move(p, new THREE.Vector3(Math.cos(angle) * 1.3, 0, Math.sin(angle) * 1.3), 0.5);
       const a = addAlly(p.x, p.z, true, i);
+      a.taunt = S.taunt;
       a.mesh.scale.setScalar(0.01);
-      hooks.beam(
-        p.clone().add(new THREE.Vector3(0, 10 + i * 2, 0)),
-        p.clone().add(up),
-        0x9affc5,
-      );
-      hooks.burst(p.clone().add(up), 0xa8ffd0, 18);
+      hooks.beam(p.clone().setY(floorY + 10 + i * 2), p.clone().setY(floorY + 1), 0x9affc5);
+      hooks.burst(p.clone().setY(floorY + 1), 0xa8ffd0, 18);
     }
-    for (const e of enemies)
-      if (!e.dead && e.pos.distanceTo(point) < 7) e.stagger = A.callStagger;
+    let hit = 0;
+    for (const e of enemies) {
+      if (e.dead || e.spawn < 1 || flatDist(e.pos, point) > S.shockRadius) continue;
+      hit++;
+      stagger(e, S.stagger);
+      if (e.kind !== "warden") {
+        const away = tmp.subVectors(e.pos, point).setY(0);
+        if (away.lengthSq() < 0.01) away.set(1, 0, 0);
+        hooks.move(e.pos, away.normalize().multiplyScalar(S.shockPush), e.radius);
+      }
+      hitEnemy(e, S.shockDamage, point.clone().setY(floorY + 1), true, true);
+    }
+    looks.impact(point, "shock");
     hooks.sound("call");
-    return true;
+    hooks.shake(S.shake);
+    hooks.onSquad?.("landed", hit);
   }
 
-  function aim(e, target) {
-    const a = center(e),
-      b = center(target, !target.mesh);
-    const attr = e.aimLine.geometry.attributes.position;
-    attr.setXYZ(0, a.x, a.y, a.z);
-    attr.setXYZ(1, b.x, b.y, b.z);
-    attr.needsUpdate = true;
-    e.aimLine.geometry.computeBoundingSphere();
-    e.aimLine.visible = true;
+  // ------------------------------------------------------------ per frame
+  function pickTarget(e) {
+    let target = null,
+      best = Infinity;
+    const from = hitCenter(e);
+    const consider = (a, weight) => {
+      const d = e.pos.distanceToSquared(a.pos) * weight;
+      if (d < best && (e.kind === "hugger" || !hooks.blocked(from, centerOf(a)))) {
+        best = d;
+        target = a;
+      }
+    };
+    if (player.alive) consider(player, 1);
+    for (const a of allies) {
+      if (a.dead || a.spawnAge < 0.3) continue;
+      consider(a, a.temporary ? (a.taunt > 0 ? S.tauntWeight : 0.66) : 1.5);
+    }
+    return target || player;
   }
 
-  function shoot(e, target) {
-    if (projectiles.length >= 80) return;
-    const start = center(e),
-      goal = center(target, !target.mesh);
-    if (hooks.blocked(start, goal)) return;
-    const direction = goal.sub(start).normalize();
-    const mesh = new THREE.Mesh(sphere, bulletMaterial);
-    mesh.scale.set(0.075, 0.075, 0.38);
-    mesh.position.copy(start);
-    mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), direction);
-    scene.add(mesh);
-    projectiles.push({
-      mesh,
-      velocity: direction.multiplyScalar(A.projectileSpeed),
-      life: 3,
-      damage: A.gunnerDamage * (floorY === 0 ? A.floor1DamageScale : 1),
-    });
-    hooks.burst(start, 0xffa15a, 2);
-    hooks.sound("enemy");
+  function updateEnemy(e, dt, time) {
+    if (e.dead) return;
+    if (e.spawn < 1) {
+      // Spawn-in: dropped from the ceiling onto an orange warning ring.
+      e.spawn += dt / E.dropTime;
+      e.mesh.visible = e.spawn >= 0;
+      if (e.spawn >= 0) {
+        const s = Math.min(1, e.spawn);
+        e.dropY = (1 - s) * (1 - s) * E.dropHeight;
+        look(e, "ring:spawn").set(e.pos, { radius: e.radius + 0.5, progress: s, alpha: 1 - s * 0.4, time });
+        if (s >= 1) {
+          e.dropY = 0;
+          hideLook(e, "ring:spawn");
+          hooks.burst(e.pos.clone().setY(floorY + 0.3), 0xffa64b, 8);
+          hooks.sound("land");
+        }
+      }
+      return;
+    }
+    e.age += dt;
+    e.expose = Math.max(0, e.expose - dt);
+    e.stagger = Math.max(0, e.stagger - dt);
+    e.flash = Math.max(0, e.flash - dt);
+    e.shieldHit = Math.max(0, e.shieldHit - dt);
+    if (e.kind !== "hugger") e.lift = THREE.MathUtils.damp(e.lift, e.liftGoal, 7, dt);
+    const target = pickTarget(e);
+    e.target = target;
+    if (e.stagger > 0) {
+      e.liftGoal = 0;
+      if (e.kind !== "warden") api.face(e, target.pos, dt);
+      return;
+    }
+    BEHAVIOUR[e.kind](e, { dt, time, target, player, floor: floorCfg(), api });
   }
 
-  const lastPos = new WeakMap();
   function syncEnemyModel(e, dt, time) {
-    const before = lastPos.get(e) || e.pos.clone();
-    const moving = e.pos.distanceToSquared(before) > 1e-5;
-    lastPos.set(e, e.pos.clone());
+    const moving = e.pos.distanceToSquared(e.lastPos) > 1e-5;
+    e.lastPos.copy(e.pos);
+    e.model.root.position.y = e.lift + e.dropY;
+    const cfg = e.cfg;
+    let windup = 0;
+    if (e.windup > 0) windup = 1 - e.windup / cfg.telegraph;
+    else if (e.bash > 0) windup = 1 - e.bash / cfg.bashWindup;
+    else if (e.state === "tell") windup = 1 - e.tell / cfg.telegraph;
     e.model.update(dt, {
       time,
       phase: e.phase,
       flash: e.flash,
-      windup: e.windup > 0 ? 1 - e.windup / A.enemyTelegraph : 0,
-      firing: e.shots > 0,
+      windup,
+      firing: e.kind === "warden" ? e.state === "beam" : e.shots > 0,
       exposed: e.expose > 0,
       stagger: e.stagger,
       moving,
       camera: hooks.getCamera(),
       shieldHit: e.shieldHit,
+      lunging: e.state === "lunge",
+      recover: e.state === "recover",
+      charge: e.state === "charge" ? 1 - e.t / cfg.telegraph : 0,
+      venting: e.state === "vent",
+      aimPitch: e.kind === "warden" ? e.aimPitch : 0,
+      healing: e.healing,
     });
   }
 
-  function updateEnemy(e, dt, time, player) {
-    if (e.dead) return;
-    e.age += dt;
-    e.expose = Math.max(0, e.expose - dt);
-    e.stagger = Math.max(0, e.stagger - dt);
-    e.flash = Math.max(0, e.flash - dt);
-    e.shieldHit = Math.max(0, (e.shieldHit || 0) - dt);
-    const candidates = [
-      player,
-      ...allies.filter((a) => !a.dead && a.spawnAge > 0.3),
-    ];
-    let target = player,
-      best = Infinity;
-    for (const a of candidates) {
-      if (a === player && !player.alive) continue;
-      const distance =
-        e.pos.distanceToSquared(a.pos) *
-        (a.temporary ? 0.66 : a.mesh ? 1.5 : 1);
-      if (
-        distance < best &&
-        !hooks.blocked(center(e), center(a, a === player))
-      ) {
-        best = distance;
-        target = a;
-      }
-    }
-    e.target = target;
-    facing(e, target.pos, dt);
-    if (e.stagger > 0) {
-      e.aimLine.visible = false;
-      e.windup = 0;
-      e.shots = 0;
-      e.timer = 0.7;
-      return;
-    }
-    const distance = e.pos.distanceTo(target.pos);
-    const visible = !hooks.blocked(
-      center(e),
-      center(target, target === player),
-    );
-    if (!visible || distance > (e.kind === "shield" ? 9 : 14)) {
-      moveToward(
-        e,
-        target.pos,
-        A.enemySpeed * (e.kind === "shield" ? 0.68 : 1),
-        dt,
-        e.seed % 2 ? 1 : -1,
-      );
-    } else if (e.windup <= 0 && e.shots === 0) {
-      const side = Math.sin(time * 0.55 + e.phase) * A.enemySpeed * 0.3 * dt;
-      hooks.move(
-        e.pos,
-        new THREE.Vector3(Math.cos(e.yaw) * side, 0, -Math.sin(e.yaw) * side),
-        e.radius,
-      );
-    }
-    e.timer -= dt;
-    if (e.windup > 0) {
-      e.windup -= dt;
-      aim(e, target);
-      if (e.windup <= 0) {
-        e.aimLine.visible = false;
-        e.shots = e.kind === "shield" ? 2 : 3;
-        e.shotTimer = 0;
-        e.expose = A.shieldExpose;
-      }
-    } else if (e.shots > 0) {
-      e.shotTimer -= dt;
-      if (e.shotTimer <= 0) {
-        shoot(e, target);
-        e.shots--;
-        e.shotTimer = 0.17;
-      }
-      if (e.shots === 0)
-        e.timer =
-          A.enemyFireInterval *
-          (floorY === 0 ? 1 : A.floor2FireScale) *
-          (0.85 + Math.random() * 0.3);
-    } else if (
-      e.timer <= 0 &&
-      visible &&
-      distance < 36 &&
-      Math.abs(
-        angleDelta(
-          e.yaw,
-          Math.atan2(target.pos.x - e.pos.x, target.pos.z - e.pos.z),
-        ),
-      ) < 0.5 &&
-      (target !== player || player.alive)
-    ) {
-      const attackerLimit =
-        floorY === 0 ? A.floor1Attackers : A.floor2Attackers;
-      const occupied = enemies.reduce(
-        (n, other) =>
-          n + (!other.dead && (other.windup > 0 || other.shots > 0) ? 1 : 0),
-        0,
-      );
-      if (occupied < attackerLimit) e.windup = A.enemyTelegraph;
-    }
-  }
-
-  function updateAlly(a, dt, time, player) {
+  function updateAlly(a, dt, time) {
     a.lifetime -= dt;
     a.spawnAge += dt;
     a.hurt = Math.max(0, a.hurt - dt);
+    a.taunt = Math.max(0, a.taunt - dt);
     if (a.lifetime <= 0 || a.dead) {
-      hooks.burst(center(a), 0x94ffd9, 10);
+      hooks.burst(centerOf(a), 0x94ffd9, 10);
       removeAlly(a);
       return;
     }
@@ -389,138 +660,108 @@ export function createActors(scene, T, hooks, brand) {
       fade: a.temporary && a.lifetime < 1 ? a.lifetime : 1,
     });
     if (a.temporary && a.spawnAge < 1) return;
+    const side = a.index % 2 ? 1 : -1;
+    const speed = a.temporary ? S.speed : S.escortSpeed;
+    if (a.focus && a.focus.dead) a.focus = null;
+    if (a.rally) {
+      moveToward(a, a.rally, speed * 1.4, dt, side);
+      if (flatDist(a.pos, a.rally) < 1.2) a.rally = null;
+    }
+    const start = centerOf(a);
     let target = null,
       best = Infinity;
-    for (const e of enemies) {
-      if (e.dead) continue;
-      const d = a.pos.distanceToSquared(e.pos);
-      if (d < best && !hooks.blocked(center(a), center(e))) {
-        target = e;
-        best = d;
+    if (a.focus && a.focus.spawn >= 1) {
+      target = a.focus;
+      best = a.pos.distanceToSquared(target.pos);
+    } else
+      for (const e of enemies) {
+        if (e.dead || e.spawn < 1) continue;
+        const d = a.pos.distanceToSquared(e.pos);
+        if (d < best && !hooks.blocked(start, hitCenter(e))) {
+          target = e;
+          best = d;
+        }
       }
-    }
     a.target = target;
     a.shoot -= dt;
     if (target) {
-      a.mesh.rotation.y = Math.atan2(
-        target.pos.x - a.pos.x,
-        target.pos.z - a.pos.z,
-      );
-      if (best > 12 * 12)
-        moveToward(a, target.pos, A.enemySpeed * 1.4, dt, a.index % 2 ? 1 : -1);
-      if (a.shoot <= 0 && best < 30 * 30) {
-        a.shoot = A.allyFireInterval * (a.temporary ? 1 : 1.6);
-        const start = center(a),
-          end = center(target);
-        if (!hooks.blocked(start, end)) {
-          a.model.shoot();
-          hooks.beam(start, end, a.temporary ? 0xa8ffd1 : 0x6bcfff);
-          hitEnemy(
-            target,
-            a.temporary ? A.allyDamage : A.permanentDamage,
-            start,
-            true,
-          );
-        }
+      a.mesh.rotation.y = Math.atan2(target.pos.x - a.pos.x, target.pos.z - a.pos.z);
+      const end = hitCenter(target);
+      const visible = !hooks.blocked(start, end);
+      if (!a.rally) {
+        if (a.temporary && (target.kind === "shield" || target.kind === "warden") && best < 18 * 18) {
+          // Called agents work around armoured fronts toward the open side.
+          const back = tmp2.set(-Math.sin(target.yaw), 0, -Math.cos(target.yaw));
+          const goal = target.pos
+            .clone()
+            .addScaledVector(back, S.flankDistance)
+            .add(new THREE.Vector3(back.z, 0, -back.x).multiplyScalar(side * (a.index + 1) * 1.2));
+          if (flatDist(a.pos, goal) > 1) moveToward(a, goal, speed, dt, side);
+        } else if (best > 12 * 12 || !visible) moveToward(a, target.pos, speed, dt, side);
       }
-      // Called agents fan around the enemy, creating useful shield flanks.
-      if (a.temporary && best < 13 * 13 && target.kind === "shield") {
-        const delta = a.pos.clone().sub(target.pos);
-        delta.y = 0;
-        if (delta.length() > 3) {
-          const tangent = new THREE.Vector3(delta.z, 0, -delta.x)
-            .normalize()
-            .multiplyScalar(A.enemySpeed * dt * (a.index % 2 ? 1 : -1));
-          hooks.move(a.pos, tangent, a.radius);
-        }
+      if (a.shoot <= 0 && best < 30 * 30 && visible) {
+        a.shoot = a.temporary ? S.interval : S.escortInterval;
+        a.model.shoot();
+        hooks.beam(start, end, a.temporary ? 0xa8ffd1 : 0x6bcfff);
+        hitEnemy(target, a.temporary ? S.damage : S.escortDamage, start, true);
       }
-    } else {
-      const follow = player.pos
-        .clone()
-        .add(new THREE.Vector3(a.index % 2 ? 2.8 : -2.8, 0, 2));
-      if (a.pos.distanceTo(follow) > 2)
-        moveToward(a, follow, A.enemySpeed * 1.6, dt, a.index % 2 ? 1 : -1);
+    } else if (!a.rally) {
+      const follow = player.pos.clone().add(new THREE.Vector3(side * 2.8, 0, 2));
+      if (a.pos.distanceTo(follow) > 2) moveToward(a, follow, speed * 1.15, dt, side);
     }
-  }
-
-  function projectileHit(p, previous, target, isPlayer) {
-    const midpoint = center(target, isPlayer);
-    const ray = new THREE.Line3(previous, p.mesh.position);
-    ray.closestPointToPoint(midpoint, true, tmp);
-    const horizontal = Math.hypot(tmp.x - midpoint.x, tmp.z - midpoint.z);
-    return (
-      horizontal < (isPlayer ? 0.47 : 0.5) &&
-      Math.abs(tmp.y - midpoint.y) <
-        (isPlayer ? (target.height || 1.7) * 0.5 : 0.5)
-    );
   }
 
   function update(dt, time) {
+    now = time;
     cooldown = Math.max(0, cooldown - dt);
-    const player = hooks.getPlayer();
+    orderCd = Math.max(0, orderCd - dt);
+    player = Object.assign(hooks.getPlayer(), { isPlayer: true });
+    updateBeacon(dt);
     for (const e of enemies) {
-      updateEnemy(e, dt, time, player);
+      updateEnemy(e, dt, time);
       if (!e.dead) syncEnemyModel(e, dt, time);
     }
-    for (const a of [...allies]) updateAlly(a, dt, time, player);
-    for (let i = projectiles.length - 1; i >= 0; i--) {
-      const p = projectiles[i],
-        previous = p.mesh.position.clone();
-      p.life -= dt;
-      p.mesh.position.addScaledVector(p.velocity, dt);
-      let remove = p.life <= 0 || hooks.blocked(previous, p.mesh.position);
-      if (!remove && player.alive && projectileHit(p, previous, player, true)) {
-        hooks.damagePlayer(p.damage, previous);
-        remove = true;
-      }
-      if (!remove)
-        for (const a of allies) {
-          if (a.spawnAge < 0.7 || !projectileHit(p, previous, a, false))
-            continue;
-          a.hurt = 0.18;
-          if (a.temporary) {
-            a.hp -= p.damage;
-            if (a.hp <= 0) a.dead = true;
-          }
-          hooks.burst(center(a), 0x8be4ff, 3);
-          remove = true;
-          break;
-        }
-      if (remove) {
-        scene.remove(p.mesh);
-        projectiles.splice(i, 1);
-      }
-    }
+    for (let i = enemies.length - 1; i >= 0; i--) if (enemies[i].dead) enemies.splice(i, 1);
+    for (const a of [...allies]) updateAlly(a, dt, time);
+    projectiles.update(dt, player, allies, (damage, from) => hooks.damagePlayer(damage, from), hurtAlly);
   }
 
   return {
     enemies,
     allies,
+    projectiles: projectiles.list,
     reset,
     spawnWave,
     update,
     hitEnemy,
+    shotModifier,
+    hitCenter,
     callIn,
+    stagger,
     reduceCooldown(s) {
       cooldown = Math.max(0, cooldown - s);
     },
     clear,
     get ready() {
-      return cooldown <= 0;
+      return cooldown <= 0 && !beacon;
     },
     get cooldown() {
       return cooldown;
     },
+    get dropping() {
+      return !!beacon;
+    },
+    get squadActive() {
+      return allies.some((a) => a.temporary && !a.dead);
+    },
     get activeRemaining() {
-      return Math.max(
-        0,
-        ...allies.filter((a) => a.temporary).map((a) => a.lifetime),
-      );
+      return Math.max(0, ...allies.filter((a) => a.temporary).map((a) => a.lifetime));
+    },
+    get alive() {
+      return enemies.filter((e) => !e.dead).length;
     },
     dispose() {
       clear();
-      geometries.forEach((g) => g.dispose());
-      materials.forEach((m) => m.dispose());
     },
   };
 }

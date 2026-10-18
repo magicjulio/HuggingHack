@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ASCENT sound kit</title>
+<link rel="icon" href="data:,">
+<style>
+  :root { color-scheme: dark; --bg:#070c16; --panel:#0c1624; --line:#ffffff1a; --ink:#d9dfe4; --mute:#8fa1ad; --yellow:#ffd21e; --cyan:#38d8ff; --red:#ff3b4e; --green:#39ff9c; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:14px/1.5 "JetBrains Mono", ui-monospace, monospace; padding:24px 20px 60px; }
+  main { max-width: 1100px; margin: 0 auto; }
+  h1 { font:700 28px "Chakra Petch", sans-serif; letter-spacing:2px; margin:0 0 4px; }
+  h1 span { color: var(--yellow); }
+  p.lead { color: var(--mute); max-width: 74ch; margin: 6px 0 18px; }
+  .bar { display:flex; flex-wrap:wrap; gap:14px 22px; align-items:center; padding:12px 14px; background:var(--panel); border:1px solid var(--line); margin-bottom:16px; }
+  label { display:flex; gap:8px; align-items:center; color:var(--mute); font-size:12px; }
+  input[type=range] { accent-color: var(--yellow); }
+  button { font:700 12px "Chakra Petch", sans-serif; letter-spacing:2px; background:var(--yellow); color:#15202a; border:0; padding:8px 14px; cursor:pointer; }
+  button.alt { background:transparent; color:var(--ink); border:1px solid var(--line); }
+  button:hover { filter: brightness(1.1); }
+  button:focus-visible { outline: 2px solid var(--cyan); outline-offset: 3px; }
+  h2 { font:700 14px "Chakra Petch", sans-serif; letter-spacing:3px; color:var(--yellow); margin:26px 0 8px; }
+  table { width:100%; border-collapse:collapse; }
+  th, td { text-align:left; padding:6px 8px; border-bottom:1px solid var(--line); vertical-align:middle; font-size:12px; }
+  th { color:var(--mute); font-weight:400; letter-spacing:1px; }
+  td.n { font-weight:700; color: var(--ink); white-space:nowrap; }
+  td.who { color: var(--mute); }
+  canvas { display:block; background:#02050a; border:1px solid var(--line); width:300px; height:56px; }
+  .ok { color: var(--green); } .bad { color: var(--red); }
+  .music { display:grid; gap:10px; }
+  @media (max-width: 760px) { canvas { width:180px; } td.who { display:none; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>ASCENT <span>sound kit</span></h1>
+  <p class="lead">Every sound is synthesised in the browser by <code>prototypes/end2-ascent/audio.js</code>, no sample files. Click a row to hear it. The spectrograms and levels come from an offline render of the exact same code, so they double as the test: a sound that is silent, clips or contains NaN is flagged red. Press <b>M</b> in the game (or here) to mute.</p>
+
+  <div class="bar">
+    <button id="enable">ENABLE AUDIO</button>
+    <label>master <input id="vol" type="range" min="0" max="1" step="0.02" value="0.6"></label>
+    <label>sfx <input id="sfx" type="range" min="0" max="1.5" step="0.05" value="1"></label>
+    <label>music <input id="mus" type="range" min="0" max="1" step="0.02" value="0.5"></label>
+    <span id="summary" style="color:var(--mute)">rendering…</span>
+  </div>
+
+  <h2>COMBAT MUSIC BED</h2>
+  <div class="bar music">
+    <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center">
+      <button id="mplay">START BED</button>
+      <button class="alt" data-preset="calm">Calm: atrium idle</button>
+      <button class="alt" data-preset="fight">Fight: 4 hostiles</button>
+      <button class="alt" data-preset="hold">Hold the lift</button>
+      <button class="alt" data-preset="hold2">Hold, floor 2, low health</button>
+      <button class="alt" data-preset="lift">Lift ride</button>
+      <button class="alt" id="mstop">STOP</button>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center">
+      <label>hostiles <input id="en" type="range" min="0" max="8" step="1" value="0"><b id="enV">0</b></label>
+      <label><input id="hold" type="checkbox"> holding the lift</label>
+      <label>hold progress <input id="hp" type="range" min="0" max="1" step="0.01" value="0"></label>
+      <label>health <input id="hl" type="range" min="1" max="100" step="1" value="100"><b id="hlV">100</b></label>
+      <label>floor <select id="fl"><option>1</option><option>2</option></select></label>
+      <span id="mread" style="color:var(--mute)">intensity 0.00</span>
+    </div>
+    <div style="color:var(--mute);font-size:12px">Spectrograms below the bar: 12 s offline renders of the bed at three intensities (calm, fight, hold).</div>
+    <div id="bakes" style="display:flex;flex-wrap:wrap;gap:10px"></div>
+  </div>
+
+  <h2>SOUNDS</h2>
+  <table id="tbl"><thead><tr><th></th><th>name</th><th>used by</th><th>spectrogram (log freq)</th><th>peak</th><th>rms</th><th>length</th></tr></thead><tbody></tbody></table>
+</main>
+<script type="module">
+import { createAudio, SOUND_NAMES } from "../../../../prototypes/end2-ascent/audio.js";
+
+const WHO = {
+  fire: "player rifle", hit: "your bolt lands", shield: "bolt blocked by shield/armour", kill: "defender down", "kill-heavy": "warden down",
+  call: "Q: squad call-in", spawn: "an agent appears", hurt: "you take damage", wave: "beat/wave starts", waveclear: "beat cleared (spare)",
+  lift: "ride start (climbs T.lift.duration)", arrive: "ride end", overheat: "rifle overheated", vent: "R: active vent",
+  pickup: "loot picked up", drop: "loot dropped", enemy: "defender fires", "enemy-tell": "attack warning", bash: "shield bash",
+  lunge: "hugger lunge", "warden-charge": "warden winds up", "warden-beam": "warden beam", land: "defender lands from ceiling",
+  beacon: "squad beacon thrown", order: "squad order", finish: "end card", heartbeat: "low health (looped by update)", lowhealth: "alias of heartbeat", click: "UI click (spare)",
+};
+const LONG = { lift: 11, finish: 5, "warden-beam": 3.2, "warden-charge": 2, arrive: 2.2, call: 1.6, waveclear: 1.2 };
+const T = { lift: { duration: 9.5 }, audio: { volume: 0.6, sfx: 1, music: 0.5, mute: false } };
+const SR = 44100;
+
+// ---------- tiny FFT spectrogram
+function fft(re, im) {
+  const n = re.length;
+  for (let i = 1, j = 0; i < n; i++) {
+    let bit = n >> 1;
+    for (; j & bit; bit >>= 1) j ^= bit;
+    j ^= bit;
+    if (i < j) { [re[i], re[j]] = [re[j], re[i]]; [im[i], im[j]] = [im[j], im[i]]; }
+  }
+  for (let len = 2; len <= n; len <<= 1) {
+    const ang = (-2 * Math.PI) / len, wr = Math.cos(ang), wi = Math.sin(ang);
+    for (let i = 0; i < n; i += len) {
+      let cr = 1, ci = 0;
+      for (let k = 0; k < len / 2; k++) {
+        const a = i + k, b = i + k + len / 2;
+        const tr = re[b] * cr - im[b] * ci, ti = re[b] * ci + im[b] * cr;
+        re[b] = re[a] - tr; im[b] = im[a] - ti; re[a] += tr; im[a] += ti;
+        const nr = cr * wr - ci * wi; ci = cr * wi + ci * wr; cr = nr;
+      }
+    }
+  }
+}
+function drawSpec(canvas, data, seconds) {
+  const N = 1024, hop = 512, W = canvas.width = 600, H = canvas.height = canvas.clientHeight > 70 ? 200 : 110;
+  const g = canvas.getContext("2d");
+  g.fillStyle = "#02050a"; g.fillRect(0, 0, W, H);
+  const frames = Math.floor((data.length - N) / hop);
+  const win = new Float32Array(N).map((_, i) => 0.5 - 0.5 * Math.cos((2 * Math.PI * i) / (N - 1)));
+  const re = new Float32Array(N), im = new Float32Array(N);
+  const img = g.createImageData(W, H);
+  const fmin = 40, fmax = 16000;
+  for (let x = 0; x < W; x++) {
+    const f = Math.min(frames - 1, Math.floor((x / W) * frames));
+    for (let i = 0; i < N; i++) { re[i] = (data[f * hop + i] || 0) * win[i]; im[i] = 0; }
+    fft(re, im);
+    for (let y = 0; y < H; y++) {
+      const freq = fmin * Math.pow(fmax / fmin, 1 - y / H);
+      const bin = Math.min(N / 2 - 1, Math.round((freq / (SR / 2)) * (N / 2)));
+      const mag = Math.hypot(re[bin], im[bin]) / N * 4;
+      const db = 20 * Math.log10(mag + 1e-7);
+      const v = Math.max(0, Math.min(1, (db + 80) / 62));
+      const o = (y * W + x) * 4;
+      // dark blue to yellow
+      img.data[o] = 255 * Math.pow(v, 1.4); img.data[o + 1] = 210 * Math.pow(v, 1.8) + 20 * v; img.data[o + 2] = 60 + 150 * (1 - v) * v * 2; img.data[o + 3] = 255;
+    }
+  }
+  g.putImageData(img, 0, 0);
+}
+function stats(data) {
+  let peak = 0, sum = 0, nan = 0, last = 0;
+  for (let i = 0; i < data.length; i++) {
+    const v = data[i];
+    if (!Number.isFinite(v)) { nan++; continue; }
+    const a = Math.abs(v);
+    if (a > peak) peak = a;
+    sum += v * v;
+    if (a > 0.003) last = i;
+  }
+  return { peak, rms: Math.sqrt(sum / data.length), nan, length: last / SR };
+}
+const db = (x) => (x > 0 ? (20 * Math.log10(x)).toFixed(1) : "-inf");
+
+// ---------- table + offline render
+const tbody = document.querySelector("#tbl tbody");
+const results = [];
+let live = null;
+const liveAudio = () => (live ??= createAudio(T));
+
+for (const name of SOUND_NAMES) {
+  const tr = document.createElement("tr");
+  tr.innerHTML = `<td><button data-n="${name}">PLAY</button></td><td class="n">${name}</td><td class="who">${WHO[name] || ""}</td><td><canvas></canvas></td><td class="pk"></td><td class="rm"></td><td class="ln"></td>`;
+  tbody.appendChild(tr);
+  tr.querySelector("button").onclick = () => { const a = liveAudio(); a.init(); a.play(name); };
+}
+document.getElementById("enable").onclick = () => { liveAudio().init(); document.getElementById("enable").textContent = "AUDIO ON"; };
+
+async function renderOne(name) {
+  const secs = LONG[name] || 1.4;
+  const off = new OfflineAudioContext(2, Math.ceil(SR * secs), SR);
+  const a = createAudio(T, { ctx: off });
+  a.play(name, { when: 0.03 });
+  const buf = await off.startRendering();
+  const mono = new Float32Array(buf.length);
+  const l = buf.getChannelData(0), r = buf.getChannelData(1);
+  for (let i = 0; i < mono.length; i++) mono[i] = (l[i] + r[i]) / 2;
+  return { mono, stats: stats(mono), secs, peakLR: Math.max(stats(l).peak, stats(r).peak) };
+}
+async function renderMusic(label, s, secs = 12) {
+  const off = new OfflineAudioContext(2, Math.ceil(SR * secs), SR);
+  const a = createAudio(T, { ctx: off });
+  a.bake(secs, s);
+  const buf = await off.startRendering();
+  const mono = new Float32Array(buf.length);
+  const l = buf.getChannelData(0), r = buf.getChannelData(1);
+  for (let i = 0; i < mono.length; i++) mono[i] = (l[i] + r[i]) / 2;
+  return { label, mono, stats: stats(mono), secs, peakLR: Math.max(stats(l).peak, stats(r).peak) };
+}
+const MUSIC = [
+  ["calm (atrium idle)", { mode: "combat", enemies: 0 }],
+  ["fight (4 hostiles)", { mode: "combat", enemies: 4 }],
+  ["hold the lift", { mode: "combat", enemies: 5, holding: true, holdProgress: 0.6 }],
+  ["lift ride", { mode: "lift" }],
+];
+
+const summary = document.getElementById("summary");
+let bad = 0;
+for (let i = 0; i < SOUND_NAMES.length; i++) {
+  const name = SOUND_NAMES[i], tr = tbody.children[i];
+  const r = await renderOne(name);
+  results.push({ name, peak: r.peakLR, rms: r.stats.rms, length: r.stats.length, nan: r.stats.nan });
+  drawSpec(tr.querySelector("canvas"), r.mono, r.secs);
+  const silent = r.stats.peak < 0.01, clipped = r.peakLR >= 0.999, nan = r.stats.nan > 0;
+  const problem = silent || clipped || nan;
+  if (problem) bad++;
+  tr.querySelector(".pk").innerHTML = `<span class="${problem ? "bad" : "ok"}">${db(r.peakLR)} dB${silent ? " SILENT" : ""}${clipped ? " CLIP" : ""}${nan ? " NaN" : ""}</span>`;
+  tr.querySelector(".rm").textContent = db(r.stats.rms) + " dB";
+  tr.querySelector(".ln").textContent = r.stats.length.toFixed(2) + " s";
+}
+// unknown names must be silent no-ops
+const probe = createAudio(T, { ctx: new OfflineAudioContext(2, SR, SR) });
+const unknownOk = ["", "nope", "constructor", "__proto__", undefined, 42].every((n) => { try { return probe.play(n) === false; } catch { return false; } });
+
+const bakes = document.getElementById("bakes");
+const musicResults = [];
+for (const [label, s] of MUSIC) {
+  const r = await renderMusic(label, s);
+  const wrap = document.createElement("div");
+  wrap.innerHTML = `<div style="font-size:11px;color:var(--mute)">${label} · peak ${db(r.peakLR)} dB · rms ${db(r.stats.rms)} dB</div><canvas style="width:360px;height:70px"></canvas>`;
+  bakes.appendChild(wrap);
+  drawSpec(wrap.querySelector("canvas"), r.mono, r.secs);
+  musicResults.push({ label, peak: r.peakLR, rms: r.stats.rms, nan: r.stats.nan });
+  if (r.peakLR >= 0.999 || r.stats.nan || r.stats.rms < 0.002) bad++;
+}
+summary.innerHTML = bad || !unknownOk ? `<span class="bad">${bad} problem(s)${unknownOk ? "" : ", unknown-name check failed"}</span>` : `<span class="ok">${SOUND_NAMES.length} sounds + ${MUSIC.length} music states OK; unknown names are silent</span>`;
+window.__audioCheck = { results, musicResults, bad, unknownOk };
+
+// ---------- live controls
+const $ = (id) => document.getElementById(id);
+const mus = { mode: "combat", enemies: 0, holding: false, holdProgress: 0, health: 100, floor: 1 };
+let tick = 0;
+function setBed(on) {
+  const a = liveAudio(); a.init();
+  clearInterval(tick);
+  if (on) tick = setInterval(() => { a.update(0.1, { ...mus }); $("mread").textContent = `intensity ${a.music.intensity.toFixed(2)}`; }, 100);
+  else a.update(5, { mode: "menu" });
+}
+$("mplay").onclick = () => setBed(true);
+$("mstop").onclick = () => { clearInterval(tick); liveAudio().update(5, { mode: "menu" }); };
+const PRESETS = {
+  calm: { mode: "combat", enemies: 0, holding: false, holdProgress: 0, health: 100, floor: 1 },
+  fight: { mode: "combat", enemies: 4, holding: false, holdProgress: 0, health: 100, floor: 1 },
+  hold: { mode: "combat", enemies: 5, holding: true, holdProgress: 0.5, health: 100, floor: 1 },
+  hold2: { mode: "combat", enemies: 6, holding: true, holdProgress: 0.8, health: 28, floor: 2 },
+  lift: { mode: "lift", enemies: 0, holding: false, holdProgress: 0, health: 100, floor: 1 },
+};
+document.querySelectorAll("[data-preset]").forEach((b) => (b.onclick = () => {
+  Object.assign(mus, PRESETS[b.dataset.preset]);
+  $("en").value = mus.enemies; $("enV").textContent = mus.enemies; $("hold").checked = mus.holding; $("hp").value = mus.holdProgress; $("hl").value = mus.health; $("hlV").textContent = mus.health; $("fl").value = mus.floor;
+  setBed(true);
+}));
+$("en").oninput = (e) => { mus.enemies = +e.target.value; $("enV").textContent = mus.enemies; };
+$("hold").onchange = (e) => (mus.holding = e.target.checked);
+$("hp").oninput = (e) => (mus.holdProgress = +e.target.value);
+$("hl").oninput = (e) => { mus.health = +e.target.value; $("hlV").textContent = mus.health; };
+$("fl").onchange = (e) => (mus.floor = +e.target.value);
+$("vol").oninput = (e) => (T.audio.volume = +e.target.value);
+$("sfx").oninput = (e) => (T.audio.sfx = +e.target.value);
+$("mus").oninput = (e) => (T.audio.music = +e.target.value);
+window.__ready = true;
+</script>
+</body>
+</html>

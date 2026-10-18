@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ASCENT dropship</title>
+<!-- Review page for the Ending 2 dropship in the real ASCENT approach (the prototype's own flight.js, renderer and brand).
+     Serve the REPO ROOT: cd /home/julio/Desktop/HuggingHack && python3 -m http.server 8778
+     open http://localhost:8778/design/3d/end2/approach.html
+     ?ship=new|old  ?fleet=new|old  ?view=chase|orbit|side  ?t=<s> start time  &paused  &ramp=0..1  &gear  &nopost -->
+<script type="importmap">
+  { "imports": { "three": "/prototypes/vendor/three/build/three.module.js", "three/addons/": "/prototypes/vendor/three/examples/jsm/" } }
+</script>
+<style>
+  :root { color-scheme: dark; --ink: #edf3ef; --dim: #8a9aa6; --gold: #ffcb60; --line: #2a3a48; }
+  html, body { margin: 0; height: 100%; background: #070c16; color: var(--ink); font: 13px/1.4 "JetBrains Mono", ui-monospace, monospace; overflow: hidden; }
+  canvas { display: block; }
+  #panel { position: fixed; left: 16px; top: 16px; display: flex; flex-wrap: wrap; gap: 6px; max-width: calc(100vw - 32px); }
+  #panel a, #panel button { padding: 6px 10px; border: 1px solid var(--line); background: #0b1320cc; color: var(--dim); text-decoration: none; font: inherit; cursor: pointer; }
+  #panel .on { color: var(--gold); border-color: var(--gold); }
+  #note { position: fixed; left: 16px; bottom: 16px; max-width: min(560px, calc(100vw - 32px)); color: var(--dim); }
+  #note b { display: block; color: var(--ink); font-size: 18px; margin-bottom: 4px; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="panel"></div>
+<div id="note"><b>Dropship v0</b>Your ship in the real approach. WASD steers, as in the game. Compare with the old box ship using the buttons.</div>
+<script type="module">
+import * as THREE from "three";
+import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
+import { createFlight } from "/prototypes/end2-ascent/flight.js";
+import { loadBrand, applyEnvironment } from "/prototypes/end2-ascent/art.js";
+import { createRenderer } from "/prototypes/end2-ascent/post.js";
+
+const Q = new URLSearchParams(location.search);
+const opt = {
+  ship: Q.get("ship") || "new",
+  fleet: Q.get("fleet") || "new",
+  view: Q.get("view") || "chase",
+  t: +(Q.get("t") ?? 0),
+  paused: Q.has("paused"),
+  ramp: +(Q.get("ramp") ?? 0),
+  gear: Q.has("gear"),
+  armour: +(Q.get("armour") ?? 1),   // multiplies the plate albedo (knob while tuning)
+  glow: +(Q.get("glow") ?? 1),       // multiplies every emissive
+};
+// The game's tuning (main.js T.flight / T.fx), copied: main.js runs the whole game on import.
+const T = {
+  flight: { duration: 34, speed: 70, steerSpeed: 25, width: 40, height: 22, collisionPenalty: 0.7, approachAltitude: 155, landingAltitude: 7, cameraDistance: 34, obstacleCount: 3, fleetCount: 38 },
+  fx: { maxPixelRatio: 1.5, fogNear: 50, fogFar: 280, exposure: 1.2 },
+};
+
+// ------------------------------------------------------------------ panel
+const panel = document.getElementById("panel");
+const link = (label, key, val) => {
+  const u = new URLSearchParams(location.search);
+  u.set(key, val);
+  const on = String(opt[key]) === String(val);
+  panel.insertAdjacentHTML("beforeend", `<a class="${on ? "on" : ""}" href="?${u}">${label}</a>`);
+};
+link("New ship", "ship", "new"); link("Old ship", "ship", "old");
+link("New fleet", "fleet", "new"); link("Old fleet", "fleet", "old");
+link("Chase", "view", "chase"); link("Orbit", "view", "orbit"); link("Side", "view", "side");
+panel.insertAdjacentHTML("beforeend", `<button id="restart">Restart run</button><button id="pause">${opt.paused ? "Play" : "Pause"}</button>`);
+
+// ------------------------------------------------------------------ scene (as in main.js)
+const brand = await loadBrand("/prototypes/end2-ascent/assets/");
+const gfx = createRenderer(document.getElementById("c"), { pixelRatio: T.fx.maxPixelRatio, exposure: T.fx.exposure, bloom: !Q.has("nopost") });
+const renderer = gfx.renderer;
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x101b28);
+scene.fog = new THREE.Fog(0x101b28, T.fx.fogNear, T.fx.fogFar);
+applyEnvironment(renderer, scene, 0.4);
+const camera = new THREE.PerspectiveCamera(62, innerWidth / innerHeight, 0.08, 6500);
+scene.add(new THREE.HemisphereLight(0xcce8ff, 0x283042, 2.25));
+const sun = new THREE.DirectionalLight(0xffe7b1, 2.5);
+sun.position.set(15, 35, 20);
+scene.add(sun);
+const flight = createFlight(scene, T, brand);
+
+// ------------------------------------------------------------------ swap the box ships for the glb
+const gltf = (url) => new Promise((ok, no) => new GLTFLoader().load(url, (g) => ok(g.scene), undefined, no));
+const [hero, fleetShip] = await Promise.all([gltf("./end2-dropship.glb"), gltf("./end2-dropship-fleet.glb")]);
+const ships = flight.root.children.filter((g) => g.isGroup && g.children.some((m) => m.geometry?.type === "ConeGeometry" && m.geometry.parameters.radialSegments === 4));
+const [playerGroup, ...fleetGroups] = ships;
+
+// additive plume: a soft cone glued to an exhaust anchor
+const plumeTex = (() => {
+  const c = document.createElement("canvas"); c.width = 8; c.height = 128;
+  const g = c.getContext("2d"), gr = g.createLinearGradient(0, 0, 0, 128);
+  gr.addColorStop(0, "rgba(255,255,255,1)"); gr.addColorStop(0.25, "rgba(255,255,255,.55)"); gr.addColorStop(1, "rgba(255,255,255,0)");
+  g.fillStyle = gr; g.fillRect(0, 0, 8, 128);
+  return new THREE.CanvasTexture(c);
+})();
+function plume(color, len, r) {
+  const geo = new THREE.CylinderGeometry(r, r * 0.3, len, 20, 1, true);
+  geo.translate(0, -len / 2, 0); geo.rotateX(Math.PI / 2); geo.rotateX(Math.PI); // points +Z (behind the ship)
+  const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color, map: plumeTex, transparent: true, opacity: 0.35 * opt.glow, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: true }));
+  m.material.map.wrapT = THREE.ClampToEdgeWrapping; // cylinder top (uv.y = 1) = the nozzle = the bright end
+  return m;
+}
+const plumes = [];
+function dress(model, glowColor, plumeLen) {
+  const glow = new THREE.Color(glowColor);
+  model.traverse((o) => {
+    if (!o.isMesh) return;
+    o.material = o.material.clone();
+    const n = o.material.name;
+    if (n === "engine_glow" || n === "trim_glow" || n === "orb") { o.material.color.copy(glow).multiplyScalar(n === "orb" ? 0.5 : 1); o.material.emissive.copy(glow); }
+    if (o.material.emissiveIntensity) o.material.emissiveIntensity *= opt.glow;
+    if (n === "armour" || n === "hazard_y") o.material.color.multiplyScalar(opt.armour);
+  });
+  for (const s of ["l", "r"]) {
+    const a = model.getObjectByName(`exhaust_${s}`);
+    if (!a) continue;
+    const p = plume(glowColor, plumeLen, 0.95);
+    a.add(p); plumes.push(p);
+  }
+  return model;
+}
+const heroModel = dress(hero, 0x39ff9c, 9);
+heroModel.getObjectByName("ramp")?.rotateX(-opt.ramp * 1.2);
+if (!opt.gear) heroModel.getObjectByName("gear")?.position.set(0, 0, 0.4);
+if (opt.ship === "new") {
+  for (const c of playerGroup.children) c.visible = false;
+  playerGroup.add(heroModel);
+}
+// The fleet: one InstancedMesh per material (38 ships = ~8 draw calls, not ~1300). Each instance follows its old box group.
+function instancedFleet(model, glowColor, groups) {
+  const byMat = new Map();
+  model.updateMatrixWorld(true);
+  model.traverse((o) => {
+    if (!o.isMesh) return;
+    const g = o.geometry.clone().applyMatrix4(o.matrixWorld);
+    for (const k of Object.keys(g.attributes)) if (!["position", "normal", "uv"].includes(k)) g.deleteAttribute(k);
+    if (!g.attributes.uv) g.setAttribute("uv", new THREE.BufferAttribute(new Float32Array(g.attributes.position.count * 2), 2));
+    const key = o.material.name;
+    if (!byMat.has(key)) byMat.set(key, { mat: o.material, geos: [] });
+    byMat.get(key).geos.push(g.index ? g.toNonIndexed() : g);
+  });
+  const glow = new THREE.Color(glowColor), meshes = [];
+  for (const { mat, geos } of byMat.values()) {
+    const m = mat.clone();
+    if (["engine_glow", "trim_glow", "orb"].includes(m.name)) { m.color.copy(glow).multiplyScalar(m.name === "orb" ? 0.5 : 1); m.emissive.copy(glow); }
+    if (m.emissiveIntensity) m.emissiveIntensity *= opt.glow;
+    if (m.name === "armour" || m.name === "hazard_y") m.color.multiplyScalar(opt.armour);
+    const im = new THREE.InstancedMesh(mergeGeometries(geos), m, groups.length);
+    im.frustumCulled = false;
+    meshes.push(im); scene.add(im);
+  }
+  // plumes, instanced too
+  const anchors = ["l", "r"].map((s) => { const a = model.getObjectByName(`exhaust_${s}`); return a.matrixWorld.clone(); });
+  const pl = plume(glowColor, 6, 0.95);
+  const pim = new THREE.InstancedMesh(pl.geometry, pl.material, groups.length * 2);
+  pim.frustumCulled = false; scene.add(pim);
+  const M4 = new THREE.Matrix4(), F = new THREE.Matrix4();
+  return function update(time) {
+    groups.forEach((g, i) => {
+      g.updateWorldMatrix(true, false);
+      for (const im of meshes) im.setMatrixAt(i, g.visible ? g.matrixWorld : M4.makeScale(0, 0, 0));
+      anchors.forEach((a, k) => {
+        F.makeScale(1, 1, 0.85 + Math.sin(time * 29 + i + k * 2) * 0.12);
+        pim.setMatrixAt(i * 2 + k, g.visible ? M4.multiplyMatrices(g.matrixWorld, a).multiply(F) : M4.makeScale(0, 0, 0));
+      });
+    });
+    for (const im of meshes) im.instanceMatrix.needsUpdate = true;
+    pim.instanceMatrix.needsUpdate = true;
+  };
+}
+let fleetUpdate = null;
+if (opt.fleet === "new") {
+  for (const g of fleetGroups) for (const c of g.children) c.visible = false;
+  fleetUpdate = instancedFleet(fleetShip, 0x38d8ff, fleetGroups);
+}
+
+// ------------------------------------------------------------------ run
+const keys = new Set();
+addEventListener("keydown", (e) => keys.add(e.code));
+addEventListener("keyup", (e) => keys.delete(e.code));
+let paused = opt.paused, time = 0;
+function restart() {
+  flight.start(); time = 0;
+  for (let i = 0; i < opt.t * 60; i++) { flight.update(1 / 60, new Set(), camera); time += 1 / 60; }
+}
+restart();
+document.getElementById("restart").onclick = restart;
+document.getElementById("pause").onclick = (e) => { paused = !paused; e.target.textContent = paused ? "Play" : "Pause"; };
+addEventListener("resize", () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); gfx.resize(); });
+camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
+
+const tmp = new THREE.Vector3();
+let orbitA = 0.7, last = performance.now();
+function frame(now) {
+  const dt = Math.min(0.05, (now - last) / 1000); last = now;
+  if (!paused) { const r = flight.update(dt, keys, camera); time += dt; if (r.done) restart(); }
+  else flight.update(0, new Set(), camera);
+  for (let i = 0; i < plumes.length; i++) plumes[i].scale.set(1, 1, 0.85 + Math.sin(time * 31 + i * 1.7) * 0.12);
+  fleetUpdate?.(time);
+  if (opt.view !== "chase") {
+    playerGroup.getWorldPosition(tmp);
+    if (opt.view === "orbit") { if (!paused) orbitA += dt * 0.3; camera.position.set(tmp.x + Math.sin(orbitA) * 30, tmp.y + 7, tmp.z + Math.cos(orbitA) * 30); }
+    else camera.position.set(tmp.x - 32, tmp.y + 2, tmp.z + 4);
+    camera.lookAt(tmp.x, tmp.y, tmp.z);
+  }
+  gfx.render(scene, camera);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+window.APPROACH = { flight, scene, camera, hero: heroModel, restart, get time() { return time; } };
+window.__ready = true;
+</script>
+</body>
+</html>

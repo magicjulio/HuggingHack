@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import {
   P,
   rbox,
@@ -26,6 +27,154 @@ const shared = new Map();
 function once(key, make) {
   if (!shared.has(key)) shared.set(key, make());
   return shared.get(key);
+}
+
+// ---------------------------------------------------------------- glb kit
+// The defenders' gun and shield come from Blender (design/3d/end2/characters/defender_kit.py). The glb is
+// loaded once at import (top-level await); if it is missing, buildDefender falls back to the plain procedural
+// pieces below so the game still runs.
+let KIT = null;
+export async function loadCharacterKit(url = new URL("./assets/models/end2-char-defender-kit.glb", import.meta.url).href) {
+  const gltf = await new GLTFLoader().loadAsync(url);
+  KIT = {
+    gun: gltf.scene.getObjectByName("gun"),
+    shield: gltf.scene.getObjectByName("shield"),
+  };
+  return KIT;
+}
+try {
+  await loadCharacterKit();
+} catch (err) {
+  console.warn("[ascent] defender kit not loaded, using the procedural weapons", err);
+}
+export const hasCharacterKit = () => !!KIT;
+// Clone a kit piece. Geometry and the worn PBR materials stay shared; materials whose name is in `own` get a
+// private copy per instance so each defender can drive its own glow.
+function cloneKit(piece, own) {
+  const root = piece.clone(true);
+  const mats = {};
+  root.traverse((o) => {
+    if (!o.isMesh) return;
+    o.frustumCulled = true;
+    if (own.includes(o.material.name)) {
+      const m = o.material.clone();
+      (mats[m.name] ||= []).push(m);
+      o.material = m;
+    }
+  });
+  return { root, mats };
+}
+
+// The glossy logo badge (clearcoat) used to pick up the whole bright environment room and look veiled in white. Give its
+// materials an explicit, much dimmer environment map the first time they are rendered (the scene's environment is only
+// known at render time). Colours and the logo texture are untouched.
+export function tameLogoEnv(badge, mats, intensity = 0.15) {
+  badge.onBeforeRender = (renderer, scene) => {
+    if (mats.__env || !scene.environment) return;
+    mats.__env = true;
+    for (const m of mats) {
+      m.envMap = scene.environment;
+      m.envMapIntensity = intensity;
+      m.needsUpdate = true;
+    }
+  };
+}
+
+// Hard-light panel for the shield-bearer: hex cells, scan band, emitter rim, hit ripples, dissolve when open.
+function hardLightMaterial() {
+  return new THREE.ShaderMaterial({
+    transparent: true,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+    uniforms: {
+      time: { value: 0 },
+      open: { value: 0 },
+      flash: { value: 0 },
+      color: { value: new THREE.Color(P.hfAmber) },
+      rp: { value: [new THREE.Vector4(0, 0, -1, 0), new THREE.Vector4(0, 0, -1, 0), new THREE.Vector4(0, 0, -1, 0)] },
+    },
+    vertexShader: /* glsl */ `
+      varying vec2 vUv; varying vec3 vN; varying vec3 vV;
+      void main(){
+        vUv = uv;
+        vec4 mv = modelViewMatrix * vec4(position, 1.0);
+        vN = normalize(normalMatrix * normal);
+        vV = normalize(-mv.xyz);
+        gl_Position = projectionMatrix * mv;
+      }`,
+    fragmentShader: /* glsl */ `
+      uniform float time; uniform float open; uniform float flash; uniform vec3 color; uniform vec4 rp[3];
+      varying vec2 vUv; varying vec3 vN; varying vec3 vV;
+      const vec2 SIZE = vec2(1.3, 1.35);              // pane size in metres
+      float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+      void main(){
+        vec2 pm = vUv * SIZE / 0.115;                   // hex units
+        vec2 r = vec2(1.0, 1.7320508);
+        vec2 a = mod(pm, r) - r * 0.5;
+        vec2 b = mod(pm - r * 0.5, r) - r * 0.5;
+        vec2 g = dot(a, a) < dot(b, b) ? a : b;
+        vec2 cell = (pm - g) * 0.115 / SIZE;            // cell centre in uv
+        vec2 q = abs(g);
+        float hd = max(dot(q, vec2(0.5, 0.8660254)), q.x);
+        float edge = smoothstep(0.40, 0.47, hd);
+        float rnd = hash(floor((pm - g) * 7.0));
+        float shimmer = 0.5 + 0.5 * sin(time * 1.7 + rnd * 20.0);
+        float scan = clamp(1.0 - abs(fract(vUv.y * 0.8 - time * 0.2) - 0.5) * 5.0, 0.0, 1.0);
+        vec3 n = normalize(vN);
+        float fr = pow(clamp(1.0 - abs(dot(n, normalize(vV))), 0.0, 1.0), 2.0);
+        float bd = min(min(vUv.x, 1.0 - vUv.x) * 1.3, min(vUv.y, 1.0 - vUv.y) * 1.35);
+        float rim = 1.0 - smoothstep(0.0, 0.07, bd);
+        // dissolve: cells vanish from the far edge when the shield opens
+        float cut = open * 1.5 - 0.25;
+        float vis = smoothstep(cut - 0.2, cut, (1.0 - vUv.x) * 0.9 + rnd * 0.4 - 0.1);
+        vis = open < 0.01 ? 1.0 : vis;
+        float rip = 0.0, cellLit = 0.0;
+        for (int i = 0; i < 3; i++) {
+          vec4 h = rp[i];
+          if (h.z >= 0.0) {
+            float age = h.z;
+            float fade = clamp(1.0 - age / 0.55, 0.0, 1.0) * h.w;
+            float dd = length((vUv - h.xy) * SIZE);
+            float x = (dd - age * 3.0) / 0.09;
+            rip += exp(-x * x) * fade;
+            float dc = length((cell - h.xy) * SIZE);
+            cellLit += exp(-dc * 4.5) * fade;
+          }
+        }
+        float lines = edge * (0.5 + 0.5 * shimmer * 0.6);
+        float alpha = (0.09 + lines * 0.3 + scan * 0.1 + fr * 0.3 + rim * 0.5) * vis;
+        alpha += cellLit * 0.45 + rip * 0.6 + flash * 0.55;
+        vec3 col = color * (0.8 + lines * 1.1 + scan * 0.6 + rim * 1.6);
+        col = mix(col, vec3(1.0, 0.93, 0.72) * 2.0, clamp(cellLit * 0.7 + rip * 0.8 + flash * 0.8, 0.0, 1.0));
+        col *= gl_FrontFacing ? 1.0 : 0.7;
+        gl_FragColor = vec4(col, clamp(alpha, 0.0, 1.0));
+      }`,
+  });
+}
+// Ground read for "this side is covered": an amber fan on the floor in front of the shield-bearer.
+function coverArcMaterial() {
+  return new THREE.ShaderMaterial({
+    transparent: true,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+    uniforms: { time: { value: 0 }, amount: { value: 1 }, color: { value: new THREE.Color(P.hfAmber) } },
+    vertexShader: /* glsl */ `
+      varying vec2 vP;
+      void main(){ vP = position.xz; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+    fragmentShader: /* glsl */ `
+      uniform float time; uniform float amount; uniform vec3 color; varying vec2 vP;
+      void main(){
+        float r = length(vP);
+        float ang = atan(vP.x, vP.y);                    // 0 = straight ahead (+z of the defender)
+        float side = clamp(abs(ang) / 1.265, 0.0, 1.0);
+        float radial = smoothstep(0.9, 1.25, r) * (1.0 - smoothstep(2.2, 3.1, r));
+        float rimLine = smoothstep(0.93, 1.0, side) * 0.9;                 // the two edges of the cover
+        float chev = pow(clamp(0.5 + 0.5 * sin((r - side * 0.9) * 9.0 - time * 3.0), 0.0, 1.0), 3.0);
+        float a = radial * (0.1 + chev * 0.12 * (1.0 - side)) + rimLine * radial * 0.3;
+        a *= amount;
+        gl_FragColor = vec4(color * 1.6, clamp(a, 0.0, 1.0));
+      }`,
+  });
 }
 
 // ---------------------------------------------------------------- orb core
@@ -61,7 +210,7 @@ export function orbMaterial(color = P.hack, deep = P.poisonDeep, power = 1.3) {
         float t = time * 0.6;
         float sw = n(p + vec3(t, -t*0.7, t*0.4)) * 0.6 + n(p*2.3 - vec3(0, t*1.3, 0)) * 0.4;
         float veins = smoothstep(0.42, 0.5, sw) - smoothstep(0.5, 0.6, sw);
-        float fres = pow(1.0 - max(dot(vN, vV), 0.0), 2.2);
+        float fres = pow(clamp(1.0 - dot(normalize(vN), normalize(vV)), 0.0, 1.0), 2.2);
         vec3 c = mix(deep, color, smoothstep(0.25, 0.75, sw));
         c = mix(c, deep * 0.4, veins * 0.8);
         c += color * fres * 1.6;
@@ -369,6 +518,7 @@ export function buildDefender(brand, kind = "gunner") {
   hover.position.y = 1.38;
   root.add(hover);
   const badge = mesh(brand.badge({ face, depth: 0.2, bevel: 0.045 }), badgeMats, hover, 0, 0, 0.16);
+  tameLogoEnv(badge, badgeMats);
   // Hit flash: an additive copy of the badge.
   const flashMat = new THREE.MeshBasicMaterial({
     color: 0xffffff,
@@ -440,7 +590,38 @@ export function buildDefender(brand, kind = "gunner") {
     pane = null;
   const handX = face * 0.42,
     handY = -face * 0.46;
-  if (kind === "gunner") {
+  let gunRig = null,
+    shieldRig = null;
+  if (kind === "gunner" && KIT) {
+    // Breacher blaster from the glb: worn yellow/gunmetal, sliding barrel, four coil rings that charge toward the muzzle.
+    const { root: g } = cloneKit(KIT.gun, ["coil_glow", "muzzle_glow", "cell_glow", "lens_red"]);
+    g.scale.setScalar(1.12);
+    gun = new THREE.Group();
+    gun.position.set(-0.06, -0.3, 0.4);
+    gun.add(g);
+    hover.add(gun);
+    muzzle = g.getObjectByName("muzzle");
+    const barrelNode = g.getObjectByName("barrel");
+    const rings = [];
+    g.traverse((o) => o.name.startsWith("coil_ring") && rings.push(o));
+    rings.sort((a, b) => a.position.z - b.position.z);
+    gunRig = {
+      g,
+      barrelNode,
+      barrelZ: barrelNode.position.z,
+      ringMats: rings.map((o) => o.material),
+      capMat: g.getObjectByName("coil_coil_glow").material,
+      muzzleMat: g.getObjectByName("barrel_muzzle_glow").material,
+      cellMat: g.getObjectByName("cell_cell_glow").material,
+      lensMat: g.getObjectByName("body_lens_red").material,
+      charge: 0,
+      kick: 0,
+      cold: new THREE.Color(0xff6a14),
+      hot: new THREE.Color(0xfff0c0),
+    };
+    charge = glowSprite(0xff7a2a, 0.1, 0);
+    muzzle.add(charge);
+  } else if (kind === "gunner") {
     gun = new THREE.Group();
     gun.position.set(-handX, handY, 0.32);
     hover.add(gun);
@@ -456,6 +637,36 @@ export function buildDefender(brand, kind = "gunner") {
     charge = glowSprite(P.danger, 0.1, 0);
     charge.position.copy(muzzle.position);
     gun.add(charge);
+  } else if (KIT) {
+    // Tower shield from the glb: armoured frame with emitters, a hard-light pane (shader) you can see the logo through.
+    // The pivot sits on the hinge pin; during attack windows the frame swings out and the pane dissolves.
+    const { root: sr } = cloneKit(KIT.shield, ["emit_glow", "emit_strip"]);
+    const hinge = sr.getObjectByName("hinge");
+    sr.position.copy(hinge.position).negate();
+    shield = new THREE.Group();
+    shield.position.set(hinge.position.x, -0.15, 0.58 + hinge.position.z);
+    shield.add(sr);
+    hover.add(shield);
+    const paneMat = hardLightMaterial();
+    sr.getObjectByName("pane").material = paneMat;
+    const emitMats = [];
+    sr.traverse((o) => o.isMesh && o.material.name.startsWith("emit_") && emitMats.push(o.material));
+    const arcMat = coverArcMaterial();
+    const arc = new THREE.Mesh(
+      once("def.arcGeo", () => new THREE.RingGeometry(0.9, 3.4, 40, 1, -Math.PI / 2 - 1.265, 2.53).rotateX(-Math.PI / 2)),
+      arcMat,
+    );
+    arc.position.y = 0.045;
+    arc.renderOrder = -1;
+    root.add(arc);
+    shieldRig = {
+      paneMat,
+      emitMats,
+      arcMat,
+      open: 0,
+      ripples: [0, 1, 2].map(() => ({ age: 9, slot: 0 })),
+      next: 0,
+    };
   } else {
     // Riot shield: amber hard-light pane in a hazard-striped frame, gripped by
     // both logo hands. It swings open on its right hinge during attacks.
@@ -572,6 +783,30 @@ export function buildDefender(brand, kind = "gunner") {
       fill.position.x = -(1 - v) / 2;
       bar.visible = true;
     },
+    // One shot left the barrel: recoil kick (called by fx.muzzle).
+    kick() {
+      if (gunRig) gunRig.kick = 1;
+    },
+    // A shot hit the shield from world direction `dir` (enemy -> shooter, need not be normalised): lights the hex
+    // cells around the impact point and sends a ring across the pane. Returns the world point of the impact.
+    shieldRipple(dir, out = new THREE.Vector3()) {
+      if (!shieldRig) return null;
+      const yaw = root.rotation.y,
+        c = Math.cos(yaw),
+        sn = Math.sin(yaw);
+      const lx = dir.x * c - dir.z * sn,
+        lz = dir.x * sn + dir.z * c;
+      const phi = Math.max(-1.2, Math.min(1.2, Math.atan2(lx, lz)));
+      const x = Math.max(-0.6, Math.min(0.6, 0.58 * Math.tan(phi)));
+      const len = Math.hypot(dir.x, dir.z) || 1;
+      const v = 0.5 + Math.max(-0.38, Math.min(0.38, (dir.y / len) * 0.6)) + (Math.random() - 0.5) * 0.12;
+      const i = shieldRig.next++ % 3;
+      shieldRig.ripples[i].age = 0;
+      shieldRig.paneMat.uniforms.rp.value[i].set(0.5 + x / 1.3, v, 0, 1);
+      // world point on the pane
+      out.set(x, -0.15 + (v - 0.5) * 1.35, 0.58 + 0.02 - (x * x) / 3.2);
+      return hover.localToWorld(out);
+    },
     dispose() {
       flashMat.dispose();
       alertMat.dispose();
@@ -586,6 +821,8 @@ export function buildDefender(brand, kind = "gunner") {
         pane.userData.paneMat.dispose();
         pane.userData.tintMat.dispose();
       }
+      if (gunRig) [...gunRig.ringMats, gunRig.capMat, gunRig.muzzleMat, gunRig.cellMat, gunRig.lensMat].forEach((m) => m.dispose());
+      if (shieldRig) [shieldRig.paneMat, shieldRig.arcMat, ...shieldRig.emitMats].forEach((m) => m.dispose());
     },
     // s: { time, phase, flash, windup(0..1), exposed, stagger, moving, camera, hp, highlight, shieldHit }
     update(dt, s) {
@@ -604,7 +841,52 @@ export function buildDefender(brand, kind = "gunner") {
         charge.scale.setScalar(s.windup > 0 ? 0.15 + s.windup * 0.55 : s.firing ? 0.8 : 0.1);
       }
       if (gun) gun.rotation.x = THREE.MathUtils.damp(gun.rotation.x, -(s.aimPitch || 0), 8, dt);
-      if (shield) {
+      if (gunRig) {
+        // Wind-up: the four coil rings light one after another toward the muzzle, the muzzle ring goes white-hot,
+        // the optic blinks red. Firing: everything flares and the barrel slides back.
+        const r = gunRig,
+          w = s.windup > 0 ? s.windup : 0;
+        r.charge = THREE.MathUtils.damp(r.charge, s.firing ? 1 : w, 16, dt);
+        r.kick = Math.max(0, r.kick - dt * 8);
+        const n = r.ringMats.length;
+        for (let i = 0; i < n; i++) {
+          const lit = THREE.MathUtils.clamp((r.charge * 1.3 - i * 0.24) / 0.3, 0, 1);
+          const m = r.ringMats[i];
+          m.emissive.copy(r.cold).lerp(r.hot, lit * lit);
+          m.emissiveIntensity = 0.3 + lit * 3.4 + r.kick * 3 + (lit > 0 ? Math.sin(s.time * 70 + i * 2) * 0.3 * lit : 0);
+        }
+        const near = THREE.MathUtils.clamp((r.charge - 0.7) / 0.3, 0, 1);
+        r.capMat.emissive.copy(r.cold).lerp(r.hot, r.charge * 0.8);
+        r.capMat.emissiveIntensity = 0.35 + r.charge * 2.8 + r.kick * 2;
+        r.muzzleMat.emissive.copy(r.cold).lerp(r.hot, near);
+        r.muzzleMat.emissiveIntensity = 0.5 + near * 4.5 + r.kick * 6;
+        r.cellMat.emissiveIntensity = 1.2 + Math.sin(s.time * 3 + s.phase) * 0.3 + r.charge * 1.4;
+        r.lensMat.emissiveIntensity = w > 0 ? 1.5 + Math.max(0, Math.sin(s.time * 30)) * 3 : 1.2;
+        r.barrelNode.position.z = r.barrelZ - r.kick * 0.12;
+        r.g.position.z = -r.kick * 0.06;
+      }
+      if (shieldRig) {
+        const r = shieldRig,
+          open = s.exposed || s.stagger > 0;
+        r.open = THREE.MathUtils.damp(r.open, open ? 1 : 0, 9, dt);
+        shield.rotation.y = -1.25 * r.open;
+        const U = r.paneMat.uniforms;
+        U.time.value = s.time + s.phase;
+        U.open.value = r.open;
+        U.flash.value = Math.min(1, (s.shieldHit || 0) * 7);
+        for (let i = 0; i < 3; i++) {
+          const rp = r.ripples[i];
+          rp.age += dt;
+          U.rp.value[i].z = rp.age < 0.6 ? rp.age : -1;
+        }
+        const live = 1 - r.open;
+        for (const m of r.emitMats) {
+          m.emissiveIntensity = (m.name === "emit_strip" ? 1.5 : 2.2) * (0.25 + live * 0.75) + (open ? Math.max(0, Math.sin(s.time * 26)) * 1.4 : 0) + (s.windup > 0 ? 0.8 : 0);
+        }
+        r.arcMat.uniforms.time.value = s.time;
+        r.arcMat.uniforms.amount.value = live * (s.windup > 0 ? 1.4 : 1);
+      }
+      if (shield && !shieldRig) {
         const open = s.exposed || s.stagger > 0;
         shield.rotation.y = THREE.MathUtils.damp(shield.rotation.y, open ? -1.25 : 0, 9, dt);
         const u = pane.userData;
