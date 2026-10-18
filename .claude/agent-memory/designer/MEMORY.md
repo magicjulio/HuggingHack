@@ -10,3 +10,6 @@
 - [design2 takeover](project_design2_takeover.md) — design2 retired 2026-10-14; I own design/ch2-ui/ (slices B–E + export)
 - [Perf + cutscenes](feedback_perf_and_cutscenes.md) — Step 7 film loved; Julius fears lag: measure on Iris Xe (vsync on), bake/warm/tier, report numbers
 - [Bridge audience](feedback_bridge_audience.md) — crowds listen spread out, never sucked in like gravity; bridge scene approved 2026-10-16
+- [Bloom NaN debug](reference_bloom_nan_debug.md) — flat/black bloom frames = NaN; route-patch + hide-children bisect
+- [Realism bar = Ch1 stations](feedback_realism_bar_ch1_stations.md) — every 3D asset should end up worn/realistic like the Ch1 flag stations; dropship v0 needs that pass
+- [ASCENT landing not skippable](feedback_ascent_landing_not_skippable.md) — Julius: no skip on the Ending 2 landing cinematic; length via T.flight knobs
