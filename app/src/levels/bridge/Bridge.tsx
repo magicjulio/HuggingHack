@@ -22,9 +22,13 @@ export default function Bridge(props: LevelProps) {
     let gone = false;
     let game: { dispose(): void } | null = null;
     const g = useGame.getState();
-    createBridge(root.current!, {
+    // own container per mount: StrictMode mounts twice and the first scene finishes loading late
+    const box = document.createElement('div');
+    root.current!.append(box);
+    createBridge(box, {
       canSkip: g.save.completedChapters.includes('bridge'),
       debug: import.meta.env.DEV || isDebug(),
+      cancelled: () => gone,
       onPick: (ending: string) => {
         useGame.getState().finishChapter('bridge');
         useGame.getState().startChapter(ending);
@@ -36,6 +40,7 @@ export default function Bridge(props: LevelProps) {
     return () => {
       gone = true;
       game?.dispose();
+      box.remove();
     };
   }, []);
   return <div className="bridge" ref={root} />;

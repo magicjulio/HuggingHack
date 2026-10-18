@@ -10,6 +10,7 @@ import { createDecor } from '../ch2/world/decor.js';
 import { createPlayerOrb, ORB } from '../ch2/world/playerOrb.js';
 import { createPhaseOne } from '../ch2/world/phaseOne.js';
 import { BR, TEXT, LANES, direct, camKeys, camPose, laneAt, backAt, backDoor, along } from '../ch2/world/bridge.js';
+import '../ch2/ui/icons.js';
 import '../ch2/ui/hud.js';
 import LAYOUT from '../ch2/layout.json';
 import islandS from '../../assets/models/ch2-island-s.glb?url';
@@ -25,7 +26,7 @@ import { MARKUP } from './markup.js';
  */
 export async function createBridge(root, opts = {}) {
 root.innerHTML = MARKUP;
-const offs = []; let dead = false;
+const offs = [];
 const on = (t, ty, fn, o) => { t.addEventListener(ty, fn, o); offs.push(() => t.removeEventListener(ty, fn, o)); };
 const addEventListener = (ty, fn, o) => on(window, ty, fn, o);
 
@@ -43,7 +44,7 @@ await Promise.all(['700 52px "JetBrains Mono"', '400 40px "JetBrains Mono"', '70
 const loader = new GLTFLoader(), load = (u) => loader.loadAsync(u).then((g) => g.scene);
 const [ms, mm, ml] = await Promise.all([load(islandS), load(islandM), load(islandL)]);
 const models = { s: ms, m: mm, l: ml };
-if (dead) return { dispose() {} };
+if (opts.cancelled?.()) { for (const off of offs) off(); renderer.dispose(); renderer.forceContextLoss(); return { dispose() {} }; }   // unmounted while loading
 const env = createEnv({ U, camera, renderer }); scene.add(env.object); scene.environment = env.environment; scene.environmentIntensity = RENDER.envIntensity;
 const islands = createIslands({ layout: L, U, models }); scene.add(islands.object); islands.labels.visible = false;
 const bridges = createBridges({ layout: L, U }); scene.add(bridges.object);

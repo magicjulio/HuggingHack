@@ -47,7 +47,7 @@ describe('game store', () => {
     expect(g().save.selectedChapter).toBe('ch2');
     expect(g().screen).toBe('game');
     expect(g().run).toBe(run + 1);
-    expect(g().continueFrom('ch2')).toBe(false);
+    expect(g().continueFrom('bridge')).toBe(false);
     expect(g().save.selectedChapter).toBe('ch2');
   });
 

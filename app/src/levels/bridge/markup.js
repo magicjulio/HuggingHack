@@ -1,5 +1,6 @@
 // Bridge DOM: the reference page's stage (letterbox + HUD kit markup), fade and help (design/ch2-ui/bridge.html).
 export const MARKUP = `
+<canvas id="gl"></canvas>
 <div class="stage" id="stage">
   <div class="c2-lb c2-lb--t"></div><div class="c2-lb c2-lb--b"></div>
   <div class="c2-hud" id="hud">

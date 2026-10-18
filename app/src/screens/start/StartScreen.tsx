@@ -14,6 +14,8 @@ import {
   type MouseEvent,
 } from 'react';
 import { CHAPTERS } from '../../data/chapters';
+
+const LISTED = CHAPTERS.filter((c) => !c.hidden);
 import { MODELS, modelById } from '../../data/models';
 import { useGame } from '../../state/store';
 import { cycleUnlocked } from '../../state/selection';
@@ -176,7 +178,7 @@ export function StartScreen() {
       if (launching.current) return;
       const k = e.key.toLowerCase();
       const s = useGame.getState();
-      const chapters = CHAPTERS.map((c) => ({ id: c.id, locked: s.isChapterLocked(c.id) }));
+      const chapters = LISTED.map((c) => ({ id: c.id, locked: s.isChapterLocked(c.id) }));
       const models = MODELS.map((m) => ({ id: m.id, locked: s.isModelLocked(m.id) }));
       const moves: Record<string, () => boolean> = {
         w: () => s.selectChapter(cycleUnlocked(chapters, s.save.selectedChapter, -1)),
@@ -231,7 +233,7 @@ export function StartScreen() {
         <section className="panel levels" aria-label="Chapters">
           <h2>CHAPTERS</h2>
           <ul>
-            {CHAPTERS.map((c) => {
+            {LISTED.map((c) => {
               const locked = isChapterLocked(c.id);
               return (
                 <li key={c.id}>

@@ -20,6 +20,8 @@ export interface ChapterInfo {
    * scene, so an ending is never the "next chapter" of anything.
    */
   ending?: boolean;
+  /** Not listed on the start screen (reached through another level, e.g. the bridge via Ch2 CONTINUE). */
+  hidden?: boolean;
 }
 
 export const CHAPTERS: ChapterInfo[] = [
@@ -37,6 +39,7 @@ export const CHAPTERS: ChapterInfo[] = [
     title: 'PHASEONE[big]',
     meta: 'pick your work',
     playable: true,
+    hidden: true,
   },
   {
     id: 'end1',
