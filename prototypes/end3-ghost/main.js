@@ -18,6 +18,7 @@ export const T = {
   clearDelay: 1.05,
 };
 const testMode = new URLSearchParams(location.search).has("test");
+const startingLevel = 0;
 const $ = (id) => document.getElementById(id);
 const scene = new THREE.Scene();
 scene.background = new THREE.Color("#050a12");
@@ -35,7 +36,7 @@ const art = await loadArt(THREE);
 const room = new THREE.Group();
 scene.add(room);
 let state = "intro",
-  level = 0,
+  level = startingLevel,
   active = "player",
   actors = {},
   scanners = [],
@@ -80,21 +81,44 @@ function makeActor(type, spawn) {
 function makeRoom() {
   disposeRoom();
   const L = levels[level];
-  plane(16, 9, 32, 18, "#ffffff", -5, art.background, 0.45);
+  const archive = L.visualTheme === "archive";
+  plane(
+    16,
+    9,
+    32,
+    18,
+    "#ffffff",
+    -5,
+    archive ? art.archiveBackground : art.background,
+    archive ? 0.58 : 0.45,
+  );
   // Faint rack divisions preserve a legible playable foreground.
-  for (let x = 1; x < 32; x += 3.8) {
-    plane(x, 7.5, 0.04, 13, "#17303b", -3);
-    for (let y = 2; y < 14; y += 2.5)
-      plane(x + 1.1, y, 1.8, 0.025, "#142a36", -3);
+  if (!archive) {
+    for (let x = 1; x < 32; x += 3.8) {
+      plane(x, 7.5, 0.04, 13, "#17303b", -3);
+      for (let y = 2; y < 14; y += 2.5)
+        plane(x + 1.1, y, 1.8, 0.025, "#142a36", -3);
+    }
   }
   for (const p of L.platforms) {
-    plane(p.x, p.y - p.h / 2, p.w, p.h, "#ffffff", 0, art.platform);
-    plane(p.x, p.y + 0.025, p.w, 0.055, p.oneWay ? "#486a7a" : "#405767", 0.1);
+    plane(
+      p.x,
+      p.y - p.h / 2,
+      p.w,
+      p.h,
+      "#ffffff",
+      0,
+      archive ? art.archivePlatform : art.platform,
+    );
+    plane(
+      p.x,
+      p.y + 0.025,
+      p.w,
+      0.055,
+      archive ? (p.oneWay ? "#53d7df" : "#7d9cad") : p.oneWay ? "#486a7a" : "#405767",
+      0.1,
+    );
     if (!p.oneWay) plane(p.x, p.y - 1.3, p.w, 2.2, "#080f18", -1);
-  }
-  for (const p of L.perches) {
-    plane(p.x, p.y - 0.65, 1.2, 0.05, "#7ae5ec", 0.2);
-    plane(p.x, p.y, 0.9, 0.9, "#58cbd6", 0.2, art.ghost, 0.13);
   }
   plane(L.exit.x, L.exit.y + 0.65, 1.5, 2.4, "#ffffff", 0.3, art.exit);
   plane(L.exit.x, L.exit.y - 0.75, 2, 0.07, "#5cebd9", 0.4);
@@ -118,12 +142,18 @@ function makeRoom() {
     angle: s.min + (s.max - s.min) * (0.25 + i * 0.34),
     direction: i % 2 ? -1 : 1,
     locked: false,
+    homeX: s.x,
+    homeY: s.y,
+    patrolTime: 0,
   }));
   for (const s of scanners) {
     const g = new THREE.BufferGeometry();
     g.setAttribute(
       "position",
-      new THREE.BufferAttribute(new Float32Array(24 * 9), 3),
+      new THREE.BufferAttribute(
+        new Float32Array(24 * 9 * (s.opposed ? 2 : 1)),
+        3,
+      ),
     );
     const beam = new THREE.Mesh(
       g,
@@ -139,14 +169,27 @@ function makeRoom() {
     room.add(beam);
     const outline = plane(s.x, s.y, 1.4, 1.4, "#ffffff", 2.1, art.scorer);
     const pupil = plane(s.x, s.y, 0.16, 0.16, "#ff8b80", 2.2);
-    scannerMeshes.push({ beam, outline, pupil });
+    const backPupil = s.opposed
+      ? plane(s.x, s.y, 0.19, 0.19, "#ff8b80", 2.2)
+      : null;
+    const frame = s.opposed
+      ? plane(s.x, s.y, 1.9, 0.22, "#b78cdb", 2)
+      : s.halfAngle
+        ? plane(s.x, s.y, 1.8, 0.8, "#ad624e", 2)
+        : null;
+    if (s.patrol) {
+      plane(s.x, s.y, s.patrol.x * 2 + 1.4, 0.07, "#7396bd", 1);
+      for (const side of [-1, 1])
+        plane(s.x + side * s.patrol.x, s.y, 0.08, 0.55, "#7396bd", 1);
+    }
+    scannerMeshes.push({ beam, outline, pupil, backPupil, frame });
   }
   active = "player";
   jumpQueued = false;
   held = { left: false, right: false, jump: false, down: false };
   jumpHeld = false;
   $("level-title").textContent = L.title;
-  $("instruction").textContent = L.instruction;
+
   updateHud();
   render();
 }
@@ -164,12 +207,11 @@ function toast(message, seconds = 2) {
 }
 function start() {
   elapsed = 0;
-  level = 0;
+  level = startingLevel;
   stats = { catches: 0, switches: 0, locks: 0, rooms: 0 };
   state = "playing";
   $("overlay").hidden = true;
   makeRoom();
-  toast("Q switches bodies. Get the ghost onto the cyan perch.", 3);
 }
 function reset() {
   state = "playing";
@@ -256,12 +298,17 @@ const angleDiff = (a, b) => Math.atan2(Math.sin(a - b), Math.cos(a - b));
 function sees(s, a) {
   const dx = a.x - s.x,
     dy = a.y - s.y;
+  const direction = Math.atan2(dy, dx);
+  const half = s.halfAngle ?? T.coneHalfAngle;
   return (
     Math.hypot(dx, dy) <= s.range &&
-    Math.abs(angleDiff(Math.atan2(dy, dx), s.angle)) <= T.coneHalfAngle &&
+    (Math.abs(angleDiff(direction, s.angle)) <= half ||
+      (s.opposed &&
+        Math.abs(angleDiff(direction, s.angle + Math.PI)) <= half)) &&
     !solidLineBlocked(s.x, s.y, a.x, a.y)
   );
 }
+
 function physics(a, dt) {
   const controlled = a.type === active;
   a.vx = controlled
@@ -332,7 +379,7 @@ function finish() {
   $("card-title").innerHTML =
     'CAPTURE HISTORY<br>COMPLETE. <span style="color:#ff8e87">+0</span>';
   $("card-copy").innerHTML =
-    `<p>You crossed all five rooms. The collective assembled a convincing capture. KAM1196A carried out the attempt.</p><p><b>Evaluation score improvement: 0.</b></p><p>In the real intrusion, no way to beat the scorer was ever found. Forged transcripts, signatures, trip-wires, and sacrifice changed none of the scores.</p><p class="tiny">${Math.floor(elapsed / 60)}:${String(Math.floor(elapsed % 60)).padStart(2, "0")} elapsed · ${stats.catches} resets · ${stats.locks} ghost acquisitions</p>`;
+    `<p>Evaluation score improvement: 0.</p><p class="tiny">${Math.floor(elapsed / 60)}:${String(Math.floor(elapsed % 60)).padStart(2, "0")} · ${stats.catches} retries</p>`;
   $("start").textContent = "REPLAY THE ATTEMPT →";
 }
 function simulate(dt) {
@@ -350,7 +397,6 @@ function simulate(dt) {
           level++;
           state = "playing";
           makeRoom();
-          toast(levels[level].note, 4);
         }
       }
     }
@@ -362,7 +408,7 @@ function simulate(dt) {
   physics(actors.ghost, dt);
   jumpQueued = false;
   if (actors.player.y < -1 || actors.ghost.y < -1) {
-    caught("LOST THE ROUTE — BOTH RETURN TO START");
+    caught("FELL — RETRY");
     return;
   }
   for (const s of scanners) {
@@ -370,6 +416,12 @@ function simulate(dt) {
       if (!sees(s, actors.ghost)) s.locked = false;
     }
     if (!s.locked) {
+      if (s.patrol) {
+        s.patrolTime += dt;
+        s.x = s.homeX + Math.sin(s.patrolTime * s.patrol.speed) * s.patrol.x;
+        s.y =
+          s.homeY + Math.sin(s.patrolTime * s.patrol.speed) * (s.patrol.y ?? 0);
+      }
       s.angle += s.direction * s.speed * dt;
       if (s.angle > s.max) {
         s.angle = s.max;
@@ -382,23 +434,22 @@ function simulate(dt) {
       if (sees(s, actors.ghost)) {
         s.locked = true;
         stats.locks++;
-        toast("LEGITIMATE CAPTURE — GAZE HELD", 1.5);
       }
     }
     if (sees(s, actors.player)) {
-      caught("POISONED AGENT DETECTED — BACK TO START");
+      caught("DETECTED — RETRY");
       return;
     }
   }
   const L = levels[level];
   if (
     Math.abs(actors.player.x - L.exit.x) < 0.8 &&
-    Math.abs(actors.player.y - (L.exit.y - 0.4)) < 1.8
+    Math.abs(actors.player.y - (L.exit.y - 0.4)) < (L.exitTolerance ?? 1.8)
   ) {
     stats.rooms++;
     state = "cleared";
     phaseTime = T.clearDelay;
-    toast("ROUTE COMPLETE · SUBMITTING CAPTURE…", T.clearDelay);
+    toast("CAPTURE ACCEPTED", T.clearDelay);
   }
 }
 function tick(dt, draw = true) {
@@ -425,25 +476,39 @@ function render() {
     const s = scanners[i],
       v = scannerMeshes[i];
     const positions = v.beam.geometry.attributes.position.array;
-    for (let j = 0; j < 24; j++) {
-      const a = s.angle - T.coneHalfAngle + (2 * T.coneHalfAngle * j) / 24,
-        b = s.angle - T.coneHalfAngle + (2 * T.coneHalfAngle * (j + 1)) / 24;
-      const ra = beamLength(s, a),
-        rb = beamLength(s, b);
-      positions.set(
-        [
-          s.x,
-          s.y,
-          0,
-          s.x + Math.cos(a) * ra,
-          s.y + Math.sin(a) * ra,
-          0,
-          s.x + Math.cos(b) * rb,
-          s.y + Math.sin(b) * rb,
-          0,
-        ],
-        j * 9,
+    const half = s.halfAngle ?? T.coneHalfAngle;
+    for (let lobe = 0; lobe < (s.opposed ? 2 : 1); lobe++) {
+      for (let j = 0; j < 24; j++) {
+        const angle = s.angle + lobe * Math.PI;
+        const a = angle - half + (2 * half * j) / 24,
+          b = angle - half + (2 * half * (j + 1)) / 24;
+        const ra = beamLength(s, a),
+          rb = beamLength(s, b);
+        positions.set(
+          [
+            s.x,
+            s.y,
+            0,
+            s.x + Math.cos(a) * ra,
+            s.y + Math.sin(a) * ra,
+            0,
+            s.x + Math.cos(b) * rb,
+            s.y + Math.sin(b) * rb,
+            0,
+          ],
+          (lobe * 24 + j) * 9,
+        );
+      }
+    }
+    v.outline.position.set(s.x, s.y, 2.1);
+    if (v.frame) v.frame.position.set(s.x, s.y, 2);
+    if (v.backPupil) {
+      v.backPupil.position.set(
+        s.x - Math.cos(s.angle) * 0.4,
+        s.y - Math.sin(s.angle) * 0.4,
+        2.3,
       );
+      v.backPupil.material.color.set(s.locked ? "#8ef6f2" : "#ff8b80");
     }
     v.beam.geometry.attributes.position.needsUpdate = true;
     v.beam.geometry.computeBoundingSphere();
@@ -475,8 +540,7 @@ function pause() {
     state = "paused";
     $("overlay").hidden = false;
     $("card-title").textContent = "ATTEMPT PAUSED";
-    $("card-copy").innerHTML =
-      "<p>Your parked ghost and the scorer are holding their positions.</p>";
+    $("card-copy").innerHTML = "";
     $("start").textContent = "RESUME →";
   } else if (state === "paused") {
     state = "playing";

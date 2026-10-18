@@ -4,13 +4,16 @@ import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { P, logoMaterials } from "./art.js";
 import { buildPlayer } from "./models.js";
 import { createHQ } from "./hq.js";
-import { createBarriers } from "./barrier.js";
+import { createFlightCombat } from "./flight-combat.js";
+import { freezeStatic } from "./flight-kit.js";
+import { createSky } from "./flight-sky.js";
 
 // The approach (landing area). Owns `root` and a small DOM layer (letterbox + fade).
 // API used by main.js: createFlight(scene, T, brand) -> { root, ready, start, update, dispose }.
-//   update(dt, keys, camera) -> { done, collisions, progress, penaltySeconds, phase }
-// Timeline (T.flight.duration seconds of flight clock, collisions pause the clock):
-//   0 .. approach      steer through the armada towards the HQ, dodge the barrier drones
+//   update(dt, keys, camera, { fire, sound }) -> { done, collisions, progress, penaltySeconds, phase, hull, kills }
+// Timeline (T.flight.duration seconds of flight clock; crashes stall it, the gate knocks it back):
+//   0 .. approach      steer (WASD) and shoot (mouse aims, left mouse / Space fires) through the phases
+//                      of flight-combat.js: debris field, interceptors, barrier gate, HQ defences
 //   approach .. end    landing beat: flare, swing round, touchdown, ramp, KAM1196A walks out, fade
 // The fade-out finishes when `done` is reported; dispose() (called by beginFloor) fades back in.
 const MODELS = new URL("./assets/models/", import.meta.url).href;
@@ -58,16 +61,13 @@ export function createFlight(scene, T, brand) {
   const parts = {};
   const plumes = [];
   let fleetDraw = null;
-  // obstacles: barrier picket drones (barrier.js)
-  const obstacles = [];
-  for (let i = 0; i < (C.obstacleCount ?? 3); i++) {
-    const u = 0.28 + i * 0.205,
-      z = pathZ(u);
-    const x = [-20, 8, -12][i % 3],
-      y = pathY(u) + [0, 2, -8][i % 3];
-    obstacles.push({ x, y, z, hit: false });
-  }
-  const barriers = createBarriers(root, obstacles);
+  // everything to dodge or shoot (flight-combat.js): wreckage, pods, interceptors, pickets, the gate, flak towers
+  const combat = createFlightCombat(root, T, {
+    approachTime,
+    z: (t) => pathZ(t / approachTime),
+    y: (t) => pathY(t / approachTime),
+  });
+  const sky = createSky(root, { z: (t) => pathZ(t / approachTime) });
 
   // end2-hq.glb: the gigantic HQ, hidden in the fog; the logo sits on its emblem mount (hq.js).
   const hq = createHQ(root, T, brand);
@@ -75,12 +75,13 @@ export function createFlight(scene, T, brand) {
     gltf("end2-dropship.glb"),
     gltf("end2-dropship-fleet.glb"),
     hq.ready,
-    barriers.ready,
+    combat.ready,
   ]).then(([hero, fleetShip]) => {
-    dress(hero, P.hack, 9, true);
-    player.add(hero);
     for (const n of ["ramp", "gear", "flap_l", "flap_r", "fan_l", "fan_r"])
       parts[n] = hero.getObjectByName(n);
+    dress(hero, P.hack, 9, true);
+    player.add(hero);
+    combat.attachGuns(player);
     rigFlaps(hero);
     rigRamp(hero);
     fleetDraw = instancedFleet(fleetShip, P.cyan);
@@ -150,6 +151,8 @@ export function createFlight(scene, T, brand) {
       if (hero && o.material.name === "engine_glow") engineMats.push([o.material, o.material.emissiveIntensity]);
     });
     if (!hero) return;
+    // ~150 meshes -> one per material (draw calls); the moving parts stay separate
+    freezeStatic(model, ["ramp", "gear", "flap_l", "flap_r", "fan_l", "fan_r", "exhaust_l", "exhaust_r"]);
     for (const s of ["l", "r"]) {
       const a = model.getObjectByName(`exhaust_${s}`);
       if (!a) continue;
@@ -309,7 +312,21 @@ export function createFlight(scene, T, brand) {
     fanSpin = 0,
     bank = 0,
     pitchV = 0,
-    lastShot = "chase";
+    lastShot = "chase",
+    knock = 0,
+    botSteer = null;
+  // the laser reticle in NDC, moved by the mouse while the pointer is locked (main.js only turns
+  // the mouse into camera look in combat, so the approach reads it here)
+  const aim = { x: 0, y: 0.12 };
+  const lastPos = new THREE.Vector3(),
+    lastVel = new THREE.Vector3(),
+    tmp2 = new THREE.Vector3();
+  addEventListener("mousemove", (e) => {
+    if (!running || !document.pointerLockElement) return;
+    const k = (C.aimSensitivity ?? 1) * 2;
+    aim.x = THREE.MathUtils.clamp(aim.x + (e.movementX * k) / innerWidth, -0.9, 0.9);
+    aim.y = THREE.MathUtils.clamp(aim.y - (e.movementY * k) / innerHeight, -0.85, 0.85);
+  });
   let oldFog, oldBackground;
   // The scene's hemisphere + sun (main.js) are day-strength for the atrium. The approach is a night
   // scene lit by the HQ: dim them while flying (restored in dispose), so the logo reads true yellow.
@@ -348,7 +365,11 @@ export function createFlight(scene, T, brand) {
     scene.fog = new THREE.Fog(haze, C.fogNear ?? 60, C.fogFar ?? 1900);
     scene.background = new THREE.Color(haze);
     dimSceneLights(true);
-    for (const o of obstacles) o.hit = false;
+    combat.start();
+    aim.x = 0;
+    aim.y = 0.12;
+    knock = 0;
+    lastVel.set(0, 0, 0);
     player.position.set(0, altitude, pathZ(0));
     player.rotation.set(0, 0, 0);
     pilot.root.visible = false;
@@ -364,7 +385,7 @@ export function createFlight(scene, T, brand) {
     }
   }
 
-  function update(dt, keys, camera) {
+  function update(dt, keys, camera, input = {}) {
     if (!running)
       return {
         done: elapsed >= duration,
@@ -374,18 +395,24 @@ export function createFlight(scene, T, brand) {
         phase: "done",
       };
     totalTime += dt;
-    if (stall > 0) stall = Math.max(0, stall - dt);
+    if (knock > 0) {
+      // bounced off the gate field: the clock runs backwards for a moment (the ship is thrown back)
+      const k = Math.min(knock, dt * 6);
+      knock -= k;
+      elapsed = Math.max(0, elapsed - k);
+    } else if (stall > 0) stall = Math.max(0, stall - dt);
     else elapsed = Math.min(duration, elapsed + dt);
     const u = Math.min(1, elapsed / approachTime);
     // landing-beat clock, in reference seconds: T.flight.landingBeat stretches the whole cinematic evenly
     const lt = (Math.max(0, elapsed - approachTime) * BEAT_REF) / beat;
     const assist = win(u, 0.84, 1); // the autopilot takes over the final alignment
-    const dx =
+    let dx =
       (keys.has("KeyD") || keys.has("ArrowRight") ? 1 : 0) -
       (keys.has("KeyA") || keys.has("ArrowLeft") ? 1 : 0);
-    const dy =
+    let dy =
       (keys.has("KeyW") || keys.has("ArrowUp") ? 1 : 0) -
       (keys.has("KeyS") || keys.has("ArrowDown") ? 1 : 0);
+    if (botSteer) (dx = botSteer.dx), (dy = botSteer.dy);
     const steer = lt > 0 ? 0 : 1;
     lateral = THREE.MathUtils.clamp(lateral + dx * steer * (C.steerSpeed ?? 25) * dt, -(C.width ?? 40), C.width ?? 40);
     vertical = THREE.MathUtils.clamp(vertical + dy * steer * (C.steerSpeed ?? 25) * dt, -(C.height ?? 22), C.height ?? 22);
@@ -450,25 +477,36 @@ export function createFlight(scene, T, brand) {
     spill.position.set(player.position.x, padY + 0.05, padZ - 13);
     spill.material.opacity = rampOpen * 0.35;
 
-    // ---- obstacles
-    for (const o of obstacles) {
-      if (
-        lt === 0 &&
-        !o.hit &&
-        Math.abs(player.position.z - o.z) < 10 &&
-        Math.abs(player.position.x - o.x) < 16 &&
-        Math.abs(player.position.y - o.y) < 7
-      ) {
-        o.hit = true;
-        barriers.hit(obstacles.indexOf(o));
-        collisions++;
-        stall = C.collisionPenalty ?? 0.7;
-        shake = 1;
-      }
+    // ---- the fight (flight-combat.js): lasers, wreckage, interceptors, the gate, flak; it reports
+    // crashes (stall), gate bounces (knockback), a hull breach (rewind to the phase start) and the bot's steering
+    const shipVel = tmp2.subVectors(player.position, lastPos).divideScalar(Math.max(dt, 1e-4));
+    if (dt === 0 || totalTime <= dt * 1.1) shipVel.set(0, 0, -(C.speed ?? 70));
+    lastPos.copy(player.position);
+    lastVel.lerp(shipVel, Math.min(1, dt * 12));
+    const fight = combat.update({
+      dt,
+      time: totalTime,
+      clock: Math.min(elapsed, approachTime),
+      ship: player.position,
+      shipVel: lastVel,
+      camera,
+      fire: !!input.fire || keys.has("Space"),
+      aim,
+      active: lt === 0 && dt > 0,
+      sound: input.sound,
+    });
+    botSteer = fight.bot;
+    if (fight.stall) stall = Math.max(stall, fight.stall);
+    if (fight.knockback) knock += fight.knockback;
+    if (fight.rewindTo !== null) {
+      elapsed = fight.rewindTo;
+      stall = 0.6;
     }
-    barriers.update(totalTime, dt, player.position, camera);
+    if (fight.shake) shake = Math.max(shake, fight.shake);
+    collisions = combat.stats.hits;
 
     hq.update(totalTime, dt, camera);
+    sky.update(totalTime, camera, dt);
 
     // ---- fleet: constant cruise, peel off into the tower bays near the façade
     if (fleetDraw) {
@@ -496,11 +534,11 @@ export function createFlight(scene, T, brand) {
     if (pilot.root.visible) {
       // ship-local ramp hinge (rear = -z in the world after the swing)
       const rampTip = padZ - 9.4 - 1.6;
-      const zz = walk < 1 ? padZ - 8.6 - walk * (padZ - 8.6 - rampTip) : rampTip - 3.0 * (lt - 3.9);
+      const zz = walk < 1 ? padZ - 8.6 - walk * (padZ - 8.6 - rampTip) : rampTip - 3.6 * (lt - 3.9);
       const yy = walk < 1 ? padY + 0.42 * (1 - walk) : padY;
       pilot.root.position.set(player.position.x, yy, zz);
       pilot.root.rotation.set(0, 0, 0);
-      pilot.update(dt, { speed: walk < 1 ? 2.0 : 3.0, crouch: false, pitch: 0, heat: 0, firing: 0, dodge: false, time: totalTime, health: 100, hurt: 0 });
+      pilot.update(dt, { speed: walk < 1 ? 2.0 : 3.6, crouch: false, pitch: 0, heat: 0, firing: 0, dodge: false, time: totalTime, health: 100, hurt: 0 });
     }
 
     // ---- camera: chase -> A wide (blend) -> cut B low at the ramp -> cut C over the shoulder
@@ -511,8 +549,8 @@ export function createFlight(scene, T, brand) {
       .add(tmp.set(Math.sin(totalTime * 43) * shake * 1.7, 9 + shake * Math.cos(totalTime * 37), C.cameraDistance ?? 34));
     // mid-approach the camera tilts up so the HQ towers over you as it comes out of the haze
     const lookLift = 4 * Math.sin(Math.PI * u) + (C.revealTilt ?? 16) * win(u, 0.3, 0.55) * (1 - win(u, 0.78, 0.95));
-    cameraTarget.set(player.position.x * 0.7, player.position.y + 3 + lookLift, player.position.z - 90);
-    const shot = lt <= 0 ? "chase" : lt < 2.6 ? "A" : lt < 4.2 ? "B" : "C";
+    cameraTarget.set(player.position.x * 0.7 + aim.x * 10, player.position.y + 3 + lookLift + aim.y * 5, player.position.z - 90);
+    const shot = lt <= 0 ? "chase" : lt < 2.6 ? "A" : lt < 4.4 ? "B" : "C";
     const pr = pilot.root.position;
     if (shot === "A") {
       // wide, high on the right: the ship flares in front of the portal, the façade climbs into the haze
@@ -527,8 +565,9 @@ export function createFlight(scene, T, brand) {
     } else if (shot === "C") {
       // over KAM1196A's shoulder, facing the entrance (framed like the combat camera)
       // the camera waits at the ramp tip (outside the hull) and the robot walks out past it into frame
-      cameraPosition.set(pr.x + 1.25, padY + 2.45, Math.min(padZ - 10.7, pr.z + 4.4));
-      cameraTarget.set(pr.x + 0.3, pr.y + 1.7, pr.z - 30);
+      // (r3: lower and a little further back, so the robot walks away into a full-body frame)
+      cameraPosition.set(pr.x + 0.95, padY + 2.3, Math.min(padZ - 10.2, pr.z + 4.6));
+      cameraTarget.set(pr.x + 0.45, pr.y + 1.45, pr.z - 30);
     }
     const cut = shot !== lastShot && (shot === "B" || shot === "C");
     lastShot = shot;
@@ -549,11 +588,14 @@ export function createFlight(scene, T, brand) {
       progress: elapsed / duration,
       penaltySeconds: collisions * (C.collisionPenalty ?? 0.7),
       phase: lt > 0 ? "landing" : "approach",
+      hull: combat.hull,
+      kills: combat.stats.kills,
     };
   }
   function dispose() {
     root.visible = false;
     running = false;
+    combat.hud.show(false);
     if (oldFog !== undefined) scene.fog = oldFog;
     if (oldBackground !== undefined) scene.background = oldBackground;
     dimSceneLights(false);
@@ -565,6 +607,10 @@ export function createFlight(scene, T, brand) {
     }
   }
   // test/preview hook (captures seek by flight clock; collisions pause it)
-  root.userData.clock = () => ({ elapsed, approachTime, duration, landing: (Math.max(0, elapsed - approachTime) * BEAT_REF) / beat });
+  root.userData.clock = () => ({ elapsed, approachTime, duration, landing: (Math.max(0, elapsed - approachTime) * BEAT_REF) / beat, ...combat.stats });
+  root.userData.seek = (t) => {
+    elapsed = t; // preview hook: jump the clock (targets keep their state)
+  };
+  root.userData.combat = combat;
   return { root, ready, start, update, dispose };
 }

@@ -29,6 +29,10 @@ export function createActors(scene, T, hooks, brand) {
     seg = new THREE.Line3(),
     closest = new THREE.Vector3();
   const floorCfg = () => T.floors[floorN] || T.floors[1];
+  // Floor 2 is a building (main.js hooks.building() → building.js adapter):
+  // ground height, sections, nav routes. null on floor 1 (flat floor at floorY).
+  const bld = () => hooks.building?.() || null;
+  const groundY = (p) => (bld() ? hooks.ground(p.x, p.z, p.y) : floorY);
   const builders = {
     gunner: (b) => buildDefender(b, "gunner"),
     shield: (b) => buildDefender(b, "shield"),
@@ -46,6 +50,8 @@ export function createActors(scene, T, hooks, brand) {
     if (t.isPlayer) return t.pos.clone().add(new THREE.Vector3(0, (t.height || 1.7) * 0.58, 0));
     return t.pos.clone().add(new THREE.Vector3(0, 1.25, 0));
   }
+  // floor 2: clearance from p up to the section ceiling (beams from the sky stop there)
+  const b2c = (p) => Math.max(2, bld().ceilingAt(p.x, p.z, p.y) - p.y - 0.2);
   const angleDelta = (a, b) => Math.atan2(Math.sin(b - a), Math.cos(b - a));
   const flatDist = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
   const projectiles = createProjectiles({
@@ -68,13 +74,22 @@ export function createActors(scene, T, hooks, brand) {
   }
 
   // ------------------------------------------------------------ spawning
-  function makeEnemy(kind, x, z, mode = "hold", delay = 0) {
+  // opts (floor 2): { y, section, dormant, wake, placed (already in position:
+  // no drop-in), leash (m around home), yaw }
+  function makeEnemy(kind, x, z, mode = "hold", delay = 0, opts = {}) {
     const cfg = E[kind];
     const model = builders[kind](brand);
     const holder = new THREE.Group();
     holder.add(model.root);
-    holder.position.set(x, floorY, z);
+    holder.position.set(x, opts.y ?? floorY, z);
     hooks.free(holder.position, cfg.radius);
+    const b = bld();
+    // Drop-ins start under the ceiling indoors (T.building.dropCeiling).
+    const dropH = opts.placed
+      ? 0
+      : b
+        ? THREE.MathUtils.clamp(b.ceilingAt(x, z, holder.position.y) - holder.position.y - (T.building?.dropCeiling ?? 0.6), 1.5, E.dropHeight)
+        : E.dropHeight;
     scene.add(holder);
     let aimLine = null;
     if (kind === "gunner" || kind === "shield") {
@@ -114,8 +129,15 @@ export function createActors(scene, T, hooks, brand) {
       mode,
       lift: 0,
       liftGoal: 0,
-      dropY: E.dropHeight,
-      spawn: -delay / E.dropTime,
+      dropH,
+      dropY: dropH,
+      spawn: opts.placed ? 1 : -delay / E.dropTime,
+      section: opts.section ?? -1,
+      dormant: !!opts.dormant,
+      wake: opts.wake || "door",
+      home: holder.position.clone(),
+      leash: opts.leash || 0,
+      nav: null,
       lastPos: holder.position.clone(),
       // gunner
       post: null,
@@ -141,6 +163,7 @@ export function createActors(scene, T, hooks, brand) {
       healTick: 0,
     };
     if (kind === "warden") e.timer = cfg.cooldown;
+    if (opts.yaw !== undefined) e.yaw = opts.yaw;
     holder.rotation.y = e.yaw;
     holder.visible = e.spawn >= 0;
     model.root.position.y = e.dropY;
@@ -149,7 +172,23 @@ export function createActors(scene, T, hooks, brand) {
   }
 
   function spawnWave(spec, mode = "hold") {
-    for (const s of spec) makeEnemy(s.kind, s.x, s.z, s.mode || mode, s.delay || 0);
+    return spec.map((s) => makeEnemy(s.kind, s.x, s.z, s.mode || mode, s.delay || 0, s));
+  }
+  // Dormant defenders (sections the player hasn't reached) wake here: by the
+  // director (door opened, section entered) or when hurt / seeing you up close.
+  function wake(e) {
+    if (!e.dormant || e.dead) return;
+    e.dormant = false;
+    e.timer = Math.max(e.timer, 0.5 + Math.random() * 0.6); // a beat to react
+  }
+  function wakeSection(section, filter = () => true) {
+    let n = 0;
+    for (const e of enemies)
+      if (e.dormant && !e.dead && e.section === section && filter(e)) {
+        wake(e);
+        n++;
+      }
+    return n;
   }
 
   function removeEnemy(e) {
@@ -214,15 +253,36 @@ export function createActors(scene, T, hooks, brand) {
     clearBeacon();
   }
 
-  function reset(y, floor = 1) {
+  // start (floor 2): { pos, yaw } of the player, so the escorts stand beside you.
+  function reset(y, floor = 1, start = null) {
     clear();
     floorY = y;
     floorN = floor;
     cooldown = 0;
     orderCd = 0;
     sequence = 0;
-    addAlly(-3, 5, false, 0);
-    addAlly(3, 5, false, 1);
+    if (!start) {
+      addAlly(-3, 5, false, 0);
+      addAlly(3, 5, false, 1);
+      return;
+    }
+    addAlly(start.pos.x, start.pos.z, false, 0);
+    addAlly(start.pos.x, start.pos.z, false, 1);
+    regroup(start.pos, start.yaw);
+  }
+  // Re-place the permanent escorts beside and a little behind the player.
+  function regroup(pos, yaw) {
+    const c = Math.cos(yaw),
+      s = Math.sin(yaw);
+    for (const a of allies) {
+      if (a.temporary) continue;
+      const side = a.index % 2 ? 1 : -1;
+      // right = (cos, -sin), back = (sin, cos)
+      a.pos.set(pos.x + c * side * 1.8 + s * 1.2, pos.y, pos.z - s * side * 1.8 + c * 1.2);
+      hooks.free(a.pos, 0.5);
+      a.pos.y = groundY(a.pos);
+      a.nav = null;
+    }
   }
 
   // ------------------------------------------------------------ damage
@@ -246,6 +306,10 @@ export function createActors(scene, T, hooks, brand) {
 
   function hitEnemy(e, damage, origin, byAlly = false, pierce = false) {
     if (!e || e.dead) return { blocked: false, killed: false, crit: false, damage: 0 };
+    if (e.dormant) {
+      wake(e);
+      if (T.building?.alarm !== false) hooks.onAlarm?.(e.section);
+    }
     const m = shotModifier(e, origin, pierce);
     const dealt = damage * m.mult;
     e.hp -= dealt;
@@ -270,7 +334,7 @@ export function createActors(scene, T, hooks, brand) {
     hooks.burst(c, 0xffd64b, e.kind === "warden" ? 32 : 14);
     looks.impact(c, "death-" + e.kind);
     hooks.sound(e.kind === "warden" ? "kill-heavy" : "kill");
-    hooks.onKill(e.kind, byAlly, at);
+    hooks.onKill(e.kind, byAlly, at, e);
   }
 
   function stagger(e, time) {
@@ -302,13 +366,19 @@ export function createActors(scene, T, hooks, brand) {
     },
     // overLow: walk over low cover (huggers); pair with coverUnder() for the hop height.
     moveToward(actor, goal, speed, dt, overLow = false) {
+      if (actor.leash > 0 && actor.home) {
+        const dx = goal.x - actor.home.x,
+          dz = goal.z - actor.home.z,
+          d = Math.hypot(dx, dz);
+        if (d > actor.leash) goal = tmp2.set(actor.home.x + (dx / d) * actor.leash, actor.home.y, actor.home.z + (dz / d) * actor.leash);
+      }
       moveToward(actor, goal, speed, dt, actor.seed % 2 ? 1 : -1, overLow);
     },
     // Height of the low cover under an actor's footprint (0 if none).
     coverUnder(e) {
       let h = 0;
       for (const c of hooks.colliders()) {
-        if (c.height > 2.2 || Math.abs(c.baseY - floorY) > 0.5) continue;
+        if (c.height > 2.2 || c.disabled || Math.abs(c.baseY - (bld() ? e.pos.y : floorY)) > 0.5) continue;
         const r = e.radius * 0.8;
         if (e.pos.x > c.minX - r && e.pos.x < c.maxX + r && e.pos.z > c.minZ - r && e.pos.z < c.maxZ + r) h = Math.max(h, c.height);
       }
@@ -316,11 +386,11 @@ export function createActors(scene, T, hooks, brand) {
     },
     moveFree(e, delta) {
       hooks.move(e.pos, delta, e.radius, true);
-      e.pos.y = floorY;
+      e.pos.y = groundY(e.pos);
     },
     unstick(e) {
       hooks.free(e.pos, e.radius);
-      e.pos.y = floorY;
+      e.pos.y = groundY(e.pos);
     },
     strafe(e, speed, dt, time) {
       const side = Math.sin(time * 0.55 + e.phase) * speed * 0.3 * dt;
@@ -332,7 +402,7 @@ export function createActors(scene, T, hooks, brand) {
     coverPost,
     attackSlots() {
       let busy = 0;
-      for (const o of enemies) if (!o.dead && (o.windup > 0 || o.shots > 0)) busy++;
+      for (const o of enemies) if (!o.dead && !o.dormant && (o.windup > 0 || o.shots > 0)) busy++;
       return floorCfg().attackers - busy;
     },
     lungeSlots() {
@@ -439,11 +509,15 @@ export function createActors(scene, T, hooks, brand) {
   // suitable block, spread along it so several defenders can share one.
   function coverPost(e, threat) {
     const cfg = e.cfg,
-      W = T.world;
+      W = T.world,
+      b = bld();
     let best = null,
       bestScore = Infinity;
     for (const c of hooks.colliders()) {
-      if (c.height > 2.2) continue;
+      if (c.height > 2.2 || c.disabled) continue;
+      // building: only cover on the defender's own level and in its own section
+      if (b && Math.abs(c.baseY - e.pos.y) > 0.5) continue;
+      if (b && e.section >= 0 && !b.inSection(e.section, (c.minX + c.maxX) / 2, (c.minZ + c.maxZ) / 2, 0.5)) continue;
       const cx = (c.minX + c.maxX) / 2,
         cz = (c.minZ + c.maxZ) / 2,
         hx = (c.maxX - c.minX) / 2,
@@ -456,8 +530,12 @@ export function createActors(scene, T, hooks, brand) {
       dz /= len;
       const reach = Math.abs(dx) * hx + Math.abs(dz) * hz + e.radius + 0.2;
       const slot = (e.seed % 3) - 1;
-      const px = THREE.MathUtils.clamp(cx + dx * reach + slot * hx * 0.55 * Math.abs(dz), -W.width / 2 + 1, W.width / 2 - 1);
-      const pz = THREE.MathUtils.clamp(cz + dz * reach + slot * hz * 0.55 * Math.abs(dx), W.farZ + 1, W.nearZ - 1);
+      let px = cx + dx * reach + slot * hx * 0.55 * Math.abs(dz),
+        pz = cz + dz * reach + slot * hz * 0.55 * Math.abs(dx);
+      if (!b) {
+        px = THREE.MathUtils.clamp(px, -W.width / 2 + 1, W.width / 2 - 1);
+        pz = THREE.MathUtils.clamp(pz, W.farZ + 1, W.nearZ - 1);
+      } else if (!b.walkable(px, pz, 0) || (e.leash > 0 && Math.hypot(px - e.home.x, pz - e.home.z) > e.leash)) continue;
       const toThreat = Math.hypot(px - threat.x, pz - threat.z);
       if (toThreat < cfg.postMin || toThreat > cfg.postMax) continue;
       const d = Math.hypot(px - e.pos.x, pz - e.pos.z);
@@ -467,13 +545,43 @@ export function createActors(scene, T, hooks, brand) {
       const score = d + taken;
       if (score < bestScore) {
         bestScore = score;
-        best = new THREE.Vector3(px, floorY, pz);
+        best = new THREE.Vector3(px, b ? e.pos.y : floorY, pz);
       }
     }
     return best;
   }
 
+  // Floor 2: the next waypoint toward goal (straight if walkable, else an A*
+  // route over the nav graph through open doors); null = no way there yet.
+  function route(actor, goal, overLow = false) {
+    const b = bld();
+    if (!b) return goal;
+    const nav = (actor.nav ??= { goal: new THREE.Vector3(1e9, 0, 0), pts: null, i: 0, next: 0, direct: true });
+    if (now >= nav.next || nav.goal.distanceToSquared(goal) > 2.25) {
+      nav.next = now + 0.45 + Math.random() * 0.35;
+      nav.goal.copy(goal);
+      nav.direct = b.straight(actor.pos, goal, actor.radius, overLow);
+      nav.pts = nav.direct ? null : b.path(actor.pos, goal);
+      nav.i = 0;
+    }
+    if (nav.direct) return goal;
+    if (!nav.pts) return null;
+    while (nav.i < nav.pts.length - 1 && Math.hypot(actor.pos.x - nav.pts[nav.i].x, actor.pos.z - nav.pts[nav.i].z) < 0.8) nav.i++;
+    // stuck on a corner for a second: skip to the next waypoint and re-plan soon
+    nav.stuckAt ??= actor.pos.clone();
+    if (actor.pos.distanceToSquared(nav.stuckAt) > 0.25) {
+      nav.stuckAt.copy(actor.pos);
+      nav.stuckT = now;
+    } else if (now - (nav.stuckT ?? now) > 1.1) {
+      nav.stuckT = now;
+      nav.i = Math.min(nav.i + 1, nav.pts.length - 1);
+      nav.next = now + 0.3;
+    }
+    return nav.pts[nav.i];
+  }
   function moveToward(actor, goal, speed, dt, side, overLow = false) {
+    goal = route(actor, goal, overLow);
+    if (!goal) return;
     const direction = tmp.subVectors(goal, actor.pos);
     direction.y = 0;
     if (direction.lengthSq() < 0.09) return;
@@ -484,7 +592,7 @@ export function createActors(scene, T, hooks, brand) {
       // Sliding along cover corners avoids getting stuck against the first block.
       hooks.move(actor.pos, new THREE.Vector3(direction.z * side, 0, -direction.x * side).multiplyScalar(speed * dt), actor.radius, overLow);
     }
-    actor.pos.y = floorY;
+    actor.pos.y = groundY(actor.pos);
   }
 
   // ------------------------------------------------------------ the squad call
@@ -501,9 +609,9 @@ export function createActors(scene, T, hooks, brand) {
       orderCd = S.orderCooldown;
       for (const a of squad) {
         a.focus = focus && !focus.dead ? focus : null;
-        a.rally = focus ? null : point.clone().setY(floorY);
+        a.rally = focus ? null : point.clone().setY(groundY(point));
       }
-      looks.impact(focus ? hitCenter(focus) : point.clone().setY(floorY + 0.2), "order");
+      looks.impact(focus ? hitCenter(focus) : point.clone().setY(groundY(point) + 0.2), "order");
       hooks.sound("order");
       return focus ? "focus" : "move";
     }
@@ -512,7 +620,7 @@ export function createActors(scene, T, hooks, brand) {
 
   function deploy(point) {
     cooldown = S.cooldown;
-    const pos = point.clone().setY(floorY);
+    const pos = point.clone().setY(groundY(point));
     beacon = { pos, t: S.dropDelay, ring: looks.ring("beacon"), column: looks.beam("beacon") };
     hooks.sound("beacon");
     if (S.dropDelay <= 0) land();
@@ -523,7 +631,7 @@ export function createActors(scene, T, hooks, brand) {
     beacon.t -= dt;
     const k = 1 - Math.max(0, beacon.t) / Math.max(0.001, S.dropDelay);
     beacon.ring.set(beacon.pos, { radius: S.shockRadius, progress: k, alpha: 0.5 + k * 0.5, time: now });
-    beacon.column.set(beacon.pos.clone().setY(floorY + 40), beacon.pos, { intensity: 0.3 + 0.7 * k, time: now });
+    beacon.column.set(beacon.pos.clone().setY(beacon.pos.y + (bld() ? Math.min(40, b2c(beacon.pos)) : 40)), beacon.pos, { intensity: 0.3 + 0.7 * k, time: now });
     if (beacon.t <= 0) land();
   }
 
@@ -535,14 +643,16 @@ export function createActors(scene, T, hooks, brand) {
       const p = point.clone();
       hooks.move(p, new THREE.Vector3(Math.cos(angle) * 1.3, 0, Math.sin(angle) * 1.3), 0.5);
       const a = addAlly(p.x, p.z, true, i);
+      const gy = bld() ? point.y : floorY;
+      a.pos.y = gy;
       a.taunt = S.taunt;
       a.mesh.scale.setScalar(0.01);
-      hooks.beam(p.clone().setY(floorY + 10 + i * 2), p.clone().setY(floorY + 1), 0x9affc5);
-      hooks.burst(p.clone().setY(floorY + 1), 0xa8ffd0, 18);
+      hooks.beam(p.clone().setY(gy + (bld() ? Math.min(10 + i * 2, b2c(p)) : 10 + i * 2)), p.clone().setY(gy + 1), 0x9affc5);
+      hooks.burst(p.clone().setY(gy + 1), 0xa8ffd0, 18);
     }
     let hit = 0;
     for (const e of enemies) {
-      if (e.dead || e.spawn < 1 || flatDist(e.pos, point) > S.shockRadius) continue;
+      if (e.dead || e.spawn < 1 || flatDist(e.pos, point) > S.shockRadius || Math.abs(e.pos.y - point.y) > 2.5) continue;
       hit++;
       stagger(e, S.stagger);
       if (e.kind !== "warden") {
@@ -550,7 +660,7 @@ export function createActors(scene, T, hooks, brand) {
         if (away.lengthSq() < 0.01) away.set(1, 0, 0);
         hooks.move(e.pos, away.normalize().multiplyScalar(S.shockPush), e.radius);
       }
-      hitEnemy(e, S.shockDamage, point.clone().setY(floorY + 1), true, true);
+      hitEnemy(e, S.shockDamage, point.clone().setY(point.y + 1), true, true);
     }
     looks.impact(point, "shock");
     hooks.sound("call");
@@ -580,18 +690,26 @@ export function createActors(scene, T, hooks, brand) {
 
   function updateEnemy(e, dt, time) {
     if (e.dead) return;
+    if (e.dormant) {
+      // Not reached yet: idle in place. Wakes on sight up close (or when hurt).
+      if (player.alive && Math.abs(player.pos.y - e.pos.y) < 2.5 && flatDist(player.pos, e.pos) < (T.building?.wakeRadius ?? 7) && api.visibleFrom(e, player, 0)) {
+        wake(e);
+        if (T.building?.alarm !== false) hooks.onAlarm?.(e.section);
+      }
+      return;
+    }
     if (e.spawn < 1) {
       // Spawn-in: dropped from the ceiling onto an orange warning ring.
       e.spawn += dt / E.dropTime;
       e.mesh.visible = e.spawn >= 0;
       if (e.spawn >= 0) {
         const s = Math.min(1, e.spawn);
-        e.dropY = (1 - s) * (1 - s) * E.dropHeight;
+        e.dropY = (1 - s) * (1 - s) * e.dropH;
         look(e, "ring:spawn").set(e.pos, { radius: e.radius + 0.5, progress: s, alpha: 1 - s * 0.4, time });
         if (s >= 1) {
           e.dropY = 0;
           hideLook(e, "ring:spawn");
-          hooks.burst(e.pos.clone().setY(floorY + 0.3), 0xffa64b, 8);
+          hooks.burst(e.pos.clone().setY(e.pos.y + 0.3), 0xffa64b, 8);
           hooks.sound("land");
         }
       }
@@ -675,7 +793,7 @@ export function createActors(scene, T, hooks, brand) {
       best = a.pos.distanceToSquared(target.pos);
     } else
       for (const e of enemies) {
-        if (e.dead || e.spawn < 1) continue;
+        if (e.dead || e.spawn < 1 || e.dormant) continue;
         const d = a.pos.distanceToSquared(e.pos);
         if (d < best && !hooks.blocked(start, hitCenter(e))) {
           target = e;
@@ -738,6 +856,17 @@ export function createActors(scene, T, hooks, brand) {
     hitCenter,
     callIn,
     stagger,
+    wake,
+    wakeSection,
+    regroup,
+    clearEnemies() {
+      enemies.forEach(removeEnemy);
+      enemies.length = 0;
+      projectiles.clear();
+    },
+    aliveIn(section) {
+      return enemies.filter((e) => !e.dead && e.section === section).length;
+    },
     reduceCooldown(s) {
       cooldown = Math.max(0, cooldown - s);
     },

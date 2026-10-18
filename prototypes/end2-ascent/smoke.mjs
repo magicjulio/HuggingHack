@@ -33,7 +33,7 @@ console.log(
   "flight",
   await page.evaluate(() => {
     const g = window.__ascent;
-    for (let i = 0; i < 3000 && g.snapshot.state === "flight"; i++)
+    for (let i = 0; i < 4200 && g.snapshot.state === "flight"; i++)
       g.tick(1 / 60);
     const s = g.snapshot;
     return { state: s.state, floor: s.floor, runTime: +s.runTime.toFixed(1) };
@@ -116,7 +116,7 @@ async function snap(name) {
 }
 // The bot. One evaluate per floor; ticks until the floor's encounter is done
 // (floor 1) or the finish card (floor 2). Dies → R (retry), counted.
-async function fight(maxTicks = 60 * 60 * 12) {
+async function fight(maxTicks = +(process.env.MAX_TICKS || 60 * 60 * 12)) {
   return await page.evaluate(
     ([maxTicks, mode]) => {
       const g = window.__ascent;
@@ -142,11 +142,19 @@ async function fight(maxTicks = 60 * 60 * 12) {
         if (s.state !== "combat") break;
         if (startFloor === 1 && s.encounterDone) break;
         const dt = 1 / 60;
-        const live = g.actors.enemies.filter((e) => !e.dead && e.spawn >= 1);
+        const enc = g.encounter;
+        // Floor 2 building: dormant defenders (behind closed doors) are not targets;
+        // targets in sight come first; out of sight, the bot walks there on the nav graph.
+        const bm = enc.mode === "sections";
+        const live = g.actors.enemies.filter((e) => !e.dead && e.spawn >= 1 && !e.dormant);
         const prio = (e) =>
           e.pos.distanceTo(g.pos) * (e.kind === "hugger" ? 0.4 : e.kind === "maintainer" ? 0.6 : 1);
-        live.sort((a, b) => prio(a) - prio(b));
+        const eye = g.pos.clone();
+        eye.y += 1.5;
+        const seenNow = new Map(live.map((e) => [e, !bm || !g.blocked(eye, g.actors.hitCenter(e))]));
+        live.sort((a, b) => seenNow.get(b) - seenNow.get(a) || prio(a) - prio(b));
         const e = live[0];
+        const seen = e && seenNow.get(e);
         if (e !== bot.target) {
           bot.target = e;
           bot.react = human ? 0.3 + Math.random() * 0.2 : 0;
@@ -160,13 +168,16 @@ async function fight(maxTicks = 60 * 60 * 12) {
           bot.err = [rnd(a), rnd(a * 0.7), rnd(a)];
         }
         // Hold beats: stand in the zone.
-        const enc = g.encounter;
         let goal = null;
         if (enc.holding) {
           goal = enc.zone.clone();
           goal.x += Math.sin(ticks / 90) * 1.4;
         }
-        if (e) {
+        if (e && !seen) {
+          // awake but out of sight: go find it (aim ahead, don't fire)
+          g.setInput({ fire: false, aim: false, crouched: false });
+          if (!goal) goal = e.pos.clone();
+        } else if (e) {
           const c = g.actors.hitCenter(e);
           g.aimAt([c.x + bot.err[0], c.y + bot.err[1], c.z + bot.err[2]]);
           // bursts: ~1.2 s on, 0.5 s off; let the vent happen
@@ -187,8 +198,20 @@ async function fight(maxTicks = 60 * 60 * 12) {
             if (dist > wanted + 2 || g.aim === "cover") goal = e.pos.clone();
           }
           // squad: deploy on the enemy when 2+ are up (focus/move orders unused)
-          if (s.ready && live.length >= 2) g.callSquad();
-        } else g.setInput({ fire: false });
+          if (s.ready && live.filter((x) => seenNow.get(x)).length >= 2) g.callSquad();
+        } else {
+          g.setInput({ fire: false, aim: false });
+          if (bm && !goal) {
+            // nothing awake: move on. Next open section → walk in; door unlocking →
+            // wait at it; else sweep the section (wakes anyone dormant).
+            const b = g.building;
+            if (enc.opened > enc.section) goal = b.sections[enc.opened].center.clone();
+            else if (enc.pending || enc.cleared) {
+              const d = b.exitDoor(enc.section);
+              if (d) goal = b.doorSide(d, enc.section, 1.5);
+            } else goal = b.sections[enc.section].center.clone();
+          }
+        }
         // dodge a hugger lunge aimed at us (humans won't always)
         bot.dodgeCd -= dt;
         for (const h of live) {
@@ -202,13 +225,38 @@ async function fight(maxTicks = 60 * 60 * 12) {
           }
         }
         const step = 4 / 60;
+        if (goal && bm) {
+          // follow a nav route (re-planned every 0.5 s or when the goal moves)
+          bot.pathT = (bot.pathT ?? 0) - dt;
+          if (!bot.path || bot.pathT <= 0 || bot.pathGoal.distanceTo(goal) > 1.5) {
+            const b = g.building;
+            bot.path = b.straight(g.pos, goal, 0.42) ? [goal.clone()] : g.route(g.pos.clone(), goal) || [goal.clone()];
+            bot.pathI = 0;
+            bot.pathT = 0.5;
+            bot.pathGoal = goal.clone();
+          }
+          while (bot.pathI < bot.path.length - 1 && Math.hypot(g.pos.x - bot.path[bot.pathI].x, g.pos.z - bot.path[bot.pathI].z) < 0.7) bot.pathI++;
+          // no progress for 1.2 s (a corner, a teammate): skip a waypoint, re-plan
+          bot.stuckAt ??= g.pos.clone();
+          bot.stuckT = (bot.stuckT ?? 0) + dt;
+          if (g.pos.distanceTo(bot.stuckAt) > 0.6) {
+            bot.stuckAt.copy(g.pos);
+            bot.stuckT = 0;
+          } else if (bot.stuckT > 1.2) {
+            bot.stuckT = 0;
+            bot.pathI = Math.min(bot.pathI + 1, bot.path.length - 1);
+            bot.pathT = 0.4;
+            bot.side *= -1;
+          }
+          goal = bot.path[bot.pathI];
+        }
         if (goal) {
           const d = goal.clone().sub(g.pos).setY(0);
           if (d.length() > 0.3) {
             d.normalize();
             const before = g.pos.clone();
-            g.move(g.pos, d.clone().multiplyScalar(step));
-            if (before.distanceTo(g.pos) < 0.02) g.move(g.pos, d.set(d.z * bot.side, 0, -d.x * bot.side).multiplyScalar(step));
+            g.move(g.pos, d.clone().multiplyScalar(step), 0.42, false, true);
+            if (before.distanceTo(g.pos) < 0.02) g.move(g.pos, d.set(d.z * bot.side, 0, -d.x * bot.side).multiplyScalar(step), 0.42, false, true);
           }
         } else if (e && !(bot.still && bot.burst > 0)) {
           bot.sideT -= dt;
@@ -217,7 +265,7 @@ async function fight(maxTicks = 60 * 60 * 12) {
             bot.side *= -1;
           }
           const d = e.pos.clone().sub(g.pos).setY(0).normalize();
-          g.move(g.pos, d.set(d.z * bot.side, 0, -d.x * bot.side).multiplyScalar(3 / 60));
+          g.move(g.pos, d.set(d.z * bot.side, 0, -d.x * bot.side).multiplyScalar(3 / 60), 0.42, false, true);
         }
         g.tick(dt);
       }
@@ -240,11 +288,15 @@ async function fight(maxTicks = 60 * 60 * 12) {
     [maxTicks, process.env.BOT || "human"],
   );
 }
-const floor1 = await fight();
+// START=2: skip floor 1 and the lift (quick floor-2 balance runs).
+const only2 = process.env.START === "2";
+if (only2) await page.evaluate(() => window.__ascent.beginFloor(2));
+const floor1 = only2 ? { encounterDone: true, skipped: true } : await fight();
 console.log("floor1", floor1);
 await page.waitForTimeout(100);
-await snap("end2-cleared");
+if (!only2) await snap("end2-cleared");
 assert.ok(floor1.encounterDone, "floor 1: every beat done");
+if (!only2) {
 console.log(
   "walkLift",
   await page.evaluate(() => {
@@ -284,19 +336,39 @@ const rideRest = await page.evaluate(() => {
   return { ticks: i, state: g.snapshot.state, floor: g.snapshot.floor };
 });
 console.log("ride", { ticks: ride + rideRest.ticks, ...rideRest });
+}
 const floor2 = await fight();
 console.log("floor2", floor2);
+if (floor2.state !== "finish")
+  console.log(
+    "stuck",
+    JSON.stringify(await page.evaluate(() => {
+      const g = window.__ascent,
+        e = g.encounter,
+        f = (v) => v.toArray().map((x) => +x.toFixed(1));
+      return {
+        pos: f(g.pos),
+        section: g.section,
+        enc: { mode: e.mode, section: e.section, opened: e.opened, pending: e.pending, cleared: e.cleared, holding: e.holding },
+        enemies: g.actors.enemies.filter((x) => !x.dead).map((x) => ({ kind: x.kind, section: x.section, dormant: x.dormant, spawn: +x.spawn.toFixed(2), pos: f(x.pos), seen: !g.blocked(g.pos.clone().setY(g.pos.y + 1.5), g.actors.hitCenter(x)) })),
+        aim: g.aim,
+      };
+    })),
+  );
 await page.waitForTimeout(150);
 await snap("end2-end");
-const final = await page.evaluate(() => ({ snap: window.__ascent.snapshot, balance: window.__ascent.balance }));
+const final = await page.evaluate(() => ({ snap: window.__ascent.snapshot, balance: window.__ascent.balance, mode: window.__ascent.encounter.mode, warnings: window.__ascent.encounter.warnings }));
 console.log("beats", final.balance.beats);
+// Floor 2 as a building: time, damage and deaths per section (survive checkpoint retries).
+console.log("floor2 mode", final.mode, final.warnings.length ? final.warnings : "");
+if (final.mode === "sections") console.table(final.balance.sections);
 console.log("balance", { taken: final.balance.taken, deaths: final.balance.deaths, runTime: +final.snap.runTime.toFixed(1) });
 assert.equal(final.snap.state, "finish", "full slice reaches the completion card");
 assert.ok(final.snap.encounterDone, "floor 2: every beat done");
-assert.ok(final.snap.stats.calls >= 2, "subagents deployed on both floors");
+assert.ok(final.snap.stats.calls >= (only2 ? 1 : 2), "subagents deployed on both floors");
 assert.ok(mechanics.forcedVent && mechanics.perfect, "active vent: overheat vents, a tap in the window is a perfect vent");
 assert.deepEqual(errors, [], "no console errors or uncaught exceptions");
 console.log(
-  `PASS (${gpu ? "GPU" : "SwiftShader"}, bot ${process.env.BOT || "human"}): intro → floor 1 → lift → floor 2 → end card; no browser errors`,
+  `PASS (${gpu ? "GPU" : "SwiftShader"}, bot ${process.env.BOT || "human"}): ${only2 ? "floor 2 only" : "intro → floor 1 → lift → floor 2"} → end card; no browser errors`,
 );
 await browser.close();

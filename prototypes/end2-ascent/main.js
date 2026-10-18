@@ -3,6 +3,7 @@ import { createWorld } from "./world.js";
 import { createActors } from "./actors.js";
 import { createFxLooks } from "./fx.js"; // pooled fx looks (was createDefaultLooks from ./looks.js)
 import { createEncounter } from "./encounter.js";
+import { createBuilding } from "./building.js"; // floor-2 level adapter (fight)
 import { createFlight } from "./flight.js";
 import { P, loadBrand, loadFonts, applyEnvironment } from "./art.js";
 import { buildPlayer, buildPickup, LOOT } from "./models.js";
@@ -82,7 +83,8 @@ export const T = {
       hp: 65, speed: 2.2, radius: 0.45, hit: 0.62, height: 1.38, turn: 3.2,
       range: 18, pushRange: 10, maxRange: 34,
       burst: 3, shotGap: 0.16, damage: 7, telegraph: 0.75, interval: 2.3, boltSpeed: 18,
-      duck: 0.6, pop: 0.42, repost: 7, // hover offsets: duck below the cover lip, pop above it to fire relocate: 1.2, postSearch: 12, postMin: 7, postMax: 24,
+      duck: 0.6, pop: 0.42, repost: 7, // hover offsets: duck below the cover lip, pop above it to fire
+      relocate: 1.2, postSearch: 12, postMin: 7, postMax: 24,
     },
     shield: {
       hp: 110, speed: 1.9, radius: 0.55, hit: 0.7, height: 1.38, turn: 1.7,
@@ -121,18 +123,27 @@ export const T = {
     guaranteed: { maintainer: "compute", warden: "overclock" },
     patch: 35, coolant: 6, compute: 10, overclock: 8,
   },
+  // Approach (landing area): flight.js + flight-combat.js. Phases scale with duration - landingBeat.
+  // URL knobs: ?flightdiff=0.6 (difficulty), ?failmode=soft (no breach), ?flightbot=1 (autopilot; on with ?test).
   flight: {
-    duration: 34,
+    duration: 46, // 40.4 s approach + 5.6 s landing cinematic (not skippable)
     speed: 70,
-    steerSpeed: 25,
+    steerSpeed: 28,
     width: 40,
     height: 22,
     collisionPenalty: 0.7,
     approachAltitude: 155,
     landingAltitude: 7,
     cameraDistance: 34,
-    obstacleCount: 3,
     fleetCount: 38,
+    difficulty: 1, // scales wave sizes, debris density, enemy fire rate and damage
+    hull: 100, hullRegen: 3, regenDelay: 3,
+    failMode: "checkpoint", // hull 0 -> back to the start of the phase; "soft" = never fails
+    mercyAfter: 2, // failures (or gate bounces) before a phase eases off / the escorts help
+    laserRate: 9, laserSpeed: 900, laserDamage: 1, laserHeat: 0.05, laserCool: 0.34, aimAssist: 0.022, aimSensitivity: 1,
+    boltSpeed: 190, boltDamage: 7, interceptorTell: 0.55, interceptorCooldown: 2.0, interceptorHold: 7,
+    flakSpeed: 230, flakDamage: 8, turretTell: 0.7, turretCooldown: 2.3,
+    fieldDamage: 20, gateDamage: 26, gateKnockback: 2.2,
   },
   world: {
     coverHeight: 1.35,
@@ -234,6 +245,126 @@ export const T = {
         },
       ],
     },
+    // Floor 2 as a building (encounter.js → createSections): one script per
+    // level section id (floor2.js). Used only when world.level exists; the beat
+    // list above stays the fallback.
+    sections: {
+      2: {
+        // s0 LIFT LANDING: a breath. Empty, so d1 unlocks right away.
+        s0: { title: "FLOOR 02 / THE BUILDING", hint: "Fight through it room by room. Doors stay locked (orange) until the section is clear, then turn green.", hintTime: 9 },
+        // s1 SECURITY HALL: a gunner corridor; Huggers burst out of the side offices.
+        s1: {
+          title: "SECURITY HALL / GUNNER CORRIDOR",
+          hint: "Gunners hold the barriers down the hall. Watch the side offices.",
+          garrison: [
+            { kind: "gunner", at: "back:0" },
+            { kind: "gunner", at: "back:1" },
+            { kind: "gunner", at: "back:2" },
+          ],
+          events: [
+            { on: "half", via: "walk", toast: "HUGGERS / SIDE OFFICES", spawn: [{ kind: "hugger", at: "flank:0" }, { kind: "hugger", at: "flank:2", delay: 0.4 }] },
+          ],
+        },
+        // s2 OPEN OFFICE: a shield-bearer leads, gunners in the desk rows, a
+        // Maintainer keeps them alive from behind the cabinets.
+        s2: {
+          title: "OPEN OFFICE / FIND THE MAINTAINER",
+          hint: "The Maintainer at the back heals the line. Flank down the side and take it out first.",
+          garrison: [
+            { kind: "shield", at: "drop:0", mode: "advance" },
+            { kind: "gunner", at: "drop:1" },
+            { kind: "gunner", at: "drop:2" },
+            { kind: "gunner", at: "back:1" },
+            { kind: "maintainer", at: "back:0" },
+          ],
+        },
+        // s3 SERVER GALLERY: a Warden covers the whole length; the rack pods are
+        // the only pockets out of its beam. Huggers come up the hall behind it.
+        s3: {
+          title: "SERVER GALLERY / WARDEN",
+          hint: "The Warden's beam covers the hall. Move pod to pod while it charges; hit the core when it vents.",
+          garrison: [
+            { kind: "warden", at: "back:0", leash: 1 },
+            { kind: "gunner", at: "flank:0" },
+            { kind: "gunner", at: "flank:1" },
+          ],
+          events: [
+            { on: "half", via: "walk", toast: "HUGGERS / FROM THE FAR END", spawn: [{ kind: "hugger", at: "back:1" }, { kind: "hugger", at: "back:2", delay: 0.8 }] },
+          ],
+        },
+        // s4 COOLING HALL: they hold the mezzanine; a Maintainer up top; Huggers on
+        // the floor. Take the stairs up the west wall.
+        s4: {
+          title: "COOLING HALL / HIGH GROUND",
+          hint: "Gunners hold the mezzanine. Take the stairs on the left wall; the Maintainer is up there.",
+          garrison: [
+            { kind: "gunner", at: "high:0", leash: 3 },
+            { kind: "gunner", at: "high:2", leash: 3 },
+            { kind: "gunner", at: "high:3", leash: 3 },
+            { kind: "maintainer", at: "high:1", leash: 6 },
+            { kind: "hugger", at: "drop:0", wake: "enter" },
+            { kind: "hugger", at: "drop:1", wake: "enter" },
+          ],
+          events: [{ on: "clear", via: "drop", toast: "REINFORCEMENTS / MEZZANINE", spawn: [{ kind: "shield", at: "high:4" }, { kind: "gunner", at: "back:0" }] }],
+        },
+        // s5 SKYBRIDGE: a shield wall at the 2 m choke, gunners behind it.
+        s5: {
+          title: "SKYBRIDGE / SHIELD WALL",
+          hint: "Two shields hold the choke. Drop your squad behind them (Q), or wait for their firing window.",
+          garrison: [
+            { kind: "shield", at: [-13.6, 35.2, 4.5], leash: 2 },
+            { kind: "shield", at: [-13.6, 36.8, 4.5], leash: 2 },
+            { kind: "gunner", at: "back:1" },
+            { kind: "gunner", at: "back:2" },
+          ],
+        },
+        // s6 OPERATIONS: an ambush right behind the door (red door light first),
+        // then hold the terminal while they come in from the back.
+        s6: {
+          title: "OPERATIONS / AMBUSH",
+          ambush: true,
+          tellText: "MOVEMENT BEHIND THE DOOR / GET READY",
+          hint: "Hold the ring at the terminal. They keep coming from the back until it is done.",
+          garrison: [
+            { kind: "hugger", at: "flank:0", wake: "enter" },
+            { kind: "hugger", at: "flank:1", wake: "enter" },
+            { kind: "shield", at: "drop:0", wake: "enter" },
+            { kind: "gunner", at: "back:0" },
+          ],
+          hold: { time: 14, doneTitle: "TERMINAL HELD / CLEAR THE ROOM", trickle: { every: 3.4, max: 4, pool: ["gunner", "hugger", "gunner", "shield"], via: "walk", at: ["back:0", "back:1", "back:2"] } },
+        },
+        // s7 ASCENT CORE: everything at once, a second wave drops in, then reach the
+        // next lift shaft.
+        s7: {
+          title: "ASCENT CORE / EVERYTHING THEY HAVE",
+          hint: "The last room. Warden, shields, gunners, a Maintainer. The next lift is behind them.",
+          garrison: [
+            { kind: "warden", at: "back:0", leash: 1 },
+            { kind: "shield", at: "drop:3", mode: "advance" },
+            { kind: "gunner", at: "flank:2" },
+            { kind: "gunner", at: "flank:3" },
+            { kind: "maintainer", at: "back:1" },
+          ],
+          events: [
+            { on: "half", via: "drop", toast: "DROP-IN / SECOND WAVE", spawn: [{ kind: "hugger", at: "drop:1" }, { kind: "hugger", at: "drop:2", delay: 0.5 }, { kind: "gunner", at: "drop:0", delay: 1 }] },
+          ],
+          hold: { time: 3, after: "clear", readyTitle: "ROOM CLEAR / GET TO THE LIFT SHAFT", doneTitle: "NEXT LIFT REACHED" },
+        },
+      },
+    },
+  },
+  // ---- Floor 2 as a building (floor2.js level; building.js adapter). Engine knobs:
+  building: {
+    checkpoint: true, // retry at the last opened door instead of the floor start
+    stepUp: 0.55, // biggest ground step anyone walks up or down (stairs are finer)
+    gravity: 24, // the player falls off ledges; enemies never step off them
+    wakeRadius: 7, // a dormant defender with line of sight wakes when you get this close
+    alarm: true, // hurting a dormant defender wakes its whole section
+    camProbe: 0.24, // camera keeps this far from walls (a cheap sphere cast)
+    camCeiling: 0.35, // ... and this far below the section ceiling
+    doorTell: 1.1, // seconds of red door light + warning before an ambush door opens
+    sectionDelay: 1.2, // pause between a section's last kill and its door opening
+    dropCeiling: 0.6, // drop-ins start this far below the ceiling (was dropHeight 9)
   },
   audio: { volume: 0.6, sfx: 1, music: 0.5, mute: false },
   lift: {
@@ -306,7 +437,8 @@ let vaultT = 0,
   ventJam = 0, // extra seconds added by a missed tap
   ventTapped = false,
   ventBuffUntil = -1,
-  hitStop = 0;
+  hitStop = 0,
+  fallSpeed = 0; // floor 2: falling off a ledge (T.building.gravity)
 const vaultFrom = new THREE.Vector3(),
   vaultTo = new THREE.Vector3();
 let last = performance.now(),
@@ -418,13 +550,28 @@ const box = new THREE.Box3(),
   tmpHit = new THREE.Vector3();
 // Low cover (height < LOW_COVER) can be skipped: hugger lunges, vault checks.
 const LOW_COVER = 2.2;
+// Floor 2 is a building (world.level → building.js adapter `bld`): colliders
+// have their own baseY, the ground has stairs and upper levels, doors open.
+// Floor 1 (bld === null) keeps the old flat rules exactly.
+let bld = null;
+function groundAt(x, z, y) {
+  if (!bld) return world.floorY;
+  return bld.ground(x, z, y);
+}
+// Does collider c block a body whose feet are at y? Floor 2: vertical overlap
+// with the body above step height (stairs are ground, not colliders).
+function solid(c, y, ignoreLow = false) {
+  if (c.disabled || (ignoreLow && c.height < LOW_COVER)) return false;
+  if (!bld) return Math.abs(c.baseY - y) <= 0.5;
+  return c.baseY < y + 1.7 && c.baseY + c.height > y + T.building.stepUp;
+}
 function worldHit(origin, dir, maxDist, ignoreLow = false) {
   let nearest = maxDist;
+  ray.set(origin, dir);
   for (const c of world.colliders) {
-    if (ignoreLow && c.height < LOW_COVER) continue;
+    if (c.disabled || (ignoreLow && c.height < LOW_COVER)) continue;
     box.min.set(c.minX, c.baseY, c.minZ);
     box.max.set(c.maxX, c.baseY + c.height, c.maxZ);
-    ray.set(origin, dir);
     if (ray.intersectBox(box, tmpHit)) {
       const d = tmpHit.distanceTo(origin);
       if (d < nearest) nearest = d;
@@ -442,7 +589,7 @@ function free(p, radius = T.player.radius) {
   for (let pass = 0; pass < 4; pass++) {
     let moved = false;
     for (const c of world.colliders) {
-      if (Math.abs(c.baseY - p.y) > 0.5) continue;
+      if (!solid(c, p.y)) continue;
       const l = p.x - (c.minX - radius),
         r = c.maxX + radius - p.x,
         n = p.z - (c.minZ - radius),
@@ -455,13 +602,29 @@ function free(p, radius = T.player.radius) {
       else p.z = c.maxZ + radius + 0.01;
       moved = true;
     }
-    p.x = THREE.MathUtils.clamp(p.x, -T.world.width / 2 + radius, T.world.width / 2 - radius);
-    p.z = THREE.MathUtils.clamp(p.z, T.world.farZ + radius, T.world.nearZ - radius);
+    if (!bld) {
+      p.x = THREE.MathUtils.clamp(p.x, -T.world.width / 2 + radius, T.world.width / 2 - radius);
+      p.z = THREE.MathUtils.clamp(p.z, T.world.farZ + radius, T.world.nearZ - radius);
+    }
     if (!moved) break;
+  }
+  if (bld) {
+    const g = groundAt(p.x, p.z, p.y);
+    if (g !== null) p.y = g;
   }
   return p;
 }
-function move(p, delta, radius = T.player.radius, ignoreLow = false) {
+// Floor 2: may a body at p step onto (x, z)? Ground must exist, no climb above
+// stepUp, and no drop below it unless canDrop (the player; enemies keep to
+// their level). Returns the ground height there, or null when refused.
+function stepTo(p, x, z, canDrop) {
+  if (!bld.walkable(x, z)) return null;
+  const g = groundAt(x, z, p.y);
+  if (g === null || g - p.y > T.building.stepUp) return null;
+  if (!canDrop && p.y - g > T.building.stepUp) return null;
+  return g;
+}
+function move(p, delta, radius = T.player.radius, ignoreLow = false, canDrop = false) {
   const steps = Math.max(1, Math.ceil(delta.length() / 0.2)),
     sx = delta.x / steps,
     sz = delta.z / steps;
@@ -469,7 +632,7 @@ function move(p, delta, radius = T.player.radius, ignoreLow = false) {
     let nx = p.x + sx,
       nz = p.z;
     for (const c of world.colliders) {
-      if (Math.abs(c.baseY - p.y) > 0.5 || (ignoreLow && c.height < LOW_COVER)) continue;
+      if (!solid(c, p.y, ignoreLow)) continue;
       if (
         nx > c.minX - radius &&
         nx < c.maxX + radius &&
@@ -483,14 +646,18 @@ function move(p, delta, radius = T.player.radius, ignoreLow = false) {
               ? Math.max(nx, c.maxX + radius)
               : nx;
     }
-    p.x = THREE.MathUtils.clamp(
-      nx,
-      -T.world.width / 2 + radius,
-      T.world.width / 2 - radius,
-    );
+    if (bld) {
+      if (nx !== p.x && stepTo(p, nx, p.z, canDrop) === null) nx = p.x;
+      p.x = nx;
+    } else
+      p.x = THREE.MathUtils.clamp(
+        nx,
+        -T.world.width / 2 + radius,
+        T.world.width / 2 - radius,
+      );
     nz = p.z + sz;
     for (const c of world.colliders) {
-      if (Math.abs(c.baseY - p.y) > 0.5 || (ignoreLow && c.height < LOW_COVER)) continue;
+      if (!solid(c, p.y, ignoreLow)) continue;
       if (
         p.x > c.minX - radius &&
         p.x < c.maxX + radius &&
@@ -504,11 +671,18 @@ function move(p, delta, radius = T.player.radius, ignoreLow = false) {
               ? Math.max(nz, c.maxZ + radius)
               : nz;
     }
-    p.z = THREE.MathUtils.clamp(
-      nz,
-      T.world.farZ + radius,
-      T.world.nearZ - radius,
-    );
+    if (bld) {
+      if (nz !== p.z && stepTo(p, p.x, nz, canDrop) === null) nz = p.z;
+      p.z = nz;
+      // follow the ground (stairs); a bigger drop is a fall (player only)
+      const g = groundAt(p.x, p.z, p.y);
+      if (g !== null && Math.abs(g - p.y) <= T.building.stepUp) p.y = g;
+    } else
+      p.z = THREE.MathUtils.clamp(
+        nz,
+        T.world.farZ + radius,
+        T.world.nearZ - radius,
+      );
   }
   return p;
 }
@@ -540,7 +714,7 @@ function dropLoot(kind, at) {
     }
   }
   const model = buildPickup(type);
-  model.root.position.copy(free(at.clone().setY(world.floorY), 0.45));
+  model.root.position.copy(free(at.clone().setY(bld ? at.y : world.floorY), 0.45));
   scene.add(model.root);
   pickups.push({ type, model, age: 0, spawn: 0, collect: -1, phase: Math.random() * 6 });
   sound("drop");
@@ -573,7 +747,7 @@ function updatePickups(dt) {
     p.age += dt;
     p.spawn = Math.min(1, p.spawn + dt * 2.2);
     const at = p.model.root.position;
-    const near = state === "combat" && health > 0 && p.spawn >= 0.5;
+    const near = state === "combat" && health > 0 && p.spawn >= 0.5 && Math.abs(at.y - pos.y) < 1.6;
     const d = Math.hypot(at.x - pos.x, at.z - pos.z);
     if (p.collect >= 0) p.collect += dt * 4;
     else if (near && d < T.loot.radius) {
@@ -620,6 +794,11 @@ function damagePlayer(amount, from, continuous = false) {
     return;
   health = Math.max(0, health - amount);
   combatStats.taken += amount;
+  const sid = statId();
+  if (sid && !director.done) {
+    statFor(sid).taken += amount;
+    if (!health) statFor(sid).deaths++;
+  }
   lastDamage = runTime;
   damageFlash = Math.max(damageFlash, continuous ? 0.5 : 0.8);
   if (!continuous || runTime - lastHurtFx > 0.25) {
@@ -648,6 +827,10 @@ const actors = createActors(scene, T, {
   free,
   rayLength: worldHit,
   colliders: () => world.colliders,
+  // floor 2 (building): the level adapter, ground height, and a woken section
+  building: () => bld,
+  ground: (x, z, y) => (bld ? bld.ground(x, z, y) ?? y : world.floorY),
+  onAlarm: (section) => director.alarm(section),
   pushPlayer,
   shake: (a) => (shake = Math.max(shake, a)),
   looks,
@@ -655,8 +838,13 @@ const actors = createActors(scene, T, {
   beam,
   burst,
   sound,
-  onKill(kind, byAlly, at) {
+  onKill(kind, byAlly, at, e) {
     stats.kills++;
+    if (bld && e && e.section >= 0) {
+      const st = statFor(bld.sections[e.section].id);
+      st.kills++;
+      if (byAlly) st.squadKills++;
+    }
     if (at) dropLoot(kind, at);
     if (byAlly) stats.allyKills++;
     else if (T.hitStop.time > 0) hitStop = T.hitStop.time * (kind === "warden" ? 2.5 : 1);
@@ -800,7 +988,7 @@ function startRun() {
   hintTime = 0;
   $("overlay").classList.add("hidden");
   $("hud").classList.remove("hidden");
-  hint("WASD / arrow keys steer. Fly around the illuminated structures.", 10);
+  hint("WASD steers · mouse aims · left mouse or Space fires lasers.", 10);
   lock();
 }
 function beginFloor(n, retry = false) {
@@ -809,13 +997,32 @@ function beginFloor(n, retry = false) {
   world.root.visible = true;
   world.setFloor(n);
   world.setLiftReady(false);
-  pos.set(0, (n - 1) * T.world.floorHeight, 8);
-  actors.reset(pos.y, n);
+  // Floor 2 with a building level (floor2.js): start where the lift arrives.
+  bld = world.level ? createBuilding(world.level, world.floorY, { ground: world.ground, blocked, stepUp: T.building.stepUp }) : null;
+  playerSection = -1;
+  fallSpeed = 0;
+  let startYaw = 0;
+  if (bld) {
+    pos.copy(bld.start);
+    pos.y = groundAt(pos.x, pos.z, pos.y) ?? pos.y;
+    startYaw = bld.startYaw;
+  } else pos.set(0, (n - 1) * T.world.floorHeight, 8);
+  actors.reset(pos.y, n, bld ? { pos, yaw: startYaw } : null);
   clearPickups();
   body.visible = true;
   state = "combat";
   phaseTime = 0;
-  director.start(n, pos.y);
+  director.start(n, pos.y, bld);
+  // Checkpoint (T.building.checkpoint): a retry on floor 2 restarts at the last
+  // opened door, with that section's defenders back in place.
+  const cp = retry && bld && T.building.checkpoint ? lastCheckpoint : 0;
+  if (cp > 0) {
+    const at = director.restore(n, cp);
+    pos.copy(at.pos);
+    startYaw = at.yaw;
+    actors.regroup(pos, startYaw);
+  }
+  lastCheckpoint = 0;
   beatMark = null;
   finishWait = 0;
   health = T.player.health;
@@ -830,19 +1037,21 @@ function beginFloor(n, retry = false) {
   dodgeCooldown = 0;
   fireCooldown = 0;
   crouch = false;
-  yaw = 0;
+  yaw = startYaw;
   pitch = -0.06;
   playerHeight = T.player.height;
   velocity.set(0, 0, 0);
   clearInput();
   updateCamera(1, true);
   toast(
-    n === 1 ? "FLOOR 01 / TAKE THE ATRIUM" : "FLOOR 02 / BREAK THE DEFENSE",
+    n === 1 ? "FLOOR 01 / TAKE THE ATRIUM" : cp > 0 ? "CHECKPOINT / LAST OPEN DOOR" : "FLOOR 02 / BREAK THE DEFENSE",
   );
   hint(
     n === 1
       ? "C crouches behind cover. Hold right mouse to rise and aim. Q calls your squad."
-      : "Floor 02 hits harder. While your squad is out, Q again gives orders: aim at an enemy to focus it, at the floor to move them.",
+      : bld
+        ? "Fight through the building. Doors stay locked until each section is clear. While your squad is out, Q again gives orders."
+        : "Floor 02 hits harder. While your squad is out, Q again gives orders: aim at an enemy to focus it, at the floor to move them.",
     10,
   );
   if (retry) {
@@ -850,8 +1059,10 @@ function beginFloor(n, retry = false) {
     runTime += T.encounter.retryPenalty;
   }
 }
+let lastCheckpoint = 0; // set on death (floor 2): the director's last opened door
 function retryFloor() {
   paused = false;
+  lastCheckpoint = bld ? director.checkpoint : 0;
   beginFloor(floor, true);
   $("overlay").classList.add("hidden");
   lock();
@@ -1045,7 +1256,7 @@ function updatePlayer(dt) {
         : velocity.clone()
     ).multiplyScalar(dt);
     const before = pos.clone();
-    move(pos, step);
+    move(pos, step, T.player.radius, false, true);
     // Snap to cover: sprinting into low cover drops you into a crouch behind it.
     if (
       T.player.snapToCover &&
@@ -1066,11 +1277,25 @@ function updatePlayer(dt) {
     }
   }
   if (knock.lengthSq() > 1e-4) {
-    move(pos, knock.clone().multiplyScalar(dt));
+    move(pos, knock.clone().multiplyScalar(dt), T.player.radius, false, true);
     knock.multiplyScalar(Math.exp(-dt * T.player.knockDecay));
   } else knock.set(0, 0, 0);
   dodge = Math.max(0, dodge - dt);
   dodgeCooldown = Math.max(0, dodgeCooldown - dt);
+  if (bld) {
+    // Floor 2: stand on the ground (stairs, upper levels); fall off ledges.
+    const g = groundAt(pos.x, pos.z, pos.y);
+    if (g !== null) {
+      if (pos.y > g + 0.02) {
+        fallSpeed += T.building.gravity * dt;
+        pos.y = Math.max(g, pos.y - fallSpeed * dt);
+      } else {
+        pos.y = g;
+        fallSpeed = 0;
+      }
+    }
+    trackSection();
+  }
   body.position.copy(pos);
   body.position.y += lift;
   body.rotation.set(0, yaw, 0);
@@ -1155,6 +1380,17 @@ function updateHeat(dt) {
   }
   if (document.body.dataset.vent !== v) document.body.dataset.vent = v;
 }
+// Floor 2: which section the player stands in; tells the level (culling, lights).
+function trackSection() {
+  const s = bld.sectionAt(pos.x, pos.z, pos.y);
+  if (s >= 0 && s !== playerSection) {
+    playerSection = s;
+    world.level?.setSection?.(bld.sections[s].id);
+  }
+}
+const camUp = new THREE.Vector3(0, 1, 0),
+  camOff = new THREE.Vector3(),
+  camFrom = new THREE.Vector3();
 function updateCamera(dt, snap = false) {
   const q = new THREE.Quaternion().setFromEuler(
     new THREE.Euler(pitch, yaw, 0, "YXZ"),
@@ -1175,10 +1411,23 @@ function updateCamera(dt, snap = false) {
   const d = desired.clone().sub(eye),
     distance = d.length();
   d.normalize();
-  const hit = worldHit(eye, d, distance);
-  if (hit < distance)
+  let hit = worldHit(eye, d, distance);
+  if (bld) {
+    // Narrow halls: a cheap sphere cast (four parallel rays camProbe apart), so
+    // the near plane never slides into a wall beside or above the camera.
+    const r = T.building.camProbe;
+    for (const [v, s] of [[right, r], [right, -r], [camUp, r], [camUp, -r]]) {
+      camFrom.copy(eye).add(camOff.copy(v).multiplyScalar(s));
+      hit = Math.min(hit, worldHit(camFrom, d, distance));
+    }
+    if (hit < distance) desired.copy(eye).addScaledVector(d, Math.max(0.1, hit - r));
+    const ceil = bld.ceilingAt(pos.x, pos.z, pos.y) - T.building.camCeiling;
+    if (desired.y > ceil) desired.y = Math.max(eye.y - 0.25, ceil);
+  } else if (hit < distance)
     desired.copy(eye).addScaledVector(d, Math.max(0.1, hit - 0.16));
-  camera.position.lerp(desired, snap ? 1 : 1 - Math.exp(-dt * T.camera.follow));
+  // Snap (no lag) when the lagging camera would sit behind a wall.
+  const k = snap || (bld && blocked(eye, camera.position)) ? 1 : 1 - Math.exp(-dt * T.camera.follow);
+  camera.position.lerp(desired, k);
   camera.quaternion.copy(q);
   if (shake > 0) {
     camera.position.x += (Math.random() - 0.5) * shake;
@@ -1384,7 +1633,15 @@ const director = createEncounter(T, {
   toast,
   hint,
   sound,
+  // sections (floor 2 building)
+  aliveIn: (i) => actors.aliveIn(i),
+  wakeSection: (i, filter) => actors.wakeSection(i, filter),
+  clearEnemies: () => actors.clearEnemies(),
+  playerSection: () => playerSection,
+  openDoor: (door) => door.open(),
+  doorAlarm: (door, on) => door?.setAlert?.(on),
 });
+let playerSection = -1; // floor 2: section index the player stands in (building.js)
 const beatLog = []; // balance read-out: per beat { floor, id, time, taken }
 let beatMark = null;
 function worldReady() {
@@ -1395,13 +1652,27 @@ function beatDetail() {
   const hostiles = actors.alive;
   if (director.done) return floor === 1 ? "Lift powered" : "Ascent secured";
   if (director.index < 0) return "Defenders massing";
+  if (director.mode === "sections") {
+    // Section n / N · name · awake hostiles (dormant ones are behind closed doors)
+    const awake = actors.enemies.filter((e) => !e.dead && !e.dormant).length;
+    let line = `Section ${director.index + 1} / ${director.count} · ${director.name} · ${awake} hostile${awake === 1 ? "" : "s"}`;
+    if (director.holding) line += ` · HOLD ${Math.floor(director.progress * 100)}%${director.inZone ? "" : " · get in the ring"}`;
+    else if (director.pending) line += " · door unlocking";
+    else if (director.cleared) line += " · door open";
+    return line;
+  }
   const head = `Beat ${director.index + 1} / ${director.count} · ${hostiles} hostile${hostiles === 1 ? "" : "s"}`;
   if (!director.holding) return head;
   return `${head} · HOLD ${Math.floor(director.progress * 100)}%${director.inZone ? "" : " · get in the ring"}`;
 }
+// Balance read-out per section/beat id (floor 2 sections survive retries).
+const sectionStats = {};
+const statFor = (id) => (sectionStats[`${floor}:${id}`] ??= { time: 0, taken: 0, deaths: 0, kills: 0, squadKills: 0 });
+const statId = () => (director.mode === "sections" ? director.front : director.beat?.id);
 function encounter(dt) {
   director.update(dt, runTime);
   const id = director.done ? "done" : director.beat?.id ?? "intro";
+  if (id !== "done" && id !== "intro") statFor(statId()).time += dt;
   if (id !== beatMark?.id) {
     if (beatMark && beatMark.id !== "intro")
       beatLog.push({ floor: beatMark.floor, id: beatMark.id, time: +(runTime - beatMark.t).toFixed(1), taken: Math.round(combatStats.taken - beatMark.taken) });
@@ -1541,7 +1812,11 @@ function updateHud() {
         ? "Atrium secured · board the lift"
         : floor === 1
           ? "Clear the atrium"
-          : "Secure the next ascent";
+          : bld
+            ? director.holding
+              ? "Hold the ring"
+              : "Fight through the building"
+            : "Secure the next ascent";
   $("detail").textContent = flying
     ? "Bottom entrance / approach corridor"
     : state === "lift"
@@ -1602,7 +1877,7 @@ function tick(dt) {
     shake = Math.max(0, shake - dt * 0.7);
     damageFlash = Math.max(0, damageFlash - dt * 1.4);
     if (state === "flight") {
-      const result = flight.update(dt, keys, camera);
+      const result = flight.update(dt, keys, camera, { fire: mouseFire, sound });
       stats.collisions = result.collisions;
       $("flightfill").style.width = result.progress * 100 + "%";
       if (result.done) {
@@ -1682,7 +1957,8 @@ if (new URLSearchParams(location.search).has("test"))
     looks,
     free,
     get balance() {
-      return { taken: Math.round(combatStats.taken), deaths: combatStats.deaths || 0, beats: beatLog.slice() };
+      const sections = Object.fromEntries(Object.entries(sectionStats).map(([k, v]) => [k, { ...v, time: +v.time.toFixed(1), taken: Math.round(v.taken) }]));
+      return { taken: Math.round(combatStats.taken), deaths: combatStats.deaths || 0, beats: beatLog.slice(), sections };
     },
     get aim() {
       return aimState;
@@ -1730,8 +2006,27 @@ if (new URLSearchParams(location.search).has("test"))
     resume() {
       paused = false;
     },
-    setPose(x, z) {
-      pos.set(x, (floor - 1) * T.world.floorHeight, z);
+    setPose(x, z, y) {
+      pos.set(x, y ?? (floor - 1) * T.world.floorHeight, z);
+      if (bld) pos.y = groundAt(x, z, pos.y) ?? pos.y;
       updateCamera(1, true);
+    },
+    // floor 2 (building): the adapter, routes, the player's section, ground
+    get building() {
+      return bld;
+    },
+    get section() {
+      return playerSection;
+    },
+    ground: (x, z, y) => groundAt(x, z, y),
+    route: (a, b) => bld?.path(a, b) ?? null,
+    get yaw() {
+      return yaw;
+    },
+    get cameraClear() {
+      // the camera is not inside a collider and sees the player's chest
+      const eye = pos.clone().add(new THREE.Vector3(0, playerHeight * 0.6, 0));
+      const inside = world.colliders.some((c) => !c.disabled && camera.position.x > c.minX && camera.position.x < c.maxX && camera.position.z > c.minZ && camera.position.z < c.maxZ && camera.position.y > c.baseY && camera.position.y < c.baseY + c.height);
+      return !inside && !blocked(camera.position, eye);
     },
   };

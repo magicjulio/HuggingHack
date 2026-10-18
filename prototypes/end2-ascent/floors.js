@@ -699,12 +699,14 @@ export function createFloorSets({ scene, root, deck, T, brand, lighting, resourc
   })();
   // greybox stays only on a floor whose kit is missing
   const kitFor = (n) => (n === 1 ? has.atrium : has.floor2);
+  // floor 2 is the floor2.js building (world.js); the old data hall stays only for ?f2=arena
+  let building = false;
 
   function show() {
     const ride = riding();
     sets[1].visible = floor === 1 || ride;
-    sets[2].visible = floor === 2 || ride;
-    for (const g of legacy) g.visible = !(loaded && kitFor(floor));
+    sets[2].visible = !building && (floor === 2 || ride);
+    for (const g of legacy) g.visible = !(building && floor === 2) && !(loaded && kitFor(floor));
   }
 
   return {
@@ -730,6 +732,11 @@ export function createFloorSets({ scene, root, deck, T, brand, lighting, resourc
     },
     setFloor(n) {
       floor = n;
+      show();
+    },
+    // true: floor 2 is the building (hides the old hall set and the greybox there)
+    useBuilding(on) {
+      building = !!on;
       show();
     },
     update(dt, time) {

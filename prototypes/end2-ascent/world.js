@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { textPlate } from "./art.js";
 import { interiorLighting, createFloorSets } from "./floors.js";
 import { createLift } from "./lift.js";
+import { createFloor2 } from "./floor2.js";
 
 // The playable deck moves between two heights; the tower shell stays in place.
 export function createWorld(scene, T, brand) {
@@ -252,6 +253,27 @@ export function createWorld(scene, T, brand) {
   // The lift platform, rails, tower shell, sky and fleet live in lift.js (lift-ui).
   const lift = createLift({ scene, root, deck, T, resources });
 
+  // Floor 2 is a real building (floor2.js, building): its own colliders, ground height,
+  // sections, doors and nav. ?f2=arena keeps the old floor-2 arena for comparison.
+  const level =
+    new URLSearchParams(location.search).get("f2") === "arena" ? null : createFloor2({ resources, T });
+  if (level) {
+    level.group.position.y = deckHeight;
+    level.group.visible = false;
+    root.add(level.group);
+    floorSets.useBuilding(true);
+  }
+  const backdrop = root.getObjectByName("tower backdrop");
+  let levelVersion = -1;
+  // world.colliders holds absolute copies of the level's (local) colliders; door
+  // changes bump level.version and are re-synced here.
+  function syncLevel() {
+    levelVersion = level.version;
+    colliders.length = 0;
+    for (const c of level.colliders) colliders.push({ ...c, baseY: c.baseY + floorY, local: c });
+  }
+  const onLevel = () => level && activeFloor === 2;
+
   function setLiftReady(value) {
     ready = value;
     lift.setReady(value, activeFloor);
@@ -280,7 +302,13 @@ export function createWorld(scene, T, brand) {
       }
     }
     spawnPoints.length = 0;
-    for (const [x, z] of [
+    if (onLevel()) {
+      for (const c of covers) c.group.visible = false;
+      syncLevel();
+      for (const s of level.sections)
+        for (const [x, z, y] of s.anchors.drop) spawnPoints.push(new THREE.Vector3(x, floorY + y, z));
+      level.setSection(level.sectionAt(level.start.x, level.start.z));
+    } else for (const [x, z] of [
       [-14.5, -20],
       [14.5, -21],
       [-8, -31],
@@ -309,9 +337,27 @@ export function createWorld(scene, T, brand) {
     setLiftProgress,
     lift,
     floors: floorSets,
+    // the floor-2 building while on floor 2 (null on floor 1 and with ?f2=arena)
+    get level() {
+      return onLevel() ? level : null;
+    },
+    // walkable height (absolute y) under x, z
+    ground(x, z) {
+      return onLevel() ? floorY + level.ground(x, z) : floorY;
+    },
     update(dt, time, camera) {
       lift.update(dt, time, camera);
       floorSets.update(dt, time);
+      if (level) {
+        const riding = lift.assembly.position.y > 0.1;
+        const inside = activeFloor === 2 && !riding;
+        level.group.visible = inside;
+        if (backdrop) backdrop.visible = !inside; // the building's walls replace the tower shell
+        if (inside) {
+          level.update(dt, time);
+          if (level.version !== levelVersion) syncLevel();
+        }
+      }
     },
     dispose() {
       scene.remove(root);

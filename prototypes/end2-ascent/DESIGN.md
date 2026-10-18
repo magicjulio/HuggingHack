@@ -28,7 +28,20 @@ First pass on the verdict above. A session on the dev box was killed by the out-
 
 Keep the grand tower, armada approach, squad-assault premise, poisoned `KAM1196A`, and spawn-subagents fantasy as direction to build on. Do not treat the current placeholder art or combat tuning as approved final choices.
 
+## Floor 2 as a building (round 3, fight) · 2026-10-18
+
+Julius: "level 2 gets boring … the same over and over". Floor 2 is now a real building (`floor2.js`, building's layout, map in `FLOOR2.md`) fought through **section by section**. Status: **in the game**, proposal for Julius; every number is in `T.building` and `T.encounter.sections[2]` (`main.js`).
+
+- **Flow.** Eight sections from the lift to the next lift shaft (s0 LIFT LANDING → s1 SECURITY HALL → s2 OPEN OFFICE → s3 SERVER GALLERY → s4 COOLING HALL (stairs up) → s5 SKYBRIDGE → s6 OPERATIONS → s7 ASCENT CORE). Every door is **locked (orange) until its section is clear**, then opens (green). Defenders are **already in place** behind the next door (dormant until it opens, or until they see you up close or get shot); drop-ins and side-door reinforcements are only set-pieces.
+- **Every section asks something different:** a gunner corridor with Huggers out of the side offices (s1), a shield-led desk line kept alive by a Maintainer at the back (s2), a Warden covering a 33 m hall with rack pods as pockets (s3), gunners holding a mezzanine with a Maintainer up top and Huggers on the floor, taken by the stairs (s4), a shield wall at a 2 m choke (s5), an ambush behind a door that flashes red first, then a hold at the terminal with reinforcements walking in (s6), and a final mixed room with a dropped-in second wave, then reach the lift shaft (s7).
+- **Retry:** checkpoint at the last opened door (`T.building.checkpoint`, on). You respawn on the near side of that door; the section behind it is reset.
+- **Engine:** movement, enemies, drops and loot follow the ground (stairs, upper level; the player can drop off a ledge, enemies never do); colliders with their own `baseY`; enemies route through doors and round corners on the level's nav graph (`building.js`, A*); the camera does a cheap sphere cast and stays under the section ceiling; drop-ins start under the ceiling. Floor 1 is unchanged (flat rules when `world.level` is null).
+- **Script format** (`encounter.js` → `createSections`): per section `{ title, hint, garrison: [{ kind, at: "cover:0" | "high:1" | "back" | [x, z, y], wake: "door" | "enter", mode, leash }], events: [{ on: "door" | "enter" | "half" | "clear" | "time" | "hold", via: "drop" | "walk", spawn }], ambush, hold: { time, after: "clear", trickle } }`.
+- **HUD:** `Section n / 8 · NAME · hostiles` (only awake ones), `door unlocking`, `HOLD %`.
+- `?f2=arena` (building's knob) brings back the old arena; floor 2 then runs the old beat list.
+
 ## Combat redesign v1 (proposal) · 2026-10-17
+**Status 2026-10-18:** in the game since round 2 (see `handoff/design-to-app/2026-10-17-ascent-combat-r2.md`).
 
 Answers "crouch, aim, fire, call in allies is boring". Everything below is a proposal for Julius; every number goes in `T`.
 **Status:** designed and partly coded, **not yet in the game**. The run was stopped for budget before wiring. The game still plays the old loop described further down. Staged modules (none imported yet): `enemies.js`, `enemies-extra.js`, `encounter.js`, `projectiles.js`, `looks.js`, `actors.next.js`. To-do: `handoff/design-to-app/2026-10-17-ascent-combat.md`.

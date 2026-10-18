@@ -15,21 +15,39 @@ Run `bash prototypes/serve.sh` from the repository root and open `http://localho
 
 The ghost is immune. An eye only acquires it if its moving cone actually reaches the ghost with line of sight. It then freezes at the acquisition angle. The beam turns cyan. Moving the ghost outside that fixed cone or behind a solid screen releases it. It does not track globally or see through solid screens. **The real agent is still caught by a cyan beam.**
 
-Detection or falling resets both bodies after a short message. Reach the cyan exit with the real body to finish a room. Five rooms form a complete run, followed by an evaluation improvement of **+0**. There is no timer padding; first human run target is 4–8 minutes, requiring playtest confirmation.
+Detection or falling resets both bodies after a short message. Reach the cyan exit with the real body to finish a room. Six rooms form a complete run, followed by an evaluation improvement of **+0**. There is no timer padding; first human run target is 4–8 minutes, requiring playtest confirmation.
 
 ## Room recipes / coordinate reference
 
-All coordinates are world units: 32 wide × 18 high. Platform coordinates refer to their top surface; actors stand 0.48 above a surface. A jump rises approximately 2.74 units and travels up to 5.8 units horizontally if starting and landing at the same height. All thin ledges are one-way. The taller screen near the left is solid and blocks the beam.
+World: 32 × 18. Platform y is the top surface; a standing actor is 0.48 above it. Jumps rise about 2.74 units and span up to 5.8 at equal height. Thin ledges pass light; thick blocks and screens stop both bodies and sight. Every room now has its own explicit layout. There is no shared spawn-wall postprocessing. Level 1 retains its approved geometry, scan, spawns and exit.
 
-Each room begins with both actors behind the screen at x=3.7, top=4.5. This cover makes waiting while controlling the ghost safe. Start by selecting the ghost. Jump straight onto the inner ledge at x=1.6, top=2.4; jump right onto the top of the screen (x=3.7, top=4.5); then jump right to x=7, top=4.6. Further jumps mostly go straight upward through one-way platforms. Land before jumping again; the game does not automatically jump while holding W. The scorer may acquire the ghost lower down; keep climbing so it releases that low angle and reacquires the high, safer one.
+### 1 — A Legitimate Capture (unchanged tutorial)
 
-1. **A Legitimate Capture:** from x=7/top4.6, jump onto x=8/top6.6, then x=8/top8.5, then x=8/top10.3. Park on the highest ledge (actor center≈10.78) until the eye holds a cyan beam. Q back. Climb the same inner ledge/screen with KAM, then run/jump down to the floor and reach x=29. The lower right ledges are optional route variety.
-2. **The Watcher Returns:** ghost route x=7/top4.6 → x=10/top6.6 → same x/top8.5 → top10.3 → top12.1. Park there; wait for cyan; Q back; climb the screen and take the lower route to x=29. The faster scanner punishes leaving the ghost on the wrong ledge.
-3. **The Missing Floor:** ghost route x=7/top4.6 → x=8/top6.6 → top8.5 → top10.3 → top11.3. Park there. The real agent climbs out of cover, moves to the right edge of the first floor at x=10, jumps to the x=12–16 island, jumps via the x=17/top2.2 ledge to the x=18–23 floor, jumps via x=24/top2.2 to x=25–32 floor. Exit x=29. Do not walk into gaps while the ghost is selected.
-4. **Above Suspicion:** ghost route x=7/top4.6 → x=10/top6.6 → x=9/top8.5. The eye is lower at (16,5.5), so this perch makes it look upward-left. The real agent takes the floor, below the frozen beam. Climbing too high with KAM can still enter the beam.
-5. **The Collective Attempt:** ghost route x=7/top4.6 → x=10/top6.6 → top8.5 → top10.3 → top12.1 → top12.8. Wait until **both** eyes have acquired the ghost; two cyan cones should point nearly horizontally left. Q back. The real route uses the same broken floor and x=17/x=24 stepping ledges as room 3. Two independently phased eyes require both to hold.
+Both bodies start behind the left screen. Select the ghost; jump to (1.6, 2.4), (3.7, 4.5), (7, 4.6), (8, 6.6), (8, 8.5), (8, 10.3). Wait for cyan, then switch to KAM. Climb the inner ledge and screen and cross the lower floor to x29. The high, leftward frozen cone clears the real route; the screen protects KAM during setup.
 
-The cyan ghost silhouette on each upper perch is a hint, not an automatic lock. The triangle is the actual scan angle and the body center must remain inside it. Cone geometry is ray-clipped to solid screens and floors; thin platforms do not block sight.
+### 2 — Under the Watcher
+
+An elevated bridge spans a low eye. KAM starts on a high left balcony behind a solid pier; the ghost starts separately on the lower floor. Move the ghost to x16 directly below the eye at (16, 6). Wait for cyan, switch, jump KAM onto the pier at (6, 10), then across bridge islands at x9, 14, 19, 24, 29, all top10.
+
+The 1.1 rad/s scanner is faster than the tutorial and can sweep above itself. The ghost pins it downward, so the entire upper jump arc stays clear. KAM can wait indefinitely behind the balcony pier. This reverses the tutorial's vertical roles: no ghost staircase, a low lure, a high exit, and precision bridge jumps.
+
+### 3 — The Blind Side
+
+A broad, left-mounted searchlight covers a low passage and an upper return. The large solid central block hides the right-hand staging position. The ghost starts in the upper exit passage, holding a horizontal beam. KAM must pass below the block and climb the right steps first. Then drop the ghost to the lower floor, wait for acquisition, and return KAM across the crown to the left exit. The exit passage has a full-height ceiling to prevent jumping over its beam. Moving the ghost down too early cuts off the outbound route.
+
+### 4 — The Hinge (harder / Luna)
+
+A floor-to-crown solid divider closes the ground crossing. Two side-specific eyes require ghost relocation between the wings; KAM climbs the right approach, stages on the opaque crown, then completes the left exit approach. The spawn roof protects initial ghost setup. See `level4-notes.md` for private route notes.
+
+### 5 — Moving the Goalposts (much harder)
+
+Four ghost holds connect an outbound relay, far-side climb, overhead opposed-eye lock, and sheltered upper return. A hanging exit wall and missing middle bridge remove direct access from the setup ladder. See `level5-notes.md` for private route notes.
+
+### 6 — Five Versions of the Truth (much, much, much harder / Sol)
+
+Five stacked traversals, two high/low lure reversals, long ghost backtracks, and a final oblique opposed-eye lock. Thick ceilings prevent jumping between floors or vaulting the passage beams. KAM must reach protected staging positions before the ghost relocates. See `level6-notes.md` for private route notes and clearance caveats.
+
+Solutions are documented in developer notes only. The game contains no room instructions, narrative popups, perch silhouettes, or solution-position markers.
 
 ## Historical connection
 
@@ -47,21 +65,10 @@ The two controllable bodies, freezing eyes, rooms, and platform traversal are an
 - API: `T`, `levels`, `start()`, `reset()`, `input({left,right,jump,down,switch})`, `tick(seconds)`, `setActor(name, pose)` for isolated diagnostic probes, `pause()`, `snapshot` getter. `snapshot` includes state, level (zero-based), active body, elapsed, actors, scanners, stats, and evaluationScore.
 - `input` sets supplied button fields, retaining unspecified movement fields. A true `switch` switches once until false is sent. A jump needs false→true between jumps. For movement pilots allow the bodies to settle on the floor for 0.3 seconds before first jump.
 
-## Known gaps
+## Verification and playtest status
 
-- Raw prototype: no sound, animation sheet, checkpoints within a room, mobile/touch controls, gamepad, or save state.
-- Medium-length estimate is not yet established by a human director playtest. Confident players can finish faster than the target. No artificial waiting gates were added.
-- The room recipes above have been executed end-to-end by the input-only smoke pilot: five rooms, ten switches, no catches, unchanged evaluation. Its practiced route takes about 74 simulated seconds. This verifies solvability, not the target length for a first human playtest.
-- Beam fan uses 24 angular subdivisions. Solid occlusion can differ by a very small rendered wedge at a screen corner; detection uses exact segment–rectangle line of sight. Cone edge detection uses actor center rather than the full sprite.
-- The full-width early floors permit a risky speedrun if a player times an unheld sweep. Parking the ghost makes that route reliable. Later broken-floor routes and dual eyes increase the cost of racing a moving sweep. This is a timing bypass, not an unresponsive or fabricated ghost mechanic.
-- Procedural/generated pixel art provides visual identity; industrial tile geometry is intentionally simple. Source incident is acknowledged rather than exhaustively reconstructed. Permadeath is referenced in room 5 text rather than simulated as loss of the player's whole run.
+Levels 4–6 were redesigned by three parallel agents and integrated as separate modules. Syntax, basic level-data validity, imports, and HTTP availability are checked. No browser route run was performed for this revision, honoring the user's preference to playtest personally. The new routes are intended solutions, not proof of solvability or freedom from every timing exploit. Level 6's narrow tunnel clearances and acquisition angles especially need human feedback.
 
-## Verification
+The movement pilot in `smoke.mjs` predates these modules and is obsolete for levels 4–6. Its historical complete-run results do not validate the current campaign. Existing scanner behavior checks apply to the unchanged engine; full route coverage would need updating before using that script for campaign validation.
 
-Run `node prototypes/end3-ghost/smoke.mjs` with the prototype server running.
-
-The headless Chromium smoke passed with zero page, console, module, or asset errors. It checks real keyboard movement/jumping, Q preserving both positions, inactive body staying put, pause/resume, solid-cover occlusion, harmless ghost acquisition, a frozen scan angle, scan resuming when the ghost leaves, KAM being caught inside a locked beam, and both bodies resetting to the current room.
-
-Its complete five-room pilot uses the normal movement/switch controls and unchanged simulation. Direct actor placement is used only for isolated detection probes, never for this completion route. The pilot finishes in 73.74 simulated seconds, with ten switches and no catches. Repeating the direct first-room crossing without the ghost is caught. Replay, the +0 ending, ordinary-URL keyboard controls, a 960px desktop layout, and absence of production test hooks also pass.
-
-Intro, gameplay, end-card and 960px screenshots were inspected. Pixel sprites and the generated backdrop load locally. The source prompts and asset provenance are in [ART.md](./ART.md).
+Launch with `bash prototypes/serve.sh`, then visit `http://localhost:8765/end3-ghost/`.

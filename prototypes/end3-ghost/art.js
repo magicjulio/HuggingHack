@@ -2,6 +2,14 @@
 // Background generated with image_gen; see ART.md for provenance and full prompt.
 const BACKGROUND = new URL("./assets/evaluation-void.png", import.meta.url)
   .href;
+const ARCHIVE_BACKGROUND = new URL(
+  "./assets/advanced/deep-archive-background.png",
+  import.meta.url,
+).href;
+const ARCHIVE_PLATFORM = new URL(
+  "./assets/advanced/deep-archive-platform-surface.png",
+  import.meta.url,
+).href;
 
 function canvas(w, h, paint) {
   const image = document.createElement("canvas");
@@ -206,6 +214,14 @@ function texture(THREE, image) {
   return t;
 }
 
+function pixelTexture(THREE, texture) {
+  texture.magFilter = THREE.NearestFilter;
+  texture.minFilter = THREE.NearestFilter;
+  texture.generateMipmaps = false;
+  texture.colorSpace = THREE.SRGBColorSpace;
+  return texture;
+}
+
 export async function loadArt(THREE) {
   const canvases = createPixelCanvases();
   const loader = new THREE.TextureLoader();
@@ -217,10 +233,7 @@ export async function loadArt(THREE) {
           t = await loader.loadAsync(
             new URL(`./assets/${key}.png`, import.meta.url).href,
           );
-          t.magFilter = THREE.NearestFilter;
-          t.minFilter = THREE.NearestFilter;
-          t.generateMipmaps = false;
-          t.colorSpace = THREE.SRGBColorSpace;
+          pixelTexture(THREE, t);
         } catch {
           t = texture(THREE, image);
         }
@@ -230,16 +243,27 @@ export async function loadArt(THREE) {
   );
   try {
     art.background = await new THREE.TextureLoader().loadAsync(BACKGROUND);
-    art.background.magFilter = THREE.NearestFilter;
-    art.background.minFilter = THREE.NearestFilter;
-    art.background.generateMipmaps = false;
-    art.background.colorSpace = THREE.SRGBColorSpace;
+    pixelTexture(THREE, art.background);
   } catch {
     // The supplied image ships locally; retain a dark fallback for offline copies.
     art.background = texture(
       THREE,
       canvas(32, 18, (c) => rect(c, 0, 0, 32, 18, "#080f19")),
     );
+  }
+  try {
+    art.archiveBackground = pixelTexture(
+      THREE,
+      await loader.loadAsync(ARCHIVE_BACKGROUND),
+    );
+    art.archivePlatform = pixelTexture(
+      THREE,
+      await loader.loadAsync(ARCHIVE_PLATFORM),
+    );
+  } catch {
+    // Advanced levels remain playable from an incomplete/offline asset copy.
+    art.archiveBackground = art.background;
+    art.archivePlatform = art.platform;
   }
   return art;
 }

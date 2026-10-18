@@ -6,6 +6,8 @@ The player is KAM1196A: a small green poisoned orb with dark inclusions. The leg
 
 `assets/evaluation-void.png` is the raster backdrop, generated using the built-in image generation tool. It is a distant environment only; live platforms, scan cones and characters are rendered above it. Keep its brightness subdued and do not derive collision geometry from the background. The image was visually inspected: no text, characters, logos or false foreground platforms, and a dark center for gameplay.
 
+Levels 4–6 use the separate Deep Archive set: `assets/advanced/deep-archive-background.png` and `assets/advanced/deep-archive-platform-surface.png`. It replaces the standard room backdrop and platform material in those later rooms only. The platform surface is a centered working crop of `deep-archive-platform.png`, preserving the generated source as well.
+
 ## Generated asset provenance
 
 - Method: built-in `image_gen` generation, no input reference images and no CLI/API fallback.
@@ -19,6 +21,10 @@ The player is KAM1196A: a small green poisoned orb with dark inclusions. The leg
 > Composition/framing: wide landscape 16:9 panorama, no perspective foreground floor, no walkable platforms in the foreground. Center and lower two thirds have generous dark negative space so live characters and red scanner cones remain clearly visible on top. Most architectural detail on distant edges and upper corners. Entire frame subdued, very low brightness.
 > Color palette: midnight navy, charcoal, cool slate, subdued desaturated blue. Only sparse pinpoints of red. No yellow, no warm gold.
 > Constraints: background environment only, no characters, no orbs, no eye, no text, no interface, no logos, no watermark, no bright central focal point, no smooth photorealism, no blur.
+
+- Method: built-in `image_gen` generation, no input reference images and no CLI/API fallback.
+- Final local files: `prototypes/end3-ghost/assets/advanced/deep-archive-background.png` and `prototypes/end3-ghost/assets/advanced/deep-archive-platform.png` (with the game-ready crop at `deep-archive-platform-surface.png`).
+- Prompt set: Deep Archive background — dark futuristic evaluation chamber with recessed blocks, cyan data seams and muted-red status glows; Deep Archive platform — armored alloy platform with cyan diagnostic slits and muted-red hazard pins. Both prompts prohibit text, logos, UI, characters and watermarks.
 
 ## Known limits
 

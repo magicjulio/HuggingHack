@@ -1,3 +1,5 @@
+// NOTE: Movement routes for rooms 4–6 predate the separate level modules and need updating.
+// Do not treat this pilot as validation of the current campaign.
 import assert from "node:assert/strict";
 import { chromium } from "../../app/node_modules/playwright/index.mjs";
 
@@ -177,7 +179,10 @@ try {
 
   // Complete all rooms through controls alone: no placement, invincibility,
   // scanner changes, exit warps or level skipping in this pilot.
-  const run = await page.evaluate(() => {
+  await page.exposeFunction("captureRoom", async (room) => {
+    await page.screenshot({ path: `/tmp/end3-ghost-room-${room}.png` });
+  });
+  const run = await page.evaluate(async () => {
     const g = window.__ghost;
     g.start();
     const report = [];
@@ -215,12 +220,17 @@ try {
     }
     function jumpTo(x, top) {
       release();
+      if (snapshot().state === "cleared") return;
       for (let i = 0; i < 180 && !body().grounded; i++) {
         check();
         g.tick(1 / 60);
       }
       g.input({ jump: true });
       for (let i = 0; i < 180; i++) {
+        if (snapshot().state === "cleared") {
+          release();
+          return;
+        }
         check();
         const dx = x - body().x;
         g.input({ left: dx < -0.06, right: dx > 0.06, jump: i === 0 });
@@ -257,70 +267,178 @@ try {
       if (withoutGhost.state !== "caught") throw error;
     }
     g.start();
-    const climbs = [
-      [
-        [8, 6.6],
-        [8, 8.5],
-        [8, 10.3],
-      ],
-      [
-        [10, 6.6],
-        [10, 8.5],
-        [10, 10.3],
-        [10, 12.1],
-      ],
-      [
-        [8, 6.6],
-        [8, 8.5],
-        [8, 10.3],
-        [8, 11.3],
-      ],
-      [
-        [10, 6.6],
-        [9, 8.5],
-      ],
-      [
-        [10, 6.6],
-        [10, 8.5],
-        [10, 10.3],
-        [10, 12.1],
-        [10, 12.8],
-      ],
-    ];
+    function waitLocks(indices) {
+      release();
+      for (let i = 0; i < 1800; i++) {
+        check();
+        if (indices.every((j) => snapshot().scanners[j].locked)) return;
+        g.tick(1 / 60);
+      }
+      throw new Error(`Ghost not acquired: ${JSON.stringify(snapshot())}`);
+    }
+    const shortcuts = [];
+    function dropTo(y) {
+      release();
+      g.input({ down: true });
+      for (let i = 0; i < 300; i++) {
+        check();
+        g.tick(1 / 60);
+        if (body().y <= y + 0.5) {
+          release();
+          g.tick(0.1);
+          return;
+        }
+      }
+      throw new Error("Drop failed");
+    }
+    function rightClimb(six = false) {
+      walkTo(31.5);
+      jumpTo(31.5, 2.4);
+      jumpTo(29, 4);
+      jumpTo(31, 6);
+      jumpTo(six ? 31 : 28, 8);
+      jumpTo(30, 10);
+    }
     for (let room = 0; room < g.levels.length; room++) {
       if (snapshot().level !== room)
         throw new Error("Unexpected room transition.");
       g.tick(0.3);
-      switchBody();
-      jumpTo(1.6, 2.4);
-      jumpTo(3.7, 4.5);
-      jumpTo(7, 4.6);
-      for (const [x, top] of climbs[room]) jumpTo(x, top);
-      release();
-      for (
-        let i = 0;
-        i < 1800 && !snapshot().scanners.every((s) => s.locked);
-        i++
-      ) {
-        check();
-        g.tick(1 / 60);
+      await window.captureRoom(room + 1);
+      let parked;
+      if (room === 0) {
+        switchBody();
+        for (const [x, y] of [
+          [1.6, 2.4],
+          [3.7, 4.5],
+          [7, 4.6],
+          [8, 6.6],
+          [8, 8.5],
+          [8, 10.3],
+        ])
+          jumpTo(x, y);
+        waitLocks([0]);
+        parked = snapshot();
+        switchBody();
+        jumpTo(1.6, 2.4);
+        jumpTo(3.7, 4.5);
+        walkTo(29);
+      } else if (room === 1) {
+        switchBody();
+        walkTo(16);
+        waitLocks([0]);
+        parked = snapshot();
+        switchBody();
+        for (const x of [6, 9, 14, 19, 24, 29]) jumpTo(x, 10);
+      } else if (room === 2) {
+        waitLocks([0]);
+        walkTo(25);
+        for (const [x, y] of [
+          [26, 2.5],
+          [29, 4.5],
+          [26, 6.5],
+          [29, 8.5],
+        ])
+          jumpTo(x, y);
+        switchBody();
+        dropTo(0.6);
+        waitLocks([0]);
+        parked = snapshot();
+        switchBody();
+        for (const [x, y] of [
+          [26, 10.5],
+          [22, 11],
+          [17, 11],
+          [12, 11],
+          [7, 11],
+        ])
+          jumpTo(x, y);
+        walkTo(3);
+      } else if (room === 3) {
+        waitLocks([0]);
+        walkTo(9);
+        jumpTo(11, 2);
+        jumpTo(15, 0.6);
+        walkTo(19);
+        jumpTo(21, 2);
+        walkTo(29);
+        switchBody();
+        walkTo(23);
+        g.tick(1);
+        waitLocks([0]);
+        parked = snapshot();
+        switchBody();
+        walkTo(23);
+        jumpTo(23, 2.5);
+        jumpTo(26, 3);
+        walkTo(29);
+        for (const [x, y] of [
+          [30, 4.5],
+          [29, 6.5],
+          [30, 8.5],
+          [27, 10],
+          [27, 12.5],
+          [22, 12.5],
+          [17, 12.5],
+          [12, 12.5],
+          [7, 12.5],
+          [2, 12.5],
+        ])
+          jumpTo(x, y);
+      } else {
+        switchBody();
+        for (const y of [4.5, 6.5, 8.5]) jumpTo(5, y);
+        waitLocks([0]);
+        switchBody();
+        walkTo(16);
+        g.tick(0.5);
+        switchBody();
+        if (room === 5) {
+          walkTo(21);
+          jumpTo(23, 8.5);
+          jumpTo(27, 8.5);
+        } else for (const x of [9.5, 14, 18.5, 23, 27]) jumpTo(x, 8.5);
+        waitLocks([1]);
+        switchBody();
+        walkTo(31);
+        g.tick(0.5);
+        switchBody();
+        walkTo(25.5);
+        dropTo(0.6);
+        waitLocks([1]);
+        parked = snapshot();
+        switchBody();
+        rightClimb(room === 5);
+        if (room === 5) {
+          switchBody();
+          rightClimb(true);
+          for (const [x, y] of [
+            [30, 12],
+            [28, 13],
+            [23, 12],
+            [20, 12],
+            [16, 12],
+          ])
+            jumpTo(x, y);
+          waitLocks([2]);
+          switchBody();
+          jumpTo(30, 12);
+          jumpTo(28, 13);
+          walkTo(23);
+          dropTo(8.5);
+          walkTo(16);
+          switchBody();
+          jumpTo(12, 12);
+          jumpTo(7, 12);
+          waitLocks([0, 2]);
+          parked = snapshot();
+          switchBody();
+          walkTo(3);
+        }
       }
-      if (!snapshot().scanners.every((s) => s.locked))
-        throw new Error(`Ghost not acquired: ${JSON.stringify(snapshot())}`);
-      const parked = structuredClone(snapshot());
-      switchBody();
-      jumpTo(1.6, 2.4);
-      jumpTo(3.7, 4.5);
-      if (room === 2 || room === 4) {
-        walkTo(9.2);
-        jumpTo(14, 0.6);
-        jumpTo(17, 2.2);
-        walkTo(22);
-        jumpTo(24, 2.2);
-      }
-      walkTo(29);
       if (snapshot().state !== "cleared")
-        throw new Error(`Exit missed in room ${room + 1}`);
+        throw new Error(
+          `Exit missed in room ${room + 1}: ${JSON.stringify(snapshot())}`,
+        );
       report.push({
         room: room + 1,
         elapsed: +snapshot().elapsed.toFixed(2),
@@ -329,7 +447,13 @@ try {
       });
       g.tick(1.2);
     }
-    return { withoutGhost, report, end: snapshot() };
+    return {
+      withoutGhost,
+      shortcuts,
+
+      report,
+      end: snapshot(),
+    };
   });
   assert.equal(
     run.withoutGhost.state,
@@ -337,16 +461,16 @@ try {
     "The direct route is caught unless the ghost holds the gaze.",
   );
   assert.equal(run.end.state, "ended");
-  assert.equal(run.end.stats.rooms, 5);
+  assert.equal(run.end.stats.rooms, 6);
   assert.equal(run.end.stats.catches, 0);
-  assert.equal(run.end.stats.switches, 10);
+  assert.equal(run.end.stats.switches, 24);
   assert.ok(run.end.stats.locks >= 6);
   assert.equal(run.end.evaluationScore, 0);
   assert.match(
     await page.locator("#card-copy").textContent(),
     /score improvement: 0/,
   );
-  console.log("PASS input-only five-room run", JSON.stringify(run));
+  console.log("PASS input-only six-room run", JSON.stringify(run));
   await page.screenshot({ path: "/tmp/end3-ghost-ending.png" });
   await page.click("#start");
   const replay = await page.evaluate(() => window.__ghost.snapshot);

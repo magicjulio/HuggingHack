@@ -1,3 +1,11 @@
+> Play and Replay start at level 1 (`startingLevel = 0` in main.js). The temporary level-4 start was reverted at the user's request. The old smoke movement routes for levels 4–6 still need revision before reuse.
+
+> Latest hardening: levels 4–6 now import `level4.js`, `level5.js`, and `level6.js`. Three agents redesigned them with escalating difficulty; private route notes are in matching `levelN-notes.md`. Syntax/data/import checks only; user will playtest. The old smoke movement routes for 4–6 are obsolete. Solution markers and instructional slogans are removed.
+
+> Latest revision: rooms 3–5 made harder; experimental room 6 and broad, opposed-beam, and rail-patrol scanners added. In-game solution text removed. User requested stopping extended testing for their own playtest. See DESIGN.md for current verification limits.
+
+> Implemented 2026-10-18: level 1 preserved; levels 2–5 replaced. Level 3 includes the requested opaque solid block. See `DESIGN.md` for current solutions and `smoke.mjs` for movement-only verification. The baseline descriptions below are historical context.
+
 # Next session: creative levels for Ghost Capture
 
 ## Task from the director
