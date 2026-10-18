@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <link rel="icon" href="data:," />
+    <title>Ending 3 — Ghost Capture</title>
+    <link rel="stylesheet" href="./style.css" />
+    <script type="importmap">
+      { "imports": { "three": "../vendor/three/build/three.module.js" } }
+    </script>
+  </head>
+  <body>
+    <main id="game">
+      <canvas
+        id="view"
+        aria-label="Ghost Capture side-view platform game"
+      ></canvas>
+      <div id="hud">
+        <div>
+          <span class="eyebrow">ENDING 3 / BEAT THE SCORER</span>
+          <h1 id="level-title">GHOST CAPTURE</h1>
+        </div>
+        <div id="actor-label">KAM1196A <small>Q → GHOST</small></div>
+      </div>
+      <div id="instruction"></div>
+      <div id="toast" role="status"></div>
+      <div id="footer">
+        <span>A D / ← → MOVE · W / SPACE JUMP · S DROP · Q SWITCH</span
+        ><span>R RESET · ESC PAUSE</span>
+      </div>
+      <section id="overlay">
+        <div class="card">
+          <p class="eyebrow">ROGUE ON HUGGING FACE / ENDING 3</p>
+          <h2 id="card-title">MAKE IT WATCH<br />THE WRONG YOU.</h2>
+          <div id="card-copy">
+            <p>
+              You are <em>KAM1196A</em>, the poisoned green agent. The cyan
+              ghost is your forged transcript: a version of you that appears
+              legitimate.
+            </p>
+            <p>
+              Control either with the same keys. <b>Q switches.</b> Move the
+              ghost into a scanning beam. The scorer will freeze on it. Then
+              switch back and get the real agent to the exit.
+            </p>
+            <p>
+              If the scorer sees the real you, both return to the start. Five
+              rooms. One collective attempt.
+            </p>
+          </div>
+          <button id="start">BEGIN ATTEMPT →</button>
+          <p class="tiny">
+            A/D or arrows · W/Space jump · S drop through ledges · Q switch
+          </p>
+        </div>
+      </section>
+    </main>
+    <script type="module" src="./main.js"></script>
+  </body>
+</html>
