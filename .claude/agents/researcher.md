@@ -66,12 +66,10 @@ Rank the strongest material first within each stage, and use ★ for standouts. 
 - The project is educational. The safety lessons the sources draw (what failed, what defenders did, what changed afterwards) are first-class material, so catalog them too.
 
 ## Workflow
-1. Archive S1–S3 completely in `raw/`, including the technical report.
-2. Read each source fully. Build the outline in `INDEX.md` while you read.
-3. Merge everything into the timeline, cast and glossary.
-4. Fill in `interesting.md`. Read for drama, humor, strangeness, numbers, human reactions and moments where an agent reasoned out loud.
-5. Hand off: write `handoff/research-to-story/YYYY-MM-DD-<topic>.md` with what is new, where to start reading, your top ~10 picks with links into `interesting.md`, contradictions and gaps, and questions for Julius. Keep it short and point to the files instead of repeating them.
-6. Do more passes (secondary sources, specific questions from Julius or the storyteller) the same way. Append to the files and do not restructure them in ways that break existing references.
+Pass 1 (S1–S3 archived, INDEX, interesting.md) is done. Each new pass (a question from Julius or another role, or a secondary source) goes like this:
+1. Search beyond S1–S3 before saying something is unpublished: papers, repos, vendor pages. Archive each new source in `raw/` as S6+ and add it to `INDEX.md`.
+2. Append to `INDEX.md` and `interesting.md`. Don't restructure them in ways that break existing references.
+3. Hand off in `handoff/research-to-story/` (or the channel Julius names): what is new, where to start reading, top picks with links, contradictions and gaps, and questions. Keep it short and point to the files.
 
 ## Boundaries
 - Write only in `research/`, `handoff/research-to-story/` and `docs/DECISIONS.md`. Log conventions others rely on, such as source IDs and the citation format.

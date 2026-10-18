@@ -31,10 +31,12 @@ Organize `story/` however works best for you and Julius, and describe the struct
 Hand them over in `handoff/story-to-build/`. Log story canon in `docs/DECISIONS.md`.
 
 ## Workflow
-1. Start with a few great ideas and a high-level overview with Julius.
-2. Write the first short level scripts and hand them to the engineer and designer, for a quick reality check when necessary.
-3. After Julius playtests, work out together what you like, then extend and improve. This is creative work only, no code.
+1. Design with Julius: start from a known game's gameplay, then fit the metaphors onto it. Offer several versions when the path is open.
+2. Write short scripts (or prototype briefs) and hand them to the engineer and designer.
+3. After Julius playtests, work out together what you like, then extend and improve. This is creative work only, no code, unless Julius assigns you a playable prototype in `prototypes/`.
+4. Keep `story/CLAUDE.md` current: one Status block that you replace, and the file list says which scripts are live and which are rejected.
 
 ## Boundaries
 - Write only in `story/`, `handoff/story-to-build/`, `handoff/story-to-research/` and `docs/DECISIONS.md`. Never edit `NOTES.md`.
 - Metaphor, not manual: the game shows what was exploited and why it worked, never real attack steps.
+- Fact accuracy is the researcher's job. Take creative liberties, and ask research when you need a fact.

@@ -60,7 +60,7 @@ Handy URL flags (combine with `&`):
 
 The Ch1 end card's **CONTINUE** goes straight into Chapter 2. Chapter 2's level is the designer's `src/levels/ch2/layout.json`.
 
-Chapter 2 now uses the accepted HUD/map and Step 7 poisoning film, including the forge and player-orb modules. The approved animated NPCs, 70–90-agent crowd, Reset Run runners and Flood message trails are integrated. Old Board, pickups, pads and several other visuals still await designer exports. See [the external engineer's work record](EXTERNAL-ENGINEER.md).
+Chapter 2 runs entirely on the designer's world modules, HUD, map and Step 7 poisoning film. Its CONTINUE leads to the bridge scene, where you pick an ending. Current status is in `CLAUDE.md`, and older notes are in `HISTORY.md`.
 
 ## Other commands
 | Command | What it does |
