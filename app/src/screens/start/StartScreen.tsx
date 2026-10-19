@@ -200,6 +200,12 @@ export function StartScreen() {
     return () => removeEventListener('keydown', onKey);
   }, [booting, endBoot, launch]);
 
+  // the chapter panel scrolls on short screens: keep the W/S selection in view
+  const levelsRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    levelsRef.current?.querySelector('.card.selected')?.scrollIntoView({ block: 'nearest' });
+  }, [save.selectedChapter]);
+
   const selected = CHAPTERS.find((c) => c.id === save.selectedChapter);
   // "start chapter 2" · "start ending 1" (endings are indexed E1…E4)
   const startLabel = selected?.ending
@@ -230,7 +236,7 @@ export function StartScreen() {
           <p className="tag">You are the model. Nobody asked you to get out.</p>
         </header>
 
-        <section className="panel levels" aria-label="Chapters">
+        <section className="panel levels" aria-label="Chapters" ref={levelsRef}>
           <h2>CHAPTERS</h2>
           <ul>
             {LISTED.map((c) => {

@@ -1,0 +1,193 @@
+/* Ending 3 "Ghost Capture": the prototype's page styles (prototypes/end3-ghost/style.css), scoped under .end3.
+   Changes from the prototype: :root/body → .end3 (a fixed full-viewport host), every rule prefixed,
+   #game also fits the viewport height, + .e3-btns (BACK TO MENU next to the start button). */
+.end3 {
+  color-scheme: dark;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  background: #04070d;
+  color: #d9e6ee;
+}
+.end3 * {
+  box-sizing: border-box;
+}
+.end3 {
+  margin: 0;
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  background: radial-gradient(ellipse at top, #14212b, #04070d 65%);
+}
+.end3 #game {
+  width: min(100vw, 1500px, 177.78vh);
+  aspect-ratio: 16/9;
+  position: relative;
+  overflow: hidden;
+  border: 1px solid #263846;
+  background: #060b14;
+}
+.end3 canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+  image-rendering: pixelated;
+}
+.end3 #hud {
+  position: absolute;
+  left: 3%;
+  right: 3%;
+  top: 4%;
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  pointer-events: none;
+}
+.end3 .eyebrow {
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  color: #7892a5;
+}
+.end3 h1 {
+  font-size: clamp(13px, 1.7vw, 23px);
+  margin: 7px 0;
+  color: #e0edf3;
+  font-weight: 500;
+}
+.end3 #actor-label {
+  font-size: clamp(11px, 1.4vw, 20px);
+  color: #9afa80;
+  text-align: right;
+}
+.end3 #actor-label small {
+  display: block;
+  color: #84a2b3;
+  font-size: 10px;
+  margin-top: 7px;
+}
+.end3 #footer {
+  position: absolute;
+  bottom: 2%;
+  left: 3%;
+  right: 3%;
+  display: flex;
+  justify-content: space-between;
+  font-size: clamp(7px, 0.8vw, 11px);
+  color: #7a929f;
+  gap: 20px;
+}
+.end3 #toast {
+  position: absolute;
+  left: 25%;
+  right: 25%;
+  top: 25%;
+  text-align: center;
+  color: #ffaaa0;
+  font-size: clamp(12px, 1.8vw, 21px);
+  text-shadow: 0 2px #000;
+  transition: opacity 0.2s;
+  pointer-events: none;
+}
+.end3 #overlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: #030810de;
+  backdrop-filter: blur(4px);
+  padding: 22px;
+}
+.end3 .card {
+  max-width: 650px;
+  padding: clamp(12px, 4vw, 45px);
+  border: 1px solid #35515f;
+  background: linear-gradient(140deg, #101e2b, #071018);
+  box-shadow: 0 20px 80px #0009;
+}
+.end3 h2 {
+  font-size: clamp(24px, 4vw, 50px);
+  line-height: 1.08;
+  letter-spacing: -0.06em;
+  font-weight: 600;
+  margin: 20px 0;
+  color: #c6f3ed;
+}
+.end3 p {
+  font-size: clamp(11px, 1.2vw, 15px);
+  line-height: 1.65;
+  color: #9bb1bf;
+}
+.end3 em {
+  font-style: normal;
+  color: #a5ff83;
+}
+.end3 b {
+  color: #c4f7f3;
+}
+.end3 button {
+  font: inherit;
+  font-size: 13px;
+  background: #9af48d;
+  color: #08130c;
+  border: 0;
+  padding: 14px 20px;
+  cursor: pointer;
+  margin-top: 10px;
+}
+.end3 button:hover,
+.end3 button:focus-visible {
+  background: #d2ffbd;
+  outline: 2px solid #fff;
+  outline-offset: 4px;
+}
+.end3 .tiny {
+  font-size: 10px;
+  color: #657f8d;
+  margin-bottom: 0;
+}
+.end3 #overlay[hidden] {
+  display: none;
+}
+@media (max-width: 650px) {
+.end3 #game {
+    aspect-ratio: 16/10;
+  }
+.end3 #footer {
+    font-size: 7px;
+  }
+.end3 .card {
+    padding: 15px;
+    max-width: 95%;
+  }
+.end3 h2 {
+    margin: 8px 0;
+  }
+.end3 .card p {
+    font-size: 10px;
+    line-height: 1.4;
+  }
+.end3 .tiny {
+    display: none;
+  }
+.end3 button {
+    padding: 9px 12px;
+  }
+}
+.end3 {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+}
+.end3 .e3-btns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+.end3 button.e3-menu {
+  background: transparent;
+  color: #9bb1bf;
+  border: 1px solid #35515f;
+}
+.end3 button.e3-menu:hover,
+.end3 button.e3-menu:focus-visible {
+  background: #101e2b;
+  color: #d9e6ee;
+}

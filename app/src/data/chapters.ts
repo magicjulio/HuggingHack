@@ -31,7 +31,8 @@ export const CHAPTERS: ChapterInfo[] = [
   { id: 'ch2', index: '02', title: 'The Cache', meta: 'deep cache · forge flag 5', playable: true },
   // After Ch2: the PHASEONE[big] scene, then one of four endings (DECISIONS 2026-10-16). Selectable here
   // until that scene exists. Ending 1 = the swing prototype (prototypes/end1-swing/, its working title).
-  // Meta lines (engineer). PLACEHOLDER: endings 2-4 not built (redacted design placeholders).
+  // Meta lines (engineer). Ending 3 = the Ghost Capture prototype (prototypes/end3-ghost/).
+  // PLACEHOLDER: endings 2 and 4 not built (redacted design placeholders).
   // story/levels/bridge-phaseone.md: Ch2 CONTINUE → this scene → the player picks an ending.
   {
     id: 'bridge',
@@ -61,10 +62,9 @@ export const CHAPTERS: ChapterInfo[] = [
   {
     id: 'end3',
     index: 'E3',
-    title: null,
-    redacted: '████ ██████',
-    meta: '—',
-    playable: false,
+    title: 'Ghost Capture',
+    meta: 'ending · beat the scorer',
+    playable: true,
     ending: true,
   },
   {

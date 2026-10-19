@@ -4,6 +4,8 @@
    - ids became classes: #swarm→.ss-swarm, #screen→.ss-screen, #orb→.ss-orb, #toast→.ss-toast,
      #boot→.ss-boot, #flash→.ss-flash; keyframes prefixed ss-;
    - global resets (html/body/button/ul) moved to src/styles/base.css.
+   - .levels scrolls inside its grid row (min-height:0, overflow-y:auto), so six chapter rows keep the
+     START button on a 720 px tall screen (engineer, 2026-10-18).
    When the designer sends a -v2, diff against their file and re-apply these renames. */
 
 .start-screen{position:fixed;inset:0;overflow:hidden;background:var(--color-void)}
@@ -43,7 +45,7 @@
   border:1px solid var(--color-line);clip-path:polygon(var(--cut) 0,100% 0,100% calc(100% - var(--cut)),calc(100% - var(--cut)) 100%,0 100%,0 var(--cut))}
 .start-screen .panel h2{font-family:var(--font-display);font-size:var(--fs-sm);letter-spacing:.35em;color:var(--color-signal-cyan);margin-bottom:var(--space-3);font-weight:500}
 .start-screen .panel h2::after{content:"";display:block;height:1px;margin-top:.5em;background:linear-gradient(90deg,var(--color-signal-cyan),transparent)}
-.start-screen .levels{grid-area:levels}.start-screen .models{grid-area:models}
+.start-screen .levels{grid-area:levels;min-height:0;max-height:100%;overflow-y:auto;scrollbar-width:thin}.start-screen .models{grid-area:models}
 .start-screen .panel li+li{margin-top:var(--space-2)}
 .start-screen .card{width:100%;display:grid;grid-template-columns:auto 1fr auto;gap:.1rem .8rem;padding:.8rem .9rem;border:1px solid var(--color-line);background:rgba(255,255,255,.015);transition:.18s;position:relative}
 .start-screen .card:hover:not([data-locked]){border-color:var(--color-line-strong);background:rgba(56,216,255,.06);transform:translateX(3px)}

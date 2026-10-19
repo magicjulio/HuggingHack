@@ -22,4 +22,5 @@ export const LEVELS: Record<string, LazyExoticComponent<ComponentType<LevelProps
   ch2: lazy(() => import('./ch2/Chapter2')),
   bridge: lazy(() => import('./bridge/Bridge')),
   end1: lazy(() => import('./end1/End1')),
+  end3: lazy(() => import('./end3/End3')),
 };
