@@ -127,3 +127,4 @@ The camera keys start inside the cab behind the player looking out of the front 
 ## Changelog
 - 2026-10-18 · v1 greybox: the full API above, `level.arena`, `world.express`. Kit pending (greybox pieces until `end2-floor3-kit.glb` is in).
 - 2026-10-19 · v1.1: art pass. `end2-floor3-kit.glb` dresses the arena (columns, cradle, breakables, gate, roof trusses, floor ring) and the cab; the corridor wears the floor-2 kit. API unchanged. Answers to `FLOOR3-REQUESTS.md` (2026-10-18): nothing to change. The hands' idle spots (11 m beside the face, 4 m toward the room) clear the roof columns (19.5 m off-centre) and the window wall (z 165).
+- 2026-10-19 · perf · breakables: with the kit, the opaque parts of all 9 are one merged mesh per material (`breakables:<mat>` in `floor 3: arena pieces`); a broken piece collapses in the vertex shader (`uGone`). The glass stays per piece in `b.group`. API unchanged: `break()`/`reset()`/`b.group.visible` work as before. ~63 fewer draws.

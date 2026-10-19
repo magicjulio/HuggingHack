@@ -276,6 +276,9 @@ export function createFloor3(opts = {}) {
   let bump = 0;
   Object.defineProperty(level, "version", { get: () => versionOf() + bump, configurable: true });
   const debris = [];
+  // perf: with the kit, the opaque parts of all breakables are merged (see dress()); a broken
+  // piece is collapsed in the vertex shader through this per-piece flag.
+  const gone = { value: new Float32Array(Math.max(1, breakCols.length)) };
   const breakables = breakCols.map((c, i) => {
     const g = new THREE.Group();
     g.name = `breakable ${i}`;
@@ -296,6 +299,7 @@ export function createFloor3(opts = {}) {
         if (k >= 0) level.colliders.splice(k, 1);
         bump++;
         g.visible = false;
+        gone.value[i] = 1;
         spawnDebris(g.position, dir);
         level.onBreak?.(this);
         return true;
@@ -306,6 +310,7 @@ export function createFloor3(opts = {}) {
         if (!level.colliders.includes(c)) level.colliders.push(c);
         bump++;
         g.visible = true;
+        gone.value[i] = 0;
       },
     };
     return b;
@@ -496,12 +501,48 @@ export function createFloor3(opts = {}) {
     // the cab (s0): its own group, shown with s0
     const cab = new Map();
     if (place("q_cab", at(8, 0, 63.75), cab)) flush(cab, cabArt, "cab");
-    // breakables: one small merged mesh each, so a break only hides that one
-    for (const b of breakables) {
+    // breakables (perf, 2026-10-19): the opaque parts of all of them merge into one mesh per
+    // material, with a per-vertex piece index; a broken piece collapses in the vertex shader
+    // (uGone). ~63 draw calls → 7. The glass stays one small mesh per piece in b.group, so the
+    // transparent sorting is as before, and b.group still hides with the piece.
+    const merged = new Map();
+    for (const [i, b] of breakables.entries()) {
       const one = new Map();
       if (!place("q_break", new THREE.Matrix4(), one)) continue;
       for (const ch of [...b.group.children]) b.group.remove(ch);
-      flush(one, b.group, b.id);
+      b.group.updateMatrix();
+      const glass = new Map();
+      for (const [mat, geos] of one) {
+        if (mat.transparent) {
+          glass.set(mat, geos);
+          continue;
+        }
+        if (!merged.has(mat)) merged.set(mat, []);
+        for (const g of geos) {
+          g.applyMatrix4(b.group.matrix);
+          g.setAttribute("aPiece", new THREE.BufferAttribute(new Float32Array(g.attributes.position.count).fill(i), 1));
+          merged.get(mat).push(g);
+        }
+      }
+      flush(glass, b.group, b.id);
+    }
+    const n = gone.value.length;
+    for (const [mat, geos] of merged) {
+      const m = own(mat.clone());
+      m.emissive = mat.emissive; // shared Color: mood/emissive changes on the kit material carry over
+      Object.defineProperty(m, "emissiveIntensity", { get: () => mat.emissiveIntensity, set() {}, configurable: true });
+      m.onBeforeCompile = (sh) => {
+        sh.uniforms.uGone = gone;
+        sh.vertexShader = sh.vertexShader
+          .replace("#include <common>", `#include <common>\nattribute float aPiece;\nuniform float uGone[${n}];`)
+          .replace("#include <begin_vertex>", "#include <begin_vertex>\nif (uGone[int(aPiece + 0.5)] > 0.5) transformed = vec3(0.0);");
+      };
+      m.customProgramCacheKey = () => `f3-break-${n}`;
+      const mesh = new THREE.Mesh(own(mergeGeometries(geos, false)), m);
+      geos.forEach((g) => g.dispose());
+      mesh.name = `breakables:${mat.name}`;
+      mesh.receiveShadow = true;
+      art.add(mesh);
     }
     if (dressed) grey.visible = false;
     collectMoodMats();

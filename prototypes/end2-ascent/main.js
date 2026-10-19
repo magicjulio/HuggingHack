@@ -7,7 +7,7 @@ import { createBuilding } from "./building.js"; // floor-2 level adapter (fight)
 import { createFlight } from "./flight.js";
 import { P, loadBrand, loadFonts, applyEnvironment } from "./art.js";
 import { buildPlayer, buildPickup, LOOT } from "./models.js";
-import { createRenderer } from "./post.js";
+import { createRenderer, skipHiddenMatrices } from "./post.js";
 import { createAudio } from "./audio.js";
 import { createBoss, createStubBossModel } from "./boss.js"; // floor-3 end boss (fight)
 // The boss's look (boss agent, BOSS.md). Loaded defensively: until it exists (or
@@ -507,6 +507,9 @@ export const T = {
   },
   fx: {
     maxPixelRatio: 1.5,
+    msaa: 4, // scene MSAA samples (4 = the look so far; 2 or 0 are cheaper on the GPU). URL ?msaa=
+    renderScale: 1, // render resolution (1 = full; 0.8 is softer, ~35% fewer pixels). URL ?res=
+
     maxParticles: 240,
     beamDuration: 0.09,
     volume: 0.13,
@@ -522,6 +525,8 @@ const brand = await loadBrand();
 const gfx = createRenderer(canvas, {
   pixelRatio: T.fx.maxPixelRatio,
   exposure: T.fx.exposure,
+  msaa: T.fx.msaa,
+  renderScale: T.fx.renderScale,
 });
 const renderer = gfx.renderer;
 const scene = new THREE.Scene();
@@ -541,6 +546,8 @@ scene.add(sun);
 const world = createWorld(scene, T, brand),
   flight = createFlight(scene, T, brand);
 await flight.ready; // the approach's glb models (dropship, fleet, HQ)
+// perf: hidden floors and the armada (after the approach) skip their matrix updates (?perfmat=0: off)
+if (new URLSearchParams(location.search).get("perfmat") !== "0") (skipHiddenMatrices(world.root), skipHiddenMatrices(flight.root));
 const keys = new Set();
 let mouseFire = false,
   mouseAim = false,
@@ -2271,10 +2278,26 @@ function formatTime(t) {
     .toString()
     .padStart(2, "0")}`;
 }
+// HUD writes only when a value changes (perf: an unchanged textContent write still replaces the
+// text node and forces a style + layout pass every frame).
+const hudCache = new Map();
+function setText(id, v) {
+  v = String(v);
+  if (hudCache.get(id) === v) return;
+  hudCache.set(id, v);
+  $(id).textContent = v;
+}
+function setStyle(id, prop, v) {
+  const k = id + "." + prop;
+  v = String(v);
+  if (hudCache.get(k) === v) return;
+  hudCache.set(k, v);
+  $(id).style[prop] = v;
+}
 function updateHud() {
   const combat = state === "combat" || state === "dead",
     flying = state === "flight";
-  $("objective").textContent = flying
+  setText("objective", flying
     ? "Reach the headquarters"
     : state === "lift"
       ? "Climb with the swarm"
@@ -2290,20 +2313,20 @@ function updateHud() {
             ? director.holding
               ? "Hold the ring"
               : "Fight through the building"
-            : "Secure the next ascent";
-  $("detail").textContent = flying
+            : "Secure the next ascent");
+  setText("detail", flying
     ? "Bottom entrance / approach corridor"
     : state === "lift"
       ? "Scorer’s files believed to be at the top"
       : floor === 3 && boss?.active
         ? `Phase ${boss.phase} / 3 · ${actors.enemies.filter((e) => !e.dead).length} defenders · face always, hands when down`
-        : beatDetail();
-  $("phase").textContent = flying
+        : beatDetail());
+  setText("phase", flying
     ? "FLEET APPROACH"
     : state === "lift"
       ? "VERTICAL TRANSIT"
-      : `FLOOR 0${floor}`;
-  $("timer").textContent = formatTime(runTime);
+      : `FLOOR 0${floor}`);
+  setText("timer", formatTime(runTime));
   $("crosshair").classList.toggle("hidden", !combat);
   $("crosshair").classList.toggle("aim", mouseAim);
   $("crosshair").classList.toggle("hit", hitTime > 0 && !hitBlocked);
@@ -2324,24 +2347,22 @@ function updateHud() {
   $("ability").classList.toggle("hidden", !combat);
   $("controls").classList.toggle("hidden", !combat);
   $("flightmeter").classList.toggle("hidden", !flying);
-  $("healthfill").style.width = health + "%";
-  $("healthtext").textContent = Math.ceil(health);
-  $("heatfill").style.width = heat + "%";
-  $("heatlabel").textContent = overheated
+  setStyle("healthfill", "width", health + "%");
+  setText("healthtext", Math.ceil(health));
+  setStyle("heatfill", "width", heat + "%");
+  setText("heatlabel", overheated
     ? "OVERHEATED / COOLING"
-    : "PULSE RIFLE / HEAT";
-  $("callfill").style.width =
-    (actors.ready ? 100 : 100 * (1 - actors.cooldown / T.squad.cooldown)) +
-    "%";
-  $("abilitydetail").textContent =
-    actors.activeRemaining > 0
+    : "PULSE RIFLE / HEAT");
+  setStyle("callfill", "width", (actors.ready ? 100 : 100 * (1 - actors.cooldown / T.squad.cooldown)) +
+    "%");
+  setText("abilitydetail", actors.activeRemaining > 0
       ? `Squad active · ${Math.ceil(actors.activeRemaining)}s / next call ${Math.ceil(actors.cooldown)}s`
       : actors.ready
         ? "3 agents · ready for deployment"
-        : `Recharging · ${Math.ceil(actors.cooldown)}s`;
-  $("toast").style.opacity = toastTime > 0 ? 1 : 0;
+        : `Recharging · ${Math.ceil(actors.cooldown)}s`);
+  setStyle("toast", "opacity", toastTime > 0 ? 1 : 0);
   $("hint").classList.toggle("hidden", hintTime <= 0);
-  $("damage").style.opacity = damageFlash;
+  setStyle("damage", "opacity", damageFlash);
   updateBossBar(combat);
   updateAudio();
 }
@@ -2433,6 +2454,8 @@ requestAnimationFrame(frame);
 if (new URLSearchParams(location.search).has("test"))
   window.__ascent = {
     T,
+    gfx,
+    renderer,
     scene,
     camera,
     world,
