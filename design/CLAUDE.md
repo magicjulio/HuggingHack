@@ -34,8 +34,9 @@ Whiteboard, not a log: replace the Status block, don't add dated sections. Every
 - Ch2 world modules: plain ES modules on three@0.186.1, no DOM or globals, `createX(ctx) → {object, update(t, dt, state), dispose()}`. Gameplay motion goes in the pure `motion.js` only. Contract: `handoff/app-to-design/2026-10-14-ch2-world-as-modules.md`.
 - Film directors (`step0.js`, `step7.js`, `bridge.js`) hold all timing, camera and cues as data. Edit timing there, never in a page.
 
-## Status (2026-10-18)
+## Status (2026-10-19)
+- **E4 The Letter** (built by Codex, in `app/src/levels/end4/`): Julius is reviewing it and wants a few rewrites. Unplug-shot clipping fix is handed over (`2026-10-19-end4-unplug-fix.md`; work files in `design/end4/`, preview server `vite.preview.mjs` on :5175, `shots.mjs` screenshots).
 - **Ch1 and Ch2: done for now.** Refinements come after all chapters. Open: whole-game map regions (parked by Julius), bridge sound cues, and the real bridge speech lines (from the storyteller).
 - **E3 Ghost Capture:** approved and handed over (`handoff/design-to-app/2026-10-18-end3-ghost-approved.md`). The engineer has integrated it.
-- **E2 ASCENT** (`prototypes/end2-ascent/`): the round 3 landing is accepted for now, so leave it alone. Floor 2 (8-section building) is waiting for Julius's playtest (`2026-10-18-ascent-building-r3.md`, `-fight-r3.md`). **Round 4 is building floor 3** (arena, boss, fight): brief `handoff/design-to-app/2026-10-18-ascent-team-brief-r4.md`, direction `-ascent-floor3-finale.md`. Boss GLM-5.2 is delivered (`-ascent-boss-r4.md`: `boss-model.js` + `BOSS.md`, `3d/end2/boss/boss.py` → `end2-boss.glb`, lab `?view=boss`). It waits for Julius's look review.
+- **E2 ASCENT** (`prototypes/end2-ascent/`): **promoted for integration** (Julius, 2026-10-19: "works great"). The engineer ports it into `app/src/levels/end2/` (`handoff/design-to-app/2026-10-19-ascent-promoted.md`). After the port the app copy is the live one; the prototype stays as the reference. All 3 floors and the GLM-5.2 boss are done, and the perf pass is in (`-ascent-perf.md`). Open: story text placeholders (storyteller) and the camera clipping into a downed hand.
 - Not verified after round 3: a full `smoke.mjs` run and fps on the Iris Xe. Open: `FLOOR2-REQUESTS.md`, a door sound, dedicated laser sounds, the dropship realism pass.
