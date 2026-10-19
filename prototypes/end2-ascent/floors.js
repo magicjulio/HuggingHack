@@ -16,6 +16,7 @@ import { logoMaterials } from "./art.js";
 export const LIGHTING = {
   1: { hemi: 0.5, sun: 0.42, env: 0.25 },
   2: { hemi: 0.34, sun: 0.22, env: 0.22 },
+  3: { hemi: 0.3, sun: 0.18, env: 0.2 }, // the summit (floor3.js): its own hall lights take over
 };
 
 export function interiorLighting(scene, root) {
@@ -704,9 +705,9 @@ export function createFloorSets({ scene, root, deck, T, brand, lighting, resourc
 
   function show() {
     const ride = riding();
-    sets[1].visible = floor === 1 || ride;
-    sets[2].visible = !building && (floor === 2 || ride);
-    for (const g of legacy) g.visible = !(building && floor === 2) && !(loaded && kitFor(floor));
+    sets[1].visible = floor === 1 || (ride && floor !== 3);
+    sets[2].visible = !building && (floor === 2 || ride) && floor !== 3;
+    for (const g of legacy) g.visible = floor !== 3 && !(building && floor === 2) && !(loaded && kitFor(floor));
   }
 
   return {

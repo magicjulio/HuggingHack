@@ -814,6 +814,193 @@ export function createLift({ scene, root, deck, T, resources = new Set() }) {
     return t;
   }
 
+  // ------------------------------------------------------------------ the express (floor 2 → floor 3)
+  // Owner: arena (round 4). A through-car express cab that climbs the outside of the tower's
+  // prow from floor 2's goal (the EXPRESS ASCENT gate in ASCENT CORE) to the top floor.
+  // Board through the back door (−z, floor 2 side), leave through the front (+z, floor 3).
+  // Main.js drives it like the floor-1 ride (call sequence in FLOOR3.md):
+  //   express.begin() → each frame setProgress(ease(t)); base(v); shot(t, v, camera) → end().
+  // world.setFloor() calls end() itself. Everything here is absolute (world) coordinates.
+  function createExpress({ level2, level3, floorHeight }) {
+    const E = { duration: 8.5, walkTime: 1.1, blendFrom: 0.8, blendTo: 0.96, fogFar: 640, fadeIn: 0.05, fadeOut: 0.93, ...T.express };
+    const g2 = level2?.goal ?? { x: 8, z: 61.5, y: 4.5 };
+    const y0 = floorHeight + (g2.y ?? 0) + 0.02; // cab floor on floor 2 (absolute)
+    const y1 = floorHeight * 2 + 0.02; // cab floor on floor 3
+    const CAB = { x: 8, z: 63.75, w: 4.8, d: 4.4, h: 3.6 }; // = the floor-3 cab alcove (floor3.js)
+    const entry = new THREE.Vector3(g2.x, y0, g2.z); // where the ride starts (the floor-2 goal)
+    const set = new THREE.Group();
+    set.name = "express ride";
+    set.visible = false;
+    root.add(set);
+    const cab = new THREE.Group();
+    cab.name = "express cab";
+    cab.position.set(CAB.x, y0, CAB.z);
+    set.add(cab);
+    const B = (parent, mat, x0, x1, ya, yb, z0, z1) => {
+      const m = new THREE.Mesh(own(new THREE.BoxGeometry(x1 - x0, yb - ya, z1 - z0).translate((x0 + x1) / 2, (ya + yb) / 2, (z0 + z1) / 2)), mat);
+      parent.add(m);
+      return m;
+    };
+    const glass = own(new THREE.MeshStandardMaterial({ color: 0x1d2a36, roughness: 0.06, metalness: 0.2, transparent: true, opacity: 0.18, depthWrite: false }));
+    const cabStrip = lineMat(0xffc153, 1.4);
+    const cabWhite = lineMat(0xd8ecff, 1.2);
+    // the cab: floor, roof, corner posts, glass on the sides, both door frames open
+    {
+      const w = CAB.w / 2,
+        d = CAB.d / 2,
+        h = CAB.h;
+      B(cab, darkMat, -w, w, -0.3, 0, -d, d);
+      B(cab, steelMat, -w + 0.1, w - 0.1, 0, 0.03, -d + 0.1, d - 0.1);
+      B(cab, darkMat, -w, w, h, h + 0.35, -d, d);
+      B(cab, cabWhite, -w + 0.5, w - 0.5, h - 0.03, h, -0.15, 0.15);
+      for (const sx of [-1, 1])
+        for (const sz of [-1, 1]) B(cab, steelMat, sx * w - 0.12, sx * w + 0.12, 0, h, sz * d - 0.12, sz * d + 0.12);
+      for (const sx of [-1, 1]) {
+        B(cab, glass, sx * w - 0.03, sx * w + 0.03, 0.9, h - 0.1, -d + 0.12, d - 0.12);
+        B(cab, steelMat, sx * w - 0.06, sx * w + 0.06, 0.85, 0.95, -d, d); // handrail
+        B(cab, darkMat, sx * w - 0.05, sx * w + 0.05, 0, 0.85, -d, d);
+        B(cab, cabStrip, sx * (w - 0.07) - 0.02, sx * (w - 0.07) + 0.02, 0.02, 0.06, -d + 0.2, d - 0.2);
+      }
+      for (const sz of [-1, 1]) {
+        B(cab, darkMat, -w, w, h - 0.5, h, sz * d - 0.1, sz * d + 0.1); // door headers
+        B(cab, cabStrip, -w + 0.3, w - 0.3, h - 0.42, h - 0.36, sz * (d + 0.11) - 0.01, sz * (d + 0.11) + 0.01);
+        for (const sx of [-1, 1]) B(cab, steelMat, sx * (w - 0.5) - 0.4, sx * (w - 0.5) + 0.4, 0, h - 0.5, sz * d - 0.08, sz * d + 0.08); // leaves, parked
+      }
+    }
+    // the climb: two guide rails on the cab's flanks, slabs of the tower's top floors passing
+    // behind, a light band every floor. Instanced boxes, from floor 2 up past floor 3.
+    {
+      const m4 = new THREE.Matrix4(),
+        q0 = new THREE.Quaternion();
+      const yA = y0 - 12,
+        yB = y1 + 20;
+      for (const sx of [-1, 1]) {
+        B(set, steelMat, CAB.x + sx * 2.85 - 0.3, CAB.x + sx * 2.85 + 0.3, yA, yB, CAB.z - 0.35, CAB.z + 0.35);
+        B(set, darkMat, CAB.x + sx * 3.3 - 0.15, CAB.x + sx * 3.3 + 0.15, yA, yB, CAB.z - 1.6, CAB.z + 1.6);
+      }
+      const n = Math.ceil((yB - yA) / 4.5);
+      const slabs = new THREE.InstancedMesh(own(new THREE.BoxGeometry(1, 1, 1)), darkMat, n * 2);
+      const bands = new THREE.InstancedMesh(own(new THREE.BoxGeometry(1, 1, 1)), paleLine, n * 2);
+      const ties = new THREE.InstancedMesh(own(new THREE.BoxGeometry(1, 1, 1)), steelMat, n);
+      for (let i = 0; i < n; i++) {
+        const y = yA + i * 4.5;
+        for (const [k, sx] of [
+          [0, -1],
+          [1, 1],
+        ]) {
+          m4.compose(new THREE.Vector3(CAB.x + sx * 9, y, CAB.z - 4.5), q0, new THREE.Vector3(11, 0.6, 7));
+          slabs.setMatrixAt(i * 2 + k, m4);
+          m4.compose(new THREE.Vector3(CAB.x + sx * 9, y - 0.36, CAB.z - 0.98), q0, new THREE.Vector3(11, 0.08, 0.06));
+          bands.setMatrixAt(i * 2 + k, m4);
+        }
+        m4.compose(new THREE.Vector3(CAB.x, y + 2.2, CAB.z - 2.4), q0, new THREE.Vector3(7, 0.25, 0.25));
+        ties.setMatrixAt(i, m4);
+      }
+      for (const im of [slabs, bands, ties]) {
+        im.frustumCulled = false;
+        set.add(im);
+      }
+      // the tower's top: a dark crown over the ride's last floors
+      B(set, darkMat, CAB.x - 14, CAB.x + 14, y1 + 6.5, y1 + 9, CAB.z - 9, CAB.z - 1);
+      B(set, goldLine, CAB.x - 14, CAB.x + 14, y1 + 6.4, y1 + 6.55, CAB.z - 1.05, CAB.z - 0.95);
+    }
+    let active = false,
+      progress = 0,
+      lampHome = null;
+    const base = new THREE.Vector3();
+    // camera keys, local to the cab floor centre (+z = out of the front door, away from the tower)
+    const K = [
+      { t: 0.0, p: [1.3, 1.75, -1.4], l: [0, 1.5, 6], fov: 56, lag: 0 },
+      { t: 0.16, p: [2.2, 2.2, 1.0], l: [0, 1.0, 12], fov: 60, lag: 0 },
+      { t: 0.34, p: [7, 1.2, 14], l: [0, 1.8, 0], fov: 50, lag: 0.25 },
+      { t: 0.52, p: [-16, -8, 46], l: [0, 6, -4], fov: 54, lag: 0.85 },
+      { t: 0.7, p: [5, 16, 18], l: [0, -2, 0], fov: 58, lag: 0.2 },
+      { t: 0.84, p: [0.2, 2.6, -1.9], l: [0, 1.6, 5], fov: 60, lag: 0 },
+    ];
+    const pc = new THREE.CatmullRomCurve3(K.map((k) => new THREE.Vector3(...k.p)), false, "centripetal");
+    const lc = new THREE.CatmullRomCurve3(K.map((k) => new THREE.Vector3(...k.l)), false, "centripetal");
+    const oP = new THREE.Vector3(),
+      oL = new THREE.Vector3();
+    const keyAt = (t) => {
+      if (t <= 0) return [0, K[0]];
+      for (let i = 1; i < K.length; i++)
+        if (t <= K[i].t) {
+          const f = (t - K[i - 1].t) / (K[i].t - K[i - 1].t);
+          return [(i - 1 + (f * f * (3 - 2 * f) * 0.5 + f * 0.5)) / (K.length - 1), K[i], K[i - 1], ease(K[i - 1].t, K[i].t, t)];
+        }
+      return [1, K[K.length - 1]];
+    };
+    const api = {
+      config: E,
+      entry,
+      cab,
+      assembly: cab,
+      from: y0,
+      to: y1,
+      get active() {
+        return active;
+      },
+      // shows the ride, hides floor 2 (world.update), moves the cab lamp into the cab
+      begin() {
+        active = true;
+        set.visible = true;
+        progress = 0;
+        cab.position.y = y0;
+        if (!lampHome) {
+          lampHome = lampLight.parent;
+          cab.add(lampLight);
+          lampLight.position.set(0, CAB.h - 0.4, 0);
+        }
+      },
+      setProgress(p) {
+        progress = THREE.MathUtils.clamp(p, 0, 1);
+        cab.position.y = THREE.MathUtils.lerp(y0, y1, progress);
+      },
+      // the cab floor centre now (absolute)
+      base(out = new THREE.Vector3()) {
+        return out.set(CAB.x, cab.position.y, CAB.z);
+      },
+      shot(t, at, camera) {
+        const [u, k1, k0, e] = keyAt(Math.min(t, K[K.length - 1].t));
+        pc.getPoint(u, oP);
+        lc.getPoint(u, oL);
+        const fov = k0 ? THREE.MathUtils.lerp(k0.fov, k1.fov, e) : k1.fov;
+        const lag = k0 ? THREE.MathUtils.lerp(k0.lag, k1.lag, e) : k1.lag;
+        const sway = 0.03 + 0.1 * ease(0.3, 0.55, t) * (1 - ease(0.6, 0.8, t));
+        oP.x += Math.sin(time * 0.9) * sway;
+        oP.y += Math.sin(time * 1.3 + 1.2) * sway * 0.7;
+        const c = at || api.base(base);
+        camera.position.copy(oP).add(c);
+        camera.position.y -= lag * (cab.position.y - y0);
+        camera.lookAt(tmp.copy(oL).add(c));
+        camera.fov = fov;
+        camera.updateProjectionMatrix();
+        return t;
+      },
+      end() {
+        if (!active && !set.visible) return;
+        active = false;
+        set.visible = false;
+        if (lampHome) {
+          lampHome.add(lampLight);
+          lampLight.position.set(0, 3.4, 0.6);
+          lampHome = null;
+        }
+      },
+      update(dt) {
+        if (!active) return;
+        lampLight.intensity = 38;
+        void dt;
+      },
+    };
+    void level3;
+    return api;
+  }
+  // the top floor has no atrium lift: its rails would poke through the summit
+  function setTop(on) {
+    railGroup.visible = !on;
+  }
+
   return {
     assembly,
     ready,
@@ -824,6 +1011,8 @@ export function createLift({ scene, root, deck, T, resources = new Set() }) {
     setRiding,
     update,
     shot,
+    createExpress,
+    setTop,
     dispose() {
       for (const r of riders) r.model.dispose?.();
       root.remove(backdrop, railGroup, sky);

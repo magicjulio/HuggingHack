@@ -50,6 +50,7 @@ const views = {
   warden: ["Warden", "Heavy emplacement. The weak core on its back opens when it vents (venting). charge=<0..1>, firing."],
   maintainer: ["Maintainer", "Support drone. healing lights the service halo and the tether emitter."],
   badge: ["Logo badge", "assets/hf-logo.svg extruded along its own outline; front cap is the unmodified SVG."],
+  boss: ["GLM-5.2 (end boss)", "boss-model.js. Rows: expressions (neutral · angry · hurt · roar) · phases 1–3 with damage 0–2 · hand poses (open · fist · slam · stuck). &solo = full size with knobs."],
 };
 const nav = document.getElementById("nav");
 for (const [id, [name]] of Object.entries(views))
@@ -112,6 +113,18 @@ if (view === "lineup") {
   target.y = 1.4;
   dist = 5;
 }
+if (view === "boss") {
+  // boss view (boss agent, round 4): the whole look sheet, or one full-size boss with knobs (&solo)
+  const { setupBossLab } = await import("./boss-lab.js");
+  const cam = await setupBossLab({ scene, params, items, place: (m) => (scene.add(m.root), items.push(m), m), now: () => time });
+  target = cam.target;
+  dist = cam.dist;
+  height = cam.height;
+  spin = cam.spin;
+  scene.fog = new THREE.Fog(P.void, cam.fogNear, cam.fogFar);
+  floor.scale.setScalar(cam.floor);
+  grid.visible = false;
+}
 let scenarios = [],
   fxLooks = null;
 if (view === "fx" || view === "looks") {
@@ -136,7 +149,7 @@ if (view === "fx" || view === "looks") {
 }
 let time = +(params.get("start") || 0),
   last = performance.now();
-const camAngle = +(params.get("angle") ?? (view === "player" ? 2.6 : view === "fx" ? 0.75 : scenarios.length ? 0.35 : 0.5));
+const camAngle = +(params.get("angle") ?? (view === "boss" ? 0 : view === "player" ? 2.6 : view === "fx" ? 0.75 : scenarios.length ? 0.35 : 0.5));
 const runFor = params.has("run") ? +params.get("run") : null; // fast-forward `run` seconds from `start`, then hold the frame
 let held = false;
 function step(dt) {

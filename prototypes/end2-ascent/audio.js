@@ -18,12 +18,16 @@ export const SOUND_NAMES = [
   "warden-charge", "warden-beam", "land", "beacon", "order", "finish", "heartbeat", "lowhealth", "click",
 ];
 
+// floor 3, the end boss (fight, round 4): additive names
+SOUND_NAMES.push("boss-tell", "boss-slam", "boss-down", "boss-roar", "boss-die");
+
 // minimum seconds between two plays of the same name (rapid-fire guards)
 const GAP = {
   fire: 0.045, hit: 0.03, shield: 0.05, enemy: 0.05, "enemy-tell": 0.12, kill: 0.05, hurt: 0.08,
   "warden-beam": 0.6, "warden-charge": 0.6, order: 0.1, spawn: 0.07, pickup: 0.05, drop: 0.05,
   bash: 0.08, lunge: 0.15, land: 0.06, heartbeat: 0.2, lowhealth: 0.5, click: 0.04,
 };
+Object.assign(GAP, { "boss-tell": 0.15, "boss-slam": 0.08, "boss-down": 0.1, "boss-roar": 1, "boss-die": 2 }); // floor 3 (fight, r4)
 
 export function createAudio(T, { ctx: external = null } = {}) {
   const cfg = () => ({ volume: 0.6, sfx: 1, music: 0.5, mute: false, ...(T.audio || {}) });
@@ -488,6 +492,38 @@ export function createAudio(T, { ctx: external = null } = {}) {
         }),
       );
       tone({ t: t + 0.9, f0: 1318.5, dur: 2.2, gain: 0.09, send: 0.6 });
+    },
+    // ---- floor 3, the end boss (fight, round 4; additive) ----
+    // a hand winds up over its red ring: a rising groan of metal
+    "boss-tell"(t) {
+      tone({ t, f0: 48, f1: 120, dur: 0.75, type: "sawtooth", gain: 0.2, attack: 0.12, filter: { f0: 220 }, fEnd: 900, send: 0.3 });
+      noise({ t, dur: 0.7, type: "bandpass", f0: 300, f1: 1400, q: 1.2, gain: 0.12, attack: 0.2, send: 0.3 });
+    },
+    // a hand slams the floor: a huge sub boom, debris, a ringing plate
+    "boss-slam"(t) {
+      tone({ t, f0: 90, f1: 22, dur: 1.1, type: "sine", gain: 0.85, attack: 0.003, send: 0.3 });
+      noise({ t, dur: 0.9, type: "lowpass", f0: 2600, f1: 90, gain: 0.55, brown: true, send: 0.4 });
+      tone({ t: t + 0.02, f0: 210, f1: 150, dur: 0.8, type: "triangle", gain: 0.12, send: 0.5 });
+      noise({ t: t + 0.05, dur: 0.4, type: "bandpass", f0: 3200, f1: 900, q: 1.6, gain: 0.14, send: 0.35 });
+    },
+    // the hand lies there: a weak point opens (a short bright tick)
+    "boss-down"(t) {
+      tone({ t, f0: 1480, f1: 1180, dur: 0.18, type: "triangle", gain: 0.1, send: 0.3 });
+      tone({ t: t + 0.08, f0: 1980, dur: 0.14, type: "triangle", gain: 0.07, send: 0.35 });
+    },
+    // phase change: a long distorted roar
+    "boss-roar"(t) {
+      const dur = 2.2;
+      tone({ t, f0: 70, f1: 46, dur, type: "sawtooth", gain: 0.3, attack: 0.15, filter: { f0: 500 }, fEnd: 180, send: 0.4 });
+      tone({ t, f0: 104, f1: 66, dur, type: "sawtooth", gain: 0.22, attack: 0.2, filter: { f0: 900 }, fEnd: 240, detune: 14, send: 0.4 });
+      noise({ t, dur, type: "bandpass", f0: 520, f1: 260, q: 0.9, gain: 0.32, attack: 0.25, send: 0.45 });
+      tone({ t, f0: 36, f1: 28, dur: dur + 0.4, type: "sine", gain: 0.5, attack: 0.3 });
+    },
+    // the boss falls: a falling roar into a long collapse
+    "boss-die"(t) {
+      tone({ t, f0: 140, f1: 30, dur: 3.2, type: "sawtooth", gain: 0.26, attack: 0.08, filter: { f0: 1400 }, fEnd: 120, send: 0.45 });
+      noise({ t, dur: 3.6, type: "lowpass", f0: 2400, f1: 80, gain: 0.5, brown: true, attack: 0.1, send: 0.5 });
+      tone({ t: t + 0.4, f0: 60, f1: 20, dur: 3.2, type: "sine", gain: 0.7, attack: 0.05 });
     },
     // low health: a heartbeat, two soft thumps
     heartbeat(t) {

@@ -28,6 +28,18 @@ First pass on the verdict above. A session on the dev box was killed by the out-
 
 Keep the grand tower, armada approach, squad-assault premise, poisoned `KAM1196A`, and spawn-subagents fantasy as direction to build on. Do not treat the current placeholder art or combat tuning as approved final choices.
 
+## Floor 3 and the end boss (round 4, fight) · 2026-10-18
+
+Julius: "the next floor the last floor … the end boss is waiting: a huge hugging face end boss … its hands … hitting down on the player … 3 waves … by health". Status: **in the game**, proposal for Julius; every number is in `T.floor3`, `T.boss` and `T.encounter.sections[3]` (`main.js`).
+
+- **Flow.** Floor 2's goal (the lift shaft in ASCENT CORE) now starts the **express ride** (`world.express`, arena's `lift.js`) to floor 3 instead of the finish card. Floor 3 (`floor3.js`, map in `FLOOR3.md`): s0 EXPRESS LANDING → s1 SERVICE SPINE (2 gunners, an advancing shield, Huggers at half) → s2 ANTECHAMBER (2 gunners, a shield, a Maintainer, a drop at half) → s3 SUMMIT HALL, the arena. Its door seals behind you 4 m in. The boss's death beat ends in the finish card (end text is a placeholder). `T.floor3.on = false` brings back the old ending after floor 2.
+- **The boss (`boss.js`).** A face at the far end and two floating hands. A hand flies over its target, a **red floor ring** (the Hugger's tell, bigger) marks the spot, then it slams: damage and knock-back in the ring, camera shake, breakable cover in the ring breaks. After the slam it **stays down** (orange, weak): hits on it **crit** (×2.5). The face always takes normal damage; a hand in the air is armoured (×0.12, blue read-out). The squad's landing (Q) **cuts a slam that is winding up** and stuns the hand (weak). Squad and escorts shoot the face when nothing else is up.
+- **Phases by health** (9000 hp): 100–66 % one hand at a time, 1.2 s tell, the ring stays where you were; at 66 % both hands, shorter tell, rings that follow you, sweeps (a line of rings the hand drags along); at 33 % the **angry face**, double slams, chains of 3, and a **shockwave ring** rolling out that you dodge through (Space). Each change: 2.6 s invulnerable roar, camera shake, `arena.setMood`, and the next wave drops in (1: 3 gunners + a shield; 2: Huggers and a Maintainer through the side doors, gunners and a shield from the ceiling; 3: a Warden, a Maintainer, a Hugger, gunners, a shield), plus small refills while a phase lasts. A **Maintainer heals the boss** through its tether (up to the top of the current phase).
+- **Retry:** at the start of the current phase, the boss's health back at the threshold (`T.boss.checkpoint`).
+- **HUD:** a boss bar at the top with marks at 66 % and 33 %, the phase, and an IMMUNE flicker while it roars. The name is **GLM-5.2** (Julius, 2026-10-19).
+- **Test entry:** `?floor=2|3` skips the approach; `?floor=3&at=arena&phase=1..3` starts in the arena. Smoke: `START=3`, `START=arena PHASE=n`. Hooks: `__ascent.boss`, `.arena`, `.toArena(phase)`, `.bossBalance`.
+- **The look** comes from `boss-model.js` (boss agent, `BOSS.md`); without it `boss.js` uses a procedural stub with the same calls.
+
 ## Floor 2 as a building (round 3, fight) · 2026-10-18
 
 Julius: "level 2 gets boring … the same over and over". Floor 2 is now a real building (`floor2.js`, building's layout, map in `FLOOR2.md`) fought through **section by section**. Status: **in the game**, proposal for Julius; every number is in `T.building` and `T.encounter.sections[2]` (`main.js`).

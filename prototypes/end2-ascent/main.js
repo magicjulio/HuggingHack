@@ -9,6 +9,13 @@ import { P, loadBrand, loadFonts, applyEnvironment } from "./art.js";
 import { buildPlayer, buildPickup, LOOT } from "./models.js";
 import { createRenderer } from "./post.js";
 import { createAudio } from "./audio.js";
+import { createBoss, createStubBossModel } from "./boss.js"; // floor-3 end boss (fight)
+// The boss's look (boss agent, BOSS.md). Loaded defensively: until it exists (or
+// if it fails), boss.js's procedural stub with the same API stands in.
+const bossModelModule = await import("./boss-model.js").catch((e) => {
+  console.warn("boss-model.js not loaded, using the stub boss:", e?.message);
+  return null;
+});
 
 // All gameplay, camera, encounter and presentation tuning lives here.
 export const T = {
@@ -73,6 +80,8 @@ export const T = {
   floors: {
     1: { damage: 0.6, attackers: 3, lunges: 1, fireScale: 1 },
     2: { damage: 1, attackers: 5, lunges: 2, fireScale: 0.85 },
+    // floor 3 (the finale): the boss is the main threat, so the adds fire a little less often
+    3: { damage: 1, attackers: 4, lunges: 2, fireScale: 0.95 },
   },
   // Per enemy kind; enemies.js reads e.cfg = T.enemies[kind]. height = hit-sphere
   // centre above the feet, hit = hit-sphere radius, radius = body (movement).
@@ -351,6 +360,38 @@ export const T = {
           hold: { time: 3, after: "clear", readyTitle: "ROOM CLEAR / GET TO THE LIFT SHAFT", doneTitle: "NEXT LIFT REACHED" },
         },
       },
+      // Floor 3 (round 4): a short corridor on floor-2 rules, then the arena. The
+      // arena's script has `boss: true`: the section ends when the boss is down.
+      // Keys are floor3.js section ids (FLOOR3.md): s0 EXPRESS LANDING → s1 SERVICE
+      // SPINE → s2 ANTECHAMBER → s3 SUMMIT HALL (the arena). A run-up, not a second building.
+      3: {
+        s0: { title: "FLOOR 03 / THE TOP", hint: "The last floor. A short way to the top, then whatever waits there.", hintTime: 7 },
+        // s1 SERVICE SPINE: a short gunner hall; a shield pushes down it, Huggers at half
+        s1: {
+          title: "SERVICE SPINE",
+          hint: "Gunners at the far end, a shield coming down the hall.",
+          garrison: [
+            { kind: "gunner", at: "back:0" },
+            { kind: "gunner", at: "back:1" },
+            { kind: "shield", at: "flank:0", mode: "advance" },
+          ],
+          events: [{ on: "half", via: "walk", toast: "HUGGERS / FROM THE FAR END", spawn: [{ kind: "hugger", at: "back:2" }, { kind: "hugger", at: "back:1", delay: 0.6 }] }],
+        },
+        // s2 ANTECHAMBER: the last room before the top; a Maintainer keeps them up
+        s2: {
+          title: "ANTECHAMBER",
+          hint: "The doors to the top are at the far end. Take the Maintainer first.",
+          garrison: [
+            { kind: "gunner", at: "flank:2" },
+            { kind: "gunner", at: "flank:3" },
+            { kind: "shield", at: "drop:0", mode: "advance" },
+            { kind: "maintainer", at: "back:0" },
+          ],
+          events: [{ on: "half", via: "drop", toast: "DROP-IN", spawn: [{ kind: "hugger", at: "drop:1" }, { kind: "gunner", at: "drop:2", delay: 0.5 }] }],
+        },
+        // s3 SUMMIT HALL: the arena. The boss runs the fight (boss.js, T.boss).
+        s3: { boss: true, title: "SUMMIT HALL", hintTime: 0 },
+      },
     },
   },
   // ---- Floor 2 as a building (floor2.js level; building.js adapter). Engine knobs:
@@ -365,6 +406,96 @@ export const T = {
     doorTell: 1.1, // seconds of red door light + warning before an ambush door opens
     sectionDelay: 1.2, // pause between a section's last kill and its door opening
     dropCeiling: 0.6, // drop-ins start this far below the ceiling (was dropHeight 9)
+  },
+  // ---- Floor 3, the finale (round 4, fight): floor flow and the arena (proposal).
+  floor3: {
+    on: true, // false = floor 2's goal ends the run with the finish card, as before round 4
+    rideDelay: 1.6, // seconds after floor 2's goal before the ride up starts
+    stubRide: 6, // ride length while lift.js has no floor-3 ride (fade stub)
+    closeDoor: true, // the arena door shuts behind you once you are this far in:
+    closeAfter: 4, // metres past the door
+  },
+  // ---- The end boss (boss.js). Everything is a proposal for Julius.
+  boss: {
+    name: "GLM-5.2", // Julius, 2026-10-19 (DECISIONS)
+    hp: 9000, // "a lot"
+    thresholds: [0.66, 0.33], // phase 2 at 66 %, phase 3 at 33 % (by health, not time)
+    checkpoint: true, // retry at the start of the current phase with the boss's health at its threshold
+    retryGrace: 2.5, // seconds after a phase retry before the first slam
+    startDelay: 2.4, // after the fight starts, before the first slam
+    faceMult: 1, // the face always takes rifle damage
+    handCrit: 2.5, // a hand that is down after a slam (or stunned by the squad) takes crits
+    handArmour: 0.12, // a hand in the air: mostly blocked (blue armour read-out)
+    squadMult: 0.6, // squad and escort fire on the boss (they target the face when nothing else is up)
+    faceHit: 0.46, // face hit-sphere radius / the face's largest size
+    faceLift: 6, // the face's eye height above bossHome, for the look-at
+    headTurn: 0.6, // radians the face turns to follow you
+    tetherIn: 2, // the boss's "standing point" (allies, the Maintainer) this far into the slam zone
+    roar: 2.6, // invulnerable seconds at each phase change (roar, shake, next wave drops)
+    roarShake: 0.7,
+    hand: { idleSide: 11, idleFwd: 4, idleUp: 1.5, bob: 0.5, riseHeight: 6.5, lift: 1.6, follow: 7, slamTime: 0.16, returnTime: 0.9 },
+    slam: { radius: 3.4, damage: 30, push: 10, shake: 0.55, shakeFar: 0.14, allyDamage: 45 },
+    // phase 3: a ring of force rolls out from a slam; Space (the dodge's i-frames) takes you through it
+    shockwave: { speed: 10, width: 1, maxRadius: 34, damage: 22, push: 6, originAt: 0.35, tellScale: 1.15 },
+    // phase 2+: the hand lands at one end of a line of rings and drags along it
+    sweep: { length: 15, speed: 13, rings: 4, radius: 2.6, damage: 24, push: 9, tellScale: 1.1 },
+    interrupt: { stun: 1.8 }, // the squad's landing cuts a winding-up slam; the hand is stunned and weak
+    heal: { scale: 4 }, // a Maintainer's heal on the boss = its heal × this, up to the top of the phase
+    death: { time: 4.5, sink: 7, tilt: 0.35, shake: 0.9, killAdds: true, cardDelay: 1.2 },
+    // Per phase: tell (s, the red ring), track (share of the tell the ring follows you), down
+    // (s the hand stays down = weak), gap (s between moves), concurrent (hands attacking at once;
+    // 1 = strictly one at a time), damage (× slam/shockwave/sweep), moves (weights), wave (drops
+    // in at the start of the phase: via "drop" from arena.drops or "side" through a side door),
+    // refill (more adds while the phase lasts, once fewer than `below` are up).
+    phases: {
+      1: {
+        tell: 1.2, track: 0, followTrack: 0.5, down: 2.6, gap: [1.4, 2.2], concurrent: 1, damage: 1, firstMove: 0.4,
+        moves: { single: 1 },
+        chain: { count: 3, tell: 0.7, track: 0.35 },
+        wave: [
+          { kind: "gunner", via: "drop" },
+          { kind: "gunner", via: "drop", delay: 0.4 },
+          { kind: "shield", via: "drop", delay: 0.8 },
+          { kind: "gunner", via: "drop", delay: 1.2 },
+        ],
+        refill: { after: 24, every: 9, max: 3, below: 2, pool: ["gunner", "shield", "gunner"], via: "drop" },
+      },
+      2: {
+        tell: 0.95, track: 0.25, followTrack: 0.65, down: 2.1, gap: [0.9, 1.5], concurrent: 2, damage: 1.15, firstMove: 0.3,
+        moves: { single: 1, follow: 1.2, sweep: 0.8 },
+        chain: { count: 3, tell: 0.65, track: 0.4 },
+        wave: [
+          { kind: "hugger", via: "side" },
+          { kind: "hugger", via: "side", delay: 0.6 },
+          { kind: "maintainer", via: "side", delay: 1 },
+          { kind: "gunner", via: "drop", delay: 0.3 },
+          { kind: "gunner", via: "drop", delay: 0.8 },
+          { kind: "shield", via: "drop", delay: 1.3 },
+        ],
+        refill: { after: 22, every: 8, max: 4, below: 3, pool: ["hugger", "gunner", "hugger", "shield"], via: "side" },
+      },
+      3: {
+        tell: 0.9, track: 0.25, followTrack: 0.6, down: 1.8, gap: [1.1, 1.7], concurrent: 2, damage: 1.15, firstMove: 0.3,
+        moves: { follow: 1, double: 0.8, chain: 0.9, shockwave: 0.7, sweep: 0.5 },
+        doubleShock: true, // double slams roll a shockwave out too
+        chain: { count: 3, tell: 0.65, track: 0.4 },
+        wave: [
+          { kind: "warden", via: "drop" },
+          { kind: "maintainer", via: "side", delay: 0.6 },
+          { kind: "hugger", via: "side", delay: 0.3 },
+          { kind: "gunner", via: "drop", delay: 0.5 },
+          { kind: "gunner", via: "drop", delay: 1 },
+          { kind: "shield", via: "drop", delay: 1.5 },
+        ],
+        refill: { after: 24, every: 9, max: 4, below: 2, pool: ["hugger", "gunner", "shield", "hugger", "gunner"], via: "side" },
+      },
+    },
+    text: {
+      phase: { 2: "GLM-5.2 ROARS / IT GETS HARDER", 3: "GLM-5.2 IS ANGRY / IT GETS MUCH HARDER" },
+      shockwave: "SHOCKWAVE / DODGE THROUGH IT (SPACE)",
+      interrupt: "SLAM INTERRUPTED / HAND STUNNED",
+      death: "GLM-5.2 IS FALLING",
+    },
   },
   audio: { volume: 0.6, sfx: 1, music: 0.5, mute: false },
   lift: {
@@ -554,6 +685,13 @@ const LOW_COVER = 2.2;
 // have their own baseY, the ground has stairs and upper levels, doors open.
 // Floor 1 (bld === null) keeps the old flat rules exactly.
 let bld = null;
+// Floor 3 (round 4): the end boss (boss.js), its arena (level.arena or a stub),
+// and the phase to retry at (T.boss.checkpoint).
+let boss = null,
+  bossArena = null,
+  bossRetryPhase = 0;
+const bossStats = { deaths: [0, 0, 0, 0], start: -1, end: -1 };
+const urlArgs = new URLSearchParams(location.search);
 function groundAt(x, z, y) {
   if (!bld) return world.floorY;
   return bld.ground(x, z, y);
@@ -789,7 +927,8 @@ function damagePlayer(amount, from, continuous = false) {
     paused ||
     health <= 0 ||
     dodge > T.player.dodgeDuration - T.player.dodgeProtection ||
-    vaultT > 0
+    vaultT > 0 ||
+    (boss && boss.dead) // the boss's death beat: nothing hurts any more
   )
     return;
   health = Math.max(0, health - amount);
@@ -809,6 +948,9 @@ function damagePlayer(amount, from, continuous = false) {
   if (!health) {
     state = "dead";
     combatStats.deaths = (combatStats.deaths || 0) + 1;
+    if (boss?.active) bossStats.deaths[boss.phase]++;
+    // phase checkpoint (T.boss.checkpoint): remember which phase to retry
+    bossRetryPhase = boss?.active && !boss.dead && T.boss.checkpoint ? boss.phase : 0;
     showOverlay("dead");
   }
 }
@@ -831,6 +973,10 @@ const actors = createActors(scene, T, {
   building: () => bld,
   ground: (x, z, y) => (bld ? bld.ground(x, z, y) ?? y : world.floorY),
   onAlarm: (section) => director.alarm(section),
+  // floor 3: the boss as a target for allies and a patient for Maintainers, and
+  // the squad's landing (it interrupts a winding-up slam)
+  bossTarget: () => (boss && boss.active && !boss.dead ? boss.target : null),
+  onSquadLand: (point, radius) => boss?.squadLanded(point, radius),
   pushPlayer,
   shake: (a) => (shake = Math.max(shake, a)),
   looks,
@@ -910,16 +1056,22 @@ function showOverlay(type) {
       "CORE INTERRUPTED",
       "REGROUP",
       "The swarm still needs you.",
-      `Retry floor ${floor} with health and subagents restored. +${T.encounter.retryPenalty}s to your run.`,
-      "RETRY FLOOR →",
+      bossRetryPhase
+        ? `Retry phase ${bossRetryPhase} of the fight, the boss's health back at ${Math.round((bossRetryPhase === 1 ? 1 : T.boss.thresholds[bossRetryPhase - 2]) * 100)} %. +${T.encounter.retryPenalty}s to your run.`
+        : `Retry floor ${floor} with health and subagents restored. +${T.encounter.retryPenalty}s to your run.`,
+      bossRetryPhase ? "RETRY PHASE →" : "RETRY FLOOR →",
     ],
-    finish: [
-      "TWO FLOORS SECURED",
-      "SLICE COMPLETE",
-      "The tower continues above you.",
-      "Your squad has secured the next ascent. The scorer’s files remain somewhere far overhead.",
-      "FLY AGAIN →",
-    ],
+    // End text is a placeholder: the storyteller and Julius decide what happens at
+    // the top (never claim the scorer's files were found).
+    finish: T.floor3.on
+      ? ["THREE FLOORS / THE TOP", "[END TEXT]", "[Placeholder for the storyteller.]", "[What happens when the boss falls is a story call.]", "FLY AGAIN →"]
+      : [
+          "TWO FLOORS SECURED",
+          "SLICE COMPLETE",
+          "The tower continues above you.",
+          "Your squad has secured the next ascent. The scorer’s files remain somewhere far overhead.",
+          "FLY AGAIN →",
+        ],
   }[type];
   ["overline", "title", "strap", "description", "start"].forEach(
     (id, i) => ($(id).textContent = content[i]),
@@ -945,7 +1097,18 @@ function fillEndCard() {
     if (k < 1) requestAnimationFrame(count);
   };
   requestAnimationFrame(count);
+  // floor 3 (round 4): three floors, end text is a placeholder for the storyteller
+  const top = T.floor3.on && floor === 3;
+  if (top) {
+    $("ec-title").innerHTML = "THREE FLOORS <span>SECURED</span>";
+    $("ec-tease").textContent = "[End text placeholder: the storyteller and Julius decide what happens at the top.]";
+  }
   const g = $("ec-floors");
+  if (top && g.dataset.top !== "1") {
+    g.dataset.top = "1";
+    g.replaceChildren();
+  }
+  const litFloors = top ? 3 : 2;
   if (!g.childElementCount) {
     const NS = "http://www.w3.org/2000/svg";
     const add = (tag, attrs, text) => {
@@ -959,11 +1122,11 @@ function fillEndCard() {
     add("line", { class: "rail", x1: 70, x2: 70, y1: 10, y2: 510 });
     for (let i = 0; i < 9; i++) {
       const y = 492 - i * 54,
-        lit = i < 2;
-      add("line", { class: "fl" + (lit ? " on" : "") + (i === 2 ? " pulse" : ""), x1: 12, x2: 80, y1: y, y2: y });
-      add("text", { class: lit ? "on" : "", x: 88, y: y + 3 }, i < 3 ? "FL 0" + (i + 1) + (i === 2 ? " ?" : "") : "");
+        lit = i < litFloors;
+      add("line", { class: "fl" + (lit ? " on" : "") + (i === litFloors && i < 3 ? " pulse" : ""), x1: 12, x2: 80, y1: y, y2: y });
+      add("text", { class: lit ? "on" : "", x: 88, y: y + 3 }, i < 3 ? "FL 0" + (i + 1) + (i === litFloors ? " ?" : "") : "");
     }
-    add("rect", { x: 30, y: 492 - 54 - 7, width: 32, height: 6, fill: "#ffd21e" });
+    add("rect", { x: 30, y: 492 - 54 * (litFloors - 1) - 7, width: 32, height: 6, fill: "#ffd21e" });
   }
   $("ec-replay").focus({ preventScroll: true });
   sound("finish");
@@ -990,6 +1153,14 @@ function startRun() {
   $("hud").classList.remove("hidden");
   hint("WASD steers · mouse aims · left mouse or Space fires lasers.", 10);
   lock();
+  boss?.stop();
+  bossRetryPhase = 0;
+  bossStats.deaths.fill(0);
+  bossStats.start = bossStats.end = -1;
+  // test entry points: ?floor=2 or ?floor=3 skips the approach (?at=arena: straight
+  // into the boss arena; ?phase=2|3: start the boss there)
+  const at = +urlArgs.get("floor");
+  if (at === 2 || at === 3) beginFloor(at);
 }
 function beginFloor(n, retry = false) {
   flight.dispose();
@@ -1001,6 +1172,7 @@ function beginFloor(n, retry = false) {
   bld = world.level ? createBuilding(world.level, world.floorY, { ground: world.ground, blocked, stepUp: T.building.stepUp }) : null;
   playerSection = -1;
   fallSpeed = 0;
+  setupFloor3(n); // the boss and its arena (floor 3); hides the boss elsewhere
   let startYaw = 0;
   if (bld) {
     pos.copy(bld.start);
@@ -1015,11 +1187,21 @@ function beginFloor(n, retry = false) {
   director.start(n, pos.y, bld);
   // Checkpoint (T.building.checkpoint): a retry on floor 2 restarts at the last
   // opened door, with that section's defenders back in place.
-  const cp = retry && bld && T.building.checkpoint ? lastCheckpoint : 0;
+  // Floor 3: a boss-phase retry (T.boss.checkpoint) or ?at=arena restores to the
+  // arena door, then puts you just inside the arena (the boss starts on entry).
+  const intoArena = n === 3 && bld && arenaIndex > 0 && ((retry && bossRetryPhase > 0) || (!retry && (urlArgs.get("at") === "arena" || testArena)));
+  const cp = intoArena ? arenaIndex : retry && bld && T.building.checkpoint ? lastCheckpoint : 0;
   if (cp > 0) {
     const at = director.restore(n, cp);
     pos.copy(at.pos);
     startYaw = at.yaw;
+    if (intoArena) {
+      const door = bld.entryDoor(arenaIndex);
+      const c = door?.checkpoint;
+      if (c) pos.set(c.x, bld.floorY + (c.y || 0), c.z), (startYaw = c.yaw ?? startYaw);
+      else pos.copy(bld.doorSide(door, arenaIndex, 3));
+      pos.y = groundAt(pos.x, pos.z, pos.y) ?? pos.y;
+    }
     actors.regroup(pos, startYaw);
   }
   lastCheckpoint = 0;
@@ -1044,11 +1226,21 @@ function beginFloor(n, retry = false) {
   clearInput();
   updateCamera(1, true);
   toast(
-    n === 1 ? "FLOOR 01 / TAKE THE ATRIUM" : cp > 0 ? "CHECKPOINT / LAST OPEN DOOR" : "FLOOR 02 / BREAK THE DEFENSE",
+    n === 1
+      ? "FLOOR 01 / TAKE THE ATRIUM"
+      : retry && bossRetryPhase
+        ? `CHECKPOINT / PHASE ${bossRetryPhase}`
+        : cp > 0
+          ? "CHECKPOINT / LAST OPEN DOOR"
+          : n === 3
+            ? "FLOOR 03 / THE TOP"
+            : "FLOOR 02 / BREAK THE DEFENSE",
   );
   hint(
     n === 1
       ? "C crouches behind cover. Hold right mouse to rise and aim. Q calls your squad."
+      : n === 3
+        ? "The last floor. Fight through to the top."
       : bld
         ? "Fight through the building. Doors stay locked until each section is clear. While your squad is out, Q again gives orders."
         : "Floor 02 hits harder. While your squad is out, Q again gives orders: aim at an enemy to focus it, at the floor to move them.",
@@ -1460,6 +1652,11 @@ function rayEnemy(origin, dir, maxDist) {
       }
     }
   }
+  // floor 3: the boss's face and hands (hit spheres from boss.js)
+  if (floor === 3 && boss?.active) {
+    const b = boss.raycast(ray, distance);
+    if (b) return { distance: b.distance, enemy: { isBoss: true, part: b.part, weak: b.weak, kind: "boss" } };
+  }
   return { distance, enemy };
 }
 function targetFromCamera() {
@@ -1511,7 +1708,7 @@ function updateAim() {
   dir.normalize();
   const { distance, target } = traceShot(muzzlePos, dir);
   const blockedByCover = distance < intended - 0.35 && !target;
-  const mod = target ? actors.shotModifier(target, muzzlePos, runTime < overclockUntil) : null;
+  const mod = target ? (target.isBoss ? boss.modifier(target.part) : actors.shotModifier(target, muzzlePos, runTime < overclockUntil)) : null;
   aimState = blockedByCover ? "cover" : !target ? "open" : mod.blocked ? "armour" : mod.crit ? "weak" : "enemy";
   if (document.body.dataset.aim !== aimState) document.body.dataset.aim = aimState;
   const end = muzzlePos.clone().addScaledVector(dir, Math.min(distance, T.weapon.range));
@@ -1564,21 +1761,23 @@ function fire() {
   beam(muzzlePos, end, over ? 0xff5fd6 : 0xa9f278);
   burst(end, target ? 0xffd265 : over ? 0xff5fd6 : 0x9ecd86, target ? 5 : 2);
   if (target) {
-    const at = actors.hitCenter(target);
-    const result = actors.hitEnemy(
-      target,
-      T.weapon.damage * (runTime < ventBuffUntil ? T.weapon.ventBuff : 1),
-      muzzlePos,
-      false,
-      runTime < overclockUntil,
-    );
+    const at = target.isBoss ? end.clone() : actors.hitCenter(target);
+    const dmg = T.weapon.damage * (runTime < ventBuffUntil ? T.weapon.ventBuff : 1);
+    const result = target.isBoss
+      ? boss.hit(target.part, dmg, muzzlePos)
+      : actors.hitEnemy(target, dmg, muzzlePos, false, runTime < overclockUntil);
+    if (target.isBoss) {
+      // the boss's hit read-out sits on the hit point; invulnerable (roar) reads as blocked
+      if (result.invuln) result.damage = 0;
+      target.hitRadius = 0.2;
+    }
     hitTime = 0.12;
     hitBlocked = result.blocked;
     stats.hits++;
     sound(result.blocked ? "shield" : "hit");
     looks.number(
       at.setY(at.y + (target.hitRadius || 0.6) + 0.15),
-      String(Math.max(1, Math.round(result.damage))),
+      result.invuln ? "IMMUNE" : String(Math.max(1, Math.round(result.damage))),
       result.crit ? "crit" : result.blocked ? "blocked" : "hit",
     );
     if (result.crit) looks.impact(end, "crit");
@@ -1615,7 +1814,9 @@ function callSquad() {
   if (delta.length() > T.squad.range) delta.setLength(T.squad.range);
   if (delta.length() < 3 && !squadOut) delta.copy(forward).multiplyScalar(5);
   move(point, delta, 0.7);
-  const result = actors.callIn(point, aimed.enemy);
+  // aimed at the boss: the squad focuses its face (boss.target proxy)
+  const focus = aimed.enemy?.isBoss ? boss.target : aimed.enemy;
+  const result = actors.callIn(point, focus);
   if (result === "deploy") {
     stats.calls++;
     toast("SUBAGENT BEACON / SQUAD DROPPING", 2.5);
@@ -1640,7 +1841,180 @@ const director = createEncounter(T, {
   playerSection: () => playerSection,
   openDoor: (door) => door.open(),
   doorAlarm: (door, on) => door?.setAlert?.(on),
+  // floor 3: the arena section (script `boss: true`) starts the boss and ends with it
+  bossEnter: (i) => enterArena(i),
+  bossDone: () => !!boss?.done,
 });
+// ---- Floor 3: the arena and the boss (boss.js; T.floor3, T.boss) ---------------
+let testArena = false, // test hooks: start floor 3 inside the arena / at a boss phase
+  testPhase = 0;
+let arenaIndex = -1, // the arena's section index (building), -1 on the stub
+  arenaDoor = null, // the door to close behind you once you are in
+  floor3Time = 0,
+  sideIx = 0,
+  dropIx = 0;
+// level.arena (local, y = 0 is the floor) → absolute; or a stub in the plain deck
+// while floor3.js is not in (the atrium greybox at floor 3's height).
+function arenaFor(level, y0) {
+  const a = level?.arena;
+  if (a) {
+    const V = (p) => new THREE.Vector3(p.x, y0 + (p.y || 0), p.z);
+    return {
+      raw: a,
+      section: a.section,
+      center: V(a.center),
+      radius: a.radius || 20,
+      bossHome: V(a.bossHome),
+      slamZone: a.slamZone || [],
+      drops: (a.drops || []).map(([x, z, y]) => new THREE.Vector3(x, y0 + (y || 0), z)),
+      sideDoors: a.sideDoors || [],
+      breakables: a.breakables || [],
+      breakAt: a.breakAt ? (x, z, r, dir) => a.breakAt(x, z, r, dir) : null,
+      resetBreakables: () => a.resetBreakables?.(),
+      setMood: (k, instant) => a.setMood?.(k, instant),
+    };
+  }
+  return {
+    stub: true,
+    section: null,
+    center: new THREE.Vector3(0, y0, -14),
+    radius: 18,
+    bossHome: new THREE.Vector3(0, y0 + 3, -37),
+    slamZone: [{ minX: -17, maxX: 17, minZ: -33, maxZ: 10 }],
+    drops: world.spawnPoints.map((p) => p.clone()),
+    sideDoors: [],
+    breakables: [],
+    setMood() {},
+  };
+}
+function makeBossModel(opts) {
+  try {
+    if (bossModelModule?.createBossModel) return bossModelModule.createBossModel(opts);
+  } catch (e) {
+    console.warn("createBossModel failed, using the stub boss:", e?.message);
+  }
+  return createStubBossModel(opts);
+}
+function setupFloor3(n) {
+  if (n !== 3) {
+    boss?.stop();
+    boss?.setVisible(false);
+    return;
+  }
+  arenaIndex = bld && world.level?.arena ? bld.sections.findIndex((s) => s.id === world.level.arena.section) : -1;
+  arenaDoor = null;
+  floor3Time = 0;
+  sideIx = dropIx = 0;
+  const a = arenaFor(world.level, world.floorY);
+  if (world.level?.arena) world.level.onBreak = () => sound("kill-heavy"); // breakable cover goes (FLOOR3.md)
+  if (!boss || !bossArena || bossArena.stub !== a.stub || bossArena.raw !== a.raw) {
+    boss?.dispose();
+    bossArena = a;
+    boss = createBoss(T, {
+      scene,
+      looks,
+      arena: a,
+      createModel: makeBossModel,
+      ground: (x, z, y) => groundAt(x, z, y ?? world.floorY) ?? world.floorY,
+      player: () => ({ pos, vel: velocity, alive: state === "combat" && health > 0, evading: dodge > 0 || vaultT > 0 }),
+      damagePlayer,
+      pushPlayer,
+      allies: () => actors.allies,
+      hurtAlly: (al, d) => {
+        al.hurt = 0.18;
+        if (al.temporary) (al.hp -= d) <= 0 && (al.dead = true);
+      },
+      shake: (k) => (shake = Math.max(shake, k)),
+      sound,
+      toast,
+      hint,
+      burst,
+      alive: () => actors.enemies.filter((e) => !e.dead && (arenaIndex < 0 || e.section === arenaIndex)).length,
+      spawnWave: spawnBossWave,
+      onPhase: (p) => {
+        if (p > 1) sound("wave");
+      },
+      onDeath: bossFalls,
+    });
+  } else boss.stop();
+  boss.setVisible(true);
+}
+// A phase's wave: "drop" from arena.drops (cycled), "side" through a side door.
+function spawnBossWave(phase, list) {
+  const A = bossArena;
+  const specs = list.map((w) => {
+    let p = null,
+      placed = false,
+      mode = w.mode || "hold";
+    if (w.via === "side" && A.sideDoors.length && bld) {
+      const id = A.sideDoors[sideIx++ % A.sideDoors.length];
+      const door = bld.doorById.get(id);
+      if (door && !door.isOpen) door.open();
+      const sec = bld.sections[arenaIndex];
+      const spot = (sec?.raw.anchors?.side || []).find((s) => s[3] === id);
+      p = spot ? new THREE.Vector3(spot[0], bld.floorY + (spot[2] || 0), spot[1]) : door ? bld.doorPoint(door) : null;
+      placed = !!p;
+      mode = w.mode || "advance";
+    }
+    if (!p) {
+      const drops = A.drops.length ? A.drops : [A.center];
+      p = drops[dropIx++ % drops.length].clone();
+      p.x += (Math.random() - 0.5) * 1.5;
+      p.z += (Math.random() - 0.5) * 1.5;
+    }
+    return { kind: w.kind, x: p.x, z: p.z, y: p.y, section: arenaIndex, mode, placed, delay: w.delay || 0, yaw: Math.atan2(pos.x - p.x, pos.z - p.z) };
+  });
+  return actors.spawnWave(specs);
+}
+// The player walked into the arena: the boss wakes. The door behind closes once
+// you are T.floor3.closeAfter in (T.floor3.closeDoor).
+function enterArena(i) {
+  arenaDoor = T.floor3.closeDoor ? bld?.entryDoor(i) : null;
+  startBoss();
+}
+function startBoss() {
+  const phase = bossRetryPhase || Math.min(3, Math.max(1, testPhase || +urlArgs.get("phase") || 1));
+  const retried = bossRetryPhase > 0;
+  bossRetryPhase = 0;
+  boss.start(phase);
+  if (bossStats.start < 0) bossStats.start = runTime;
+  if (retried) boss.delay(T.boss.retryGrace);
+  toast(`${T.boss.name}${phase > 1 ? ` / PHASE ${phase}` : ""}`, 3);
+  hint("Its face always takes damage. A hand that slammed stays down for a moment: hit it for crits. Red rings mark the next slam: get out. Your squad (Q) cuts a slam that is winding up.", 11);
+}
+// The boss falls: its defenders go down with it (T.boss.death.killAdds).
+function bossFalls() {
+  bossStats.end = runTime;
+  if (!T.boss.death.killAdds) return;
+  for (const e of actors.enemies) {
+    if (e.dead) continue;
+    const c = actors.hitCenter(e);
+    burst(c, 0xffd64b, 10);
+    looks.impact(c, "death-" + e.kind);
+  }
+  actors.clearEnemies();
+}
+function updateFloor3(dt) {
+  floor3Time += dt;
+  // the stub arena (no floor3.js level) has no corridor: the fight starts right away
+  if (boss && !bld && !boss.active && !boss.done && floor3Time > 1) startBoss();
+  if (arenaDoor && arenaDoor.isOpen) {
+    const dp = bld.doorPoint(arenaDoor);
+    if (bld.sectionAt(pos.x, pos.z, pos.y) === arenaIndex && Math.hypot(pos.x - dp.x, pos.z - dp.z) > T.floor3.closeAfter) {
+      arenaDoor.close();
+      arenaDoor = null;
+      toast("THE DOOR SEALS BEHIND YOU", 2);
+      sound("bash");
+    }
+  }
+  if (boss?.done) {
+    finishWait += dt;
+    if (finishWait > T.boss.death.cardDelay) {
+      state = "finish";
+      showOverlay("finish");
+    }
+  }
+}
 let playerSection = -1; // floor 2: section index the player stands in (building.js)
 const beatLog = []; // balance read-out: per beat { floor, id, time, taken }
 let beatMark = null;
@@ -1678,6 +2052,7 @@ function encounter(dt) {
       beatLog.push({ floor: beatMark.floor, id: beatMark.id, time: +(runTime - beatMark.t).toFixed(1), taken: Math.round(combatStats.taken - beatMark.taken) });
     beatMark = { floor, id, t: runTime, taken: combatStats.taken };
   }
+  if (floor === 3) return updateFloor3(dt);
   if (!director.done) return;
   if (floor === 1) {
     world.setLiftReady(true);
@@ -1688,6 +2063,13 @@ function encounter(dt) {
         : "Atrium secured. Follow the gold floor line to the lift.",
       0.3,
     );
+    return;
+  }
+  // round 4: floor 2's goal is the express lift to the top floor (T.floor3.on)
+  if (T.floor3.on) {
+    if (finishWait === 0) toast("FLOOR 02 SECURED / EXPRESS LIFT TO THE TOP", T.floor3.rideDelay + 1);
+    finishWait += dt;
+    if (finishWait > T.floor3.rideDelay) startLift(3);
     return;
   }
   if (finishWait === 0) toast("FLOOR 02 SECURED / THE CLIMB CONTINUES", T.encounter.completionDelay + 0.5);
@@ -1710,7 +2092,12 @@ const liftEase = (a, b, x) => {
   const k = THREE.MathUtils.clamp((x - a) / (b - a), 0, 1);
   return k * k * (3 - 2 * k);
 };
-function startLift() {
+// to = 2: the atrium lift (lift-ui's ride). to = 3: floor 2's goal → the top
+// floor (arena's ride in lift.js when it is in, else a fade stub, T.floor3.stubRide).
+let liftTo = 2;
+function startLift(to = 2) {
+  liftTo = to;
+  if (to === 3) return startRide3();
   state = "lift";
   aimMarker.visible = aimLaser.visible = false;
   phaseTime = 0;
@@ -1730,7 +2117,90 @@ function startLift() {
     6,
   );
 }
+function startRide3() {
+  state = "lift";
+  aimMarker.visible = aimLaser.visible = false;
+  phaseTime = 0;
+  actors.clear();
+  clearPickups();
+  clearInput();
+  crouch = false;
+  liftRide.from.copy(pos);
+  world.express?.begin(); // arena's express ride (lift.js); a fade stub without it
+  toast("ASCENDING / THE TOP FLOOR", 3);
+  sound("lift");
+  hint("The express lift. One floor left.", 5);
+}
+// The express ride (lift.js `world.express`, arena): walk into the cab, the cab
+// climbs with a cinematic shot, ease onto the gameplay camera, dip to black,
+// beginFloor(3) pops the top floor in. Without it: a short fade stub.
+function updateRide3(dt) {
+  phaseTime += dt;
+  const X = world.express;
+  const fade = $("fade");
+  if (!X) {
+    const t = Math.min(1, phaseTime / T.floor3.stubRide);
+    pos.y = liftRide.from.y + liftEase(0.1, 0.8, t) * 6;
+    body.position.copy(pos);
+    playerModel.update(dt, { speed: 0, crouch: false, pitch: 0, heat: 0, firing: 0, dodge: false, time: runTime, hurt: 0 });
+    updateCamera(dt);
+    if (fade) {
+      fade.style.transition = "none";
+      fade.style.opacity = liftEase(0.45, 0.8, t);
+    }
+    if (t >= 1) arriveTop(fade);
+    return;
+  }
+  const C = X.config,
+    t = Math.min(1, phaseTime / C.duration);
+  const walk = liftEase(0, C.walkTime, phaseTime);
+  X.setProgress(liftEase(C.walkTime / C.duration, 0.9, t));
+  const base = X.base(liftRide.base);
+  const before = liftRide.walked.copy(pos);
+  pos.set(THREE.MathUtils.lerp(liftRide.from.x, base.x, walk), base.y, THREE.MathUtils.lerp(liftRide.from.z, base.z, walk));
+  const step = before.distanceTo(pos);
+  body.position.copy(pos);
+  // face out of the cab's front door (+z), the way floor 3 starts
+  body.rotation.set(0, THREE.MathUtils.lerp(body.rotation.y, Math.PI, 1 - Math.exp(-dt * 8)), 0);
+  body.updateMatrixWorld(true);
+  playerModel.update(dt, { speed: walk < 1 ? Math.min(T.player.speed, step / Math.max(dt, 1e-4)) : 0, crouch: false, pitch: 0, heat: 0, firing: 0, dodge: false, time: runTime, hurt: 0 });
+  X.shot(t, base, camera);
+  const blend = liftEase(C.blendFrom, C.blendTo, t);
+  if (blend > 0) {
+    liftRide.camPos.copy(camera.position);
+    liftRide.camQuat.copy(camera.quaternion);
+    liftRide.camFov = camera.fov;
+    yaw = Math.PI;
+    pitch = -0.06;
+    updateCamera(1, true);
+    camera.position.lerpVectors(liftRide.camPos, camera.position, blend);
+    camera.quaternion.slerpQuaternions(liftRide.camQuat, camera.quaternion, blend);
+    camera.fov = THREE.MathUtils.lerp(liftRide.camFov, camera.fov, blend);
+    camera.updateProjectionMatrix();
+  }
+  const far = T.fx.fogFar,
+    wide = liftEase(0.2, 0.45, t) * (1 - liftEase(0.72, 0.95, t));
+  scene.fog.far = THREE.MathUtils.lerp(far, C.fogFar ?? far, wide);
+  if (fade) {
+    fade.style.transition = "none";
+    fade.style.opacity = Math.max(1 - liftEase(0, C.fadeIn ?? 0.05, t), liftEase(C.fadeOut ?? 0.93, 1, t)); // in from black, out at the end
+  }
+  if (t >= 1) {
+    scene.fog.far = far;
+    X.end();
+    arriveTop(fade);
+  }
+}
+function arriveTop(fade) {
+  sound("arrive");
+  beginFloor(3);
+  if (fade) {
+    fade.style.transition = "opacity 0.9s ease-out";
+    fade.style.opacity = 0;
+  }
+}
 function updateLift(dt) {
+  if (liftTo === 3) return updateRide3(dt);
   phaseTime += dt;
   const C = T.lift,
     t = Math.min(1, phaseTime / (C?.duration ?? T.encounter.liftDuration)),
@@ -1812,6 +2282,10 @@ function updateHud() {
         ? "Atrium secured · board the lift"
         : floor === 1
           ? "Clear the atrium"
+          : floor === 3 && boss?.active
+            ? boss.dead
+              ? "It is falling"
+              : "Bring it down"
           : bld
             ? director.holding
               ? "Hold the ring"
@@ -1821,7 +2295,9 @@ function updateHud() {
     ? "Bottom entrance / approach corridor"
     : state === "lift"
       ? "Scorer’s files believed to be at the top"
-      : beatDetail();
+      : floor === 3 && boss?.active
+        ? `Phase ${boss.phase} / 3 · ${actors.enemies.filter((e) => !e.dead).length} defenders · face always, hands when down`
+        : beatDetail();
   $("phase").textContent = flying
     ? "FLEET APPROACH"
     : state === "lift"
@@ -1866,7 +2342,34 @@ function updateHud() {
   $("toast").style.opacity = toastTime > 0 ? 1 : 0;
   $("hint").classList.toggle("hidden", hintTime <= 0);
   $("damage").style.opacity = damageFlash;
+  updateBossBar(combat);
   updateAudio();
+}
+// Floor 3: the boss bar (marks at 66 % and 33 %; white flicker while it roars).
+const bossBar = { shown: null, phase: 0, k: -1, invuln: null };
+function updateBossBar(combat) {
+  const on = !!(combat && floor === 3 && boss?.active && !boss.done);
+  if (on !== bossBar.shown) {
+    bossBar.shown = on;
+    $("bossbar").classList.toggle("off", !on);
+    $("bossname").textContent = T.boss.name;
+  }
+  if (!boss) return;
+  const k = Math.round((boss.hp / boss.maxHp) * 1000) / 10;
+  if (k !== bossBar.k) {
+    bossBar.k = k;
+    $("bossfill").style.width = k + "%";
+    $("bossghost").style.width = k + "%";
+  }
+  if (boss.phase !== bossBar.phase) {
+    bossBar.phase = boss.phase;
+    $("bossbar").dataset.phase = boss.phase;
+    $("bossphase").textContent = `PHASE ${boss.phase} / 3`;
+  }
+  if (boss.invulnerable !== bossBar.invuln) {
+    bossBar.invuln = boss.invulnerable;
+    $("bossbar").classList.toggle("invuln", boss.invulnerable);
+  }
 }
 function tick(dt) {
   if (!paused && ["flight", "combat", "lift"].includes(state)) {
@@ -1897,6 +2400,7 @@ function tick(dt) {
       body.updateMatrixWorld(true);
       if (mouseFire) fire();
       actors.update(dt, runTime);
+      if (floor === 3 && boss) boss.update(dt, runTime);
       updatePickups(dt);
       updateAim(dt);
       if (state === "combat") encounter(dt);
@@ -2020,6 +2524,39 @@ if (new URLSearchParams(location.search).has("test"))
     },
     ground: (x, z, y) => groundAt(x, z, y),
     route: (a, b) => bld?.path(a, b) ?? null,
+    // floor 3 (round 4): the boss (boss.js), its arena, per-phase balance read-out
+    get boss() {
+      return boss;
+    },
+    get arena() {
+      return bossArena;
+    },
+    get arenaIndex() {
+      return arenaIndex;
+    },
+    startBoss,
+    // floor 3 straight into the arena (phase 1..3), like ?floor=3&at=arena&phase=n
+    toArena(phase = 1) {
+      testArena = true;
+      testPhase = phase;
+      beginFloor(3);
+      testArena = false;
+    },
+    get bossBalance() {
+      if (!boss) return null;
+      const st = boss.stats;
+      return {
+        phaseTime: st.phaseTime.slice(1).map((t) => +t.toFixed(1)),
+        deaths: bossStats.deaths.slice(1),
+        damage: Math.round(st.damage),
+        crit: Math.round(st.crit),
+        squad: Math.round(st.squad),
+        healed: Math.round(st.healed),
+        moves: st.slams,
+        interrupts: st.interrupts,
+        fight: bossStats.start >= 0 ? +(((bossStats.end >= 0 ? bossStats.end : runTime) - bossStats.start)).toFixed(1) : 0,
+      };
+    },
     get yaw() {
       return yaw;
     },

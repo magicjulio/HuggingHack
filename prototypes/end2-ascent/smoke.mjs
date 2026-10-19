@@ -153,10 +153,24 @@ async function fight(maxTicks = +(process.env.MAX_TICKS || 60 * 60 * 12)) {
         eye.y += 1.5;
         const seenNow = new Map(live.map((e) => [e, !bm || !g.blocked(eye, g.actors.hitCenter(e))]));
         live.sort((a, b) => seenNow.get(b) - seenNow.get(a) || prio(a) - prio(b));
-        const e = live[0];
-        const seen = e && seenNow.get(e);
-        if (e !== bot.target) {
-          bot.target = e;
+        let e = live[0];
+        let seen = e && seenNow.get(e);
+        // Floor 3, the boss: a down (or stunned) hand is a crit target; the face is
+        // always there. Priority: a close Hugger, a Maintainer (it heals the boss),
+        // a weak hand, the adds in sight, the face.
+        const B = g.boss;
+        const bossOn = s.floor === 3 && B && B.active && !B.dead;
+        let bossAim = null;
+        if (bossOn) {
+          const weak = B.weakParts().filter((w) => !g.blocked(eye, w.center) && w.left > 0.35);
+          const urgent = live.find((x) => seenNow.get(x) && ((x.kind === "hugger" && x.pos.distanceTo(g.pos) < 9) || x.kind === "maintainer"));
+          if (urgent) e = urgent, seen = true;
+          else if (weak.length) bossAim = { key: weak[0].part, at: weak[0].center };
+          else if (!e || !seen) bossAim = { key: "face", at: B.sphere("face").center.clone() };
+        }
+        const tkey = bossAim ? bossAim.key : e;
+        if (tkey !== bot.target) {
+          bot.target = tkey;
           bot.react = human ? 0.3 + Math.random() * 0.2 : 0;
         }
         bot.react -= dt;
@@ -173,12 +187,12 @@ async function fight(maxTicks = +(process.env.MAX_TICKS || 60 * 60 * 12)) {
           goal = enc.zone.clone();
           goal.x += Math.sin(ticks / 90) * 1.4;
         }
-        if (e && !seen) {
+        if (e && !seen && !bossAim) {
           // awake but out of sight: go find it (aim ahead, don't fire)
           g.setInput({ fire: false, aim: false, crouched: false });
           if (!goal) goal = e.pos.clone();
-        } else if (e) {
-          const c = g.actors.hitCenter(e);
+        } else if (e || bossAim) {
+          const c = bossAim ? bossAim.at : g.actors.hitCenter(e);
           g.aimAt([c.x + bot.err[0], c.y + bot.err[1], c.z + bot.err[2]]);
           // bursts: ~1.2 s on, 0.5 s off; let the vent happen
           if (bot.burst <= 0 && bot.rest <= 0) {
@@ -191,7 +205,7 @@ async function fight(maxTicks = +(process.env.MAX_TICKS || 60 * 60 * 12)) {
           } else bot.rest -= dt;
           const canFire = bot.react <= 0 && bot.burst > 0 && ["enemy", "weak", "armour"].includes(g.aim);
           g.setInput({ fire: canFire, aim: true, crouched: false });
-          if (!goal) {
+          if (!goal && !bossAim) {
             const delta = e.pos.clone().sub(g.pos).setY(0);
             const dist = delta.length();
             const wanted = e.kind === "hugger" ? 0 : 12;
@@ -212,8 +226,58 @@ async function fight(maxTicks = +(process.env.MAX_TICKS || 60 * 60 * 12)) {
             } else goal = b.sections[enc.section].center.clone();
           }
         }
-        // dodge a hugger lunge aimed at us (humans won't always)
+        // Floor 3: read the boss. Get out of a red ring (after a reaction time; sprint
+        // speed), dodge (Space) when it is about to land, dodge through a shockwave,
+        // and sometimes drop the squad on a winding-up hand to cut the slam.
+        let escape = false;
         bot.dodgeCd -= dt;
+        if (bossOn) {
+          bot.seenRing ??= new Map();
+          const now = s.runTime;
+          for (const th of B.threats) {
+            const k = th.side + th.kind + Math.round(th.x) + "," + Math.round(th.z);
+            if (!bot.seenRing.has(k)) bot.seenRing.set(k, { t: now, ok: !human || Math.random() < 0.88 });
+            const seenR = bot.seenRing.get(k);
+            const dx = g.pos.x - th.x,
+              dz = g.pos.z - th.z,
+              d = Math.hypot(dx, dz);
+            if (d > th.r + 0.9 || !seenR.ok) continue;
+            if (now - seenR.t < (human ? 0.32 : 0.05)) continue; // reaction time
+            const out = d > 0.2 ? [dx / d, dz / d] : [1, 0];
+            goal = g.pos.clone();
+            goal.x = th.x + out[0] * (th.r + 2.2);
+            goal.z = th.z + out[1] * (th.r + 2.2);
+            escape = true;
+            if (th.t < 0.22 && d < th.r + 0.3 && bot.dodgeCd <= 0) {
+              bot.dodgeCd = 1.2;
+              g.keys.add("KeyW");
+              g.aimAt([goal.x, g.pos.y + 1, goal.z]);
+              key("Space");
+              key("Space", "keyup");
+              g.keys.delete("KeyW");
+            }
+            // the squad lands on the hand: the slam is cut
+            if (s.ready && th.t > 0.75 && Math.random() < (human ? 0.012 : 0.05)) g.callSquad();
+          }
+          for (const w of B.waves) {
+            const d = Math.hypot(g.pos.x - w.x, g.pos.z - w.z);
+            if (!w.hit && d > w.r && d - w.r < w.speed * 0.09 && bot.dodgeCd <= 0) {
+              bot.dodgeCd = 1.2;
+              if (!human || Math.random() < 0.8) {
+                key("Space");
+                key("Space", "keyup");
+              }
+            }
+          }
+          // keep to the middle band of the arena: not under the face, not in a corner
+          if (!goal) {
+            const A = g.arena;
+            const dc = Math.hypot(g.pos.x - A.center.x, g.pos.z - A.center.z);
+            const dh = Math.hypot(g.pos.x - A.bossHome.x, g.pos.z - A.bossHome.z);
+            if (dc > 14 || dh < 15) goal = A.center.clone().setY(g.pos.y);
+          }
+        }
+        // dodge a hugger lunge aimed at us (humans won't always)
         for (const h of live) {
           if (h.kind !== "hugger" || h.state !== "tell" || bot.dodgeCd > 0) continue;
           if (h.tell < 0.2 && h.lungeTo.distanceTo(g.pos) < 2 && Math.random() < (human ? 0.6 : 1)) {
@@ -224,7 +288,7 @@ async function fight(maxTicks = +(process.env.MAX_TICKS || 60 * 60 * 12)) {
             g.keys.delete("KeyA");
           }
         }
-        const step = 4 / 60;
+        const step = (escape ? 7 : 4) / 60;
         if (goal && bm) {
           // follow a nav route (re-planned every 0.5 s or when the goal moves)
           bot.pathT = (bot.pathT ?? 0) - dt;
@@ -258,13 +322,13 @@ async function fight(maxTicks = +(process.env.MAX_TICKS || 60 * 60 * 12)) {
             g.move(g.pos, d.clone().multiplyScalar(step), 0.42, false, true);
             if (before.distanceTo(g.pos) < 0.02) g.move(g.pos, d.set(d.z * bot.side, 0, -d.x * bot.side).multiplyScalar(step), 0.42, false, true);
           }
-        } else if (e && !(bot.still && bot.burst > 0)) {
+        } else if ((e || bossAim) && !(bot.still && bot.burst > 0)) {
           bot.sideT -= dt;
           if (bot.sideT <= 0) {
             bot.sideT = 2 + Math.random() * 2;
             bot.side *= -1;
           }
-          const d = e.pos.clone().sub(g.pos).setY(0).normalize();
+          const d = (bossAim ? bossAim.at : e.pos).clone().sub(g.pos).setY(0).normalize();
           g.move(g.pos, d.set(d.z * bot.side, 0, -d.x * bot.side).multiplyScalar(3 / 60), 0.42, false, true);
         }
         g.tick(dt);
@@ -290,13 +354,17 @@ async function fight(maxTicks = +(process.env.MAX_TICKS || 60 * 60 * 12)) {
 }
 // START=2: skip floor 1 and the lift (quick floor-2 balance runs).
 const only2 = process.env.START === "2";
+// START=3: floor 3 from the express cab; START=arena (PHASE=1..3): straight into the boss.
+const start3 = process.env.START === "3" || process.env.START === "arena";
 if (only2) await page.evaluate(() => window.__ascent.beginFloor(2));
-const floor1 = only2 ? { encounterDone: true, skipped: true } : await fight();
+if (start3)
+  await page.evaluate((p) => (p.arena ? window.__ascent.toArena(p.phase) : window.__ascent.beginFloor(3)), { arena: process.env.START === "arena", phase: +(process.env.PHASE || 1) });
+const floor1 = only2 || start3 ? { encounterDone: true, skipped: true } : await fight();
 console.log("floor1", floor1);
 await page.waitForTimeout(100);
-if (!only2) await snap("end2-cleared");
+if (!only2 && !start3) await snap("end2-cleared");
 assert.ok(floor1.encounterDone, "floor 1: every beat done");
-if (!only2) {
+if (!only2 && !start3) {
 console.log(
   "walkLift",
   await page.evaluate(() => {
@@ -337,9 +405,36 @@ const rideRest = await page.evaluate(() => {
 });
 console.log("ride", { ticks: ride + rideRest.ticks, ...rideRest });
 }
-const floor2 = await fight();
+const floor2 = start3 ? { state: "lift", skipped: true } : await fight();
 console.log("floor2", floor2);
-if (floor2.state !== "finish")
+// Round 4: floor 2's goal leads to the express lift → floor 3 → the boss → the end card.
+let floor3 = null;
+if (floor2.state === "lift" || start3) {
+  if (!start3) {
+    const ride3 = await page.evaluate(() => {
+      const g = window.__ascent;
+      let i = 0;
+      for (; i < 60 * 30 && g.snapshot.state === "lift"; i++) {
+        g.tick(1 / 60);
+        if (i === 300) break;
+      }
+      return i;
+    });
+    await page.waitForTimeout(100);
+    await snap("end2-express");
+    const rest3 = await page.evaluate(() => {
+      const g = window.__ascent;
+      let i = 0;
+      for (; i < 60 * 30 && g.snapshot.state === "lift"; i++) g.tick(1 / 60);
+      return { ticks: i, state: g.snapshot.state, floor: g.snapshot.floor, pos: g.pos.toArray().map((v) => +v.toFixed(1)) };
+    });
+    console.log("ride3", { ticks: ride3 + rest3.ticks, ...rest3 });
+  }
+  floor3 = await fight(+(process.env.MAX_TICKS3 || 60 * 60 * 20));
+  console.log("floor3", floor3);
+  console.log("boss", await page.evaluate(() => window.__ascent.bossBalance));
+}
+if (floor3 ? floor3.state !== "finish" : floor2.state !== "finish")
   console.log(
     "stuck",
     JSON.stringify(await page.evaluate(() => {
@@ -352,23 +447,25 @@ if (floor2.state !== "finish")
         enc: { mode: e.mode, section: e.section, opened: e.opened, pending: e.pending, cleared: e.cleared, holding: e.holding },
         enemies: g.actors.enemies.filter((x) => !x.dead).map((x) => ({ kind: x.kind, section: x.section, dormant: x.dormant, spawn: +x.spawn.toFixed(2), pos: f(x.pos), seen: !g.blocked(g.pos.clone().setY(g.pos.y + 1.5), g.actors.hitCenter(x)) })),
         aim: g.aim,
+        boss: g.boss && { active: g.boss.active, hp: Math.round(g.boss.hp), phase: g.boss.phase, dead: g.boss.dead, done: g.boss.done, hands: Object.values(g.boss.hands).map((h) => h.state) },
       };
     })),
   );
 await page.waitForTimeout(150);
 await snap("end2-end");
-const final = await page.evaluate(() => ({ snap: window.__ascent.snapshot, balance: window.__ascent.balance, mode: window.__ascent.encounter.mode, warnings: window.__ascent.encounter.warnings }));
+const final = await page.evaluate(() => ({ snap: window.__ascent.snapshot, balance: window.__ascent.balance, mode: window.__ascent.encounter.mode, warnings: window.__ascent.encounter.warnings, boss: window.__ascent.boss && { done: window.__ascent.boss.done } }));
 console.log("beats", final.balance.beats);
 // Floor 2 as a building: time, damage and deaths per section (survive checkpoint retries).
 console.log("floor2 mode", final.mode, final.warnings.length ? final.warnings : "");
 if (final.mode === "sections") console.table(final.balance.sections);
 console.log("balance", { taken: final.balance.taken, deaths: final.balance.deaths, runTime: +final.snap.runTime.toFixed(1) });
 assert.equal(final.snap.state, "finish", "full slice reaches the completion card");
-assert.ok(final.snap.encounterDone, "floor 2: every beat done");
-assert.ok(final.snap.stats.calls >= (only2 ? 1 : 2), "subagents deployed on both floors");
+assert.ok(final.snap.encounterDone, start3 ? "floor 3: every section done" : "floor 2: every beat done");
+if (floor3) assert.ok(final.boss && final.boss.done, "floor 3: the boss falls before the end card");
+assert.ok(final.snap.stats.calls >= (only2 || start3 ? 1 : 2), "subagents deployed on both floors");
 assert.ok(mechanics.forcedVent && mechanics.perfect, "active vent: overheat vents, a tap in the window is a perfect vent");
 assert.deepEqual(errors, [], "no console errors or uncaught exceptions");
 console.log(
-  `PASS (${gpu ? "GPU" : "SwiftShader"}, bot ${process.env.BOT || "human"}): ${only2 ? "floor 2 only" : "intro → floor 1 → lift → floor 2"} → end card; no browser errors`,
+  `PASS (${gpu ? "GPU" : "SwiftShader"}, bot ${process.env.BOT || "human"}): ${start3 ? "floor 3 only" : only2 ? "floor 2 → express → floor 3" : "intro → floor 1 → lift → floor 2 → express → floor 3"}${floor3 ? " → boss" : ""} → end card; no browser errors`,
 );
 await browser.close();

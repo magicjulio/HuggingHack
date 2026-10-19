@@ -3,6 +3,7 @@ import { textPlate } from "./art.js";
 import { interiorLighting, createFloorSets } from "./floors.js";
 import { createLift } from "./lift.js";
 import { createFloor2 } from "./floor2.js";
+import { createFloor3 } from "./floor3.js";
 
 // The playable deck moves between two heights; the tower shell stays in place.
 export function createWorld(scene, T, brand) {
@@ -263,16 +264,29 @@ export function createWorld(scene, T, brand) {
     root.add(level.group);
     floorSets.useBuilding(true);
   }
+  // Floor 3 (arena, round 4): the top floor, corridor + boss arena (floor3.js), built on
+  // floor2.js's generator, at 2 × floorHeight. ?f3=off leaves floor 3 without a level.
+  const level3 = new URLSearchParams(location.search).get("f3") === "off" ? null : createFloor3({ resources, T });
+  if (level3) {
+    level3.group.position.y = deckHeight * 2;
+    level3.group.visible = false;
+    root.add(level3.group);
+  }
+  // The express ride from floor 2's goal up to floor 3 (lift.js, arena).
+  const express = lift.createExpress({ level2: level, level3, floorHeight: deckHeight });
   const backdrop = root.getObjectByName("tower backdrop");
   let levelVersion = -1;
+  // the level of the active floor (floor 2 building, floor 3 summit), or null on floor 1
+  const activeLevel = () => (activeFloor === 2 ? level : activeFloor === 3 ? level3 : null);
   // world.colliders holds absolute copies of the level's (local) colliders; door
   // changes bump level.version and are re-synced here.
   function syncLevel() {
-    levelVersion = level.version;
+    const lv = activeLevel();
+    levelVersion = lv.version;
     colliders.length = 0;
-    for (const c of level.colliders) colliders.push({ ...c, baseY: c.baseY + floorY, local: c });
+    for (const c of lv.colliders) colliders.push({ ...c, baseY: c.baseY + floorY, local: c });
   }
-  const onLevel = () => level && activeFloor === 2;
+  const onLevel = () => !!activeLevel();
 
   function setLiftReady(value) {
     ready = value;
@@ -287,6 +301,10 @@ export function createWorld(scene, T, brand) {
     floorSets.setFloor(number);
     floorY = (number - 1) * deckHeight;
     deck.position.y = floorY;
+    // the atrium deck (old lift, its sign, the legacy boxes) has no place on the top floor
+    deck.visible = number !== 3;
+    lift.setTop(number === 3);
+    express.end();
     setLiftProgress(0);
     liftPosition.y = floorY;
     colliders.length = 0;
@@ -303,11 +321,12 @@ export function createWorld(scene, T, brand) {
     }
     spawnPoints.length = 0;
     if (onLevel()) {
+      const lv = activeLevel();
       for (const c of covers) c.group.visible = false;
       syncLevel();
-      for (const s of level.sections)
+      for (const s of lv.sections)
         for (const [x, z, y] of s.anchors.drop) spawnPoints.push(new THREE.Vector3(x, floorY + y, z));
-      level.setSection(level.sectionAt(level.start.x, level.start.z));
+      lv.setSection(lv.sectionAt(lv.start.x, lv.start.z));
     } else for (const [x, z] of [
       [-14.5, -20],
       [14.5, -21],
@@ -337,25 +356,35 @@ export function createWorld(scene, T, brand) {
     setLiftProgress,
     lift,
     floors: floorSets,
-    // the floor-2 building while on floor 2 (null on floor 1 and with ?f2=arena)
+    // the level of the active floor: the floor-2 building on floor 2 (null with ?f2=arena),
+    // the floor-3 summit (corridor + arena, `level.arena`) on floor 3, null on floor 1
     get level() {
-      return onLevel() ? level : null;
+      return activeLevel();
     },
+    // both levels, whatever the floor (tests, previews)
+    levels: { 2: level, 3: level3 },
+    // the express ride floor 2 → floor 3 (lift.js; call sequence in FLOOR3.md)
+    express,
     // walkable height (absolute y) under x, z
     ground(x, z) {
-      return onLevel() ? floorY + level.ground(x, z) : floorY;
+      const lv = activeLevel();
+      return lv ? floorY + lv.ground(x, z) : floorY;
     },
     update(dt, time, camera) {
       lift.update(dt, time, camera);
       floorSets.update(dt, time);
-      if (level) {
-        const riding = lift.assembly.position.y > 0.1;
-        const inside = activeFloor === 2 && !riding;
-        level.group.visible = inside;
-        if (backdrop) backdrop.visible = !inside; // the building's walls replace the tower shell
-        if (inside) {
-          level.update(dt, time);
-          if (level.version !== levelVersion) syncLevel();
+      express.update(dt, time, camera);
+      {
+        const riding = lift.assembly.position.y > 0.1 || express.active;
+        const in2 = !!level && activeFloor === 2 && !riding;
+        const in3 = !!level3 && activeFloor === 3 && !riding;
+        if (level) level.group.visible = in2;
+        if (level3) level3.group.visible = in3;
+        if (backdrop) backdrop.visible = !(in2 || in3); // the building's walls replace the tower shell
+        const lv = in2 ? level : in3 ? level3 : null;
+        if (lv) {
+          lv.update(dt, time);
+          if (lv.version !== levelVersion) syncLevel();
         }
       }
     },

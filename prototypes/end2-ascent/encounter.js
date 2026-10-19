@@ -344,6 +344,7 @@ function createSections(T, hooks) {
     trickleTimer = sc.hold?.trickle?.every || 0;
     hooks.wakeSection(j);
     fire(j, "enter");
+    if (sc.boss) hooks.bossEnter?.(j); // floor 3: the arena, the boss wakes
     if (sc.title) hooks.toast(sc.title, 2.6);
     if (sc.hint) hooks.hint(sc.hint, sc.hintTime || 8);
     const h = sc.hold && (sc.hold.at ? { x: sc.hold.at[0], z: sc.hold.at[1], y: bld.floorY + (sc.hold.at[2] || 0), r: sc.hold.r } : bld.sections[j].hold || bld.goal);
@@ -437,6 +438,7 @@ function createSections(T, hooks) {
       });
       if (progress < 1) return;
     }
+    if (sc.boss && !hooks.bossDone?.()) return; // the arena ends when the boss is down
     if (hooks.aliveIn(i) > 0 || pendingEvents(i) || (sc.hold && progress < 1)) return;
     cleared[i] = true;
     if (sc.hold) zone.hide();

@@ -477,6 +477,9 @@ export function createActors(scene, T, hooks, brand) {
       hideLook(e, "beam:warden-aim");
     },
     mostDamaged(self, range) {
+      // floor 3: a Maintainer tethers to the hurt boss first (boss.target proxy)
+      const boss = hooks.bossTarget?.();
+      if (boss && boss.hp < boss.maxHp - 1) return boss;
       let best = null,
         ratio = 0.999;
       for (const o of enemies) {
@@ -666,6 +669,7 @@ export function createActors(scene, T, hooks, brand) {
     hooks.sound("call");
     hooks.shake(S.shake);
     hooks.onSquad?.("landed", hit);
+    hooks.onSquadLand?.(point, S.shockRadius); // floor 3: interrupts a winding-up boss slam
   }
 
   // ------------------------------------------------------------ per frame
@@ -800,6 +804,14 @@ export function createActors(scene, T, hooks, brand) {
           best = d;
         }
       }
+    // floor 3: nothing else in sight → shoot the boss's face (boss.target proxy)
+    if (!target && !a.rally) {
+      const boss = hooks.bossTarget?.();
+      if (boss) {
+        target = boss;
+        best = a.pos.distanceToSquared(boss.pos);
+      }
+    }
     a.target = target;
     a.shoot -= dt;
     if (target) {
@@ -815,13 +827,19 @@ export function createActors(scene, T, hooks, brand) {
             .addScaledVector(back, S.flankDistance)
             .add(new THREE.Vector3(back.z, 0, -back.x).multiplyScalar(side * (a.index + 1) * 1.2));
           if (flatDist(a.pos, goal) > 1) moveToward(a, goal, speed, dt, side);
+        } else if (target.isBoss) {
+          // the boss: keep near the player and fire at the face; walk only to get a line
+          const follow = player.pos.clone().add(new THREE.Vector3(side * 2.8, 0, 2));
+          if (!visible) moveToward(a, target.pos, speed, dt, side);
+          else if (a.pos.distanceTo(follow) > 3) moveToward(a, follow, speed * 1.15, dt, side);
         } else if (best > 12 * 12 || !visible) moveToward(a, target.pos, speed, dt, side);
       }
-      if (a.shoot <= 0 && best < 30 * 30 && visible) {
+      if (a.shoot <= 0 && best < (target.isBoss ? 70 * 70 : 30 * 30) && visible) {
         a.shoot = a.temporary ? S.interval : S.escortInterval;
         a.model.shoot();
         hooks.beam(start, end, a.temporary ? 0xa8ffd1 : 0x6bcfff);
-        hitEnemy(target, a.temporary ? S.damage : S.escortDamage, start, true);
+        if (target.isBoss) target.hit(a.temporary ? S.damage : S.escortDamage, start);
+        else hitEnemy(target, a.temporary ? S.damage : S.escortDamage, start, true);
       }
     } else if (!a.rally) {
       const follow = player.pos.clone().add(new THREE.Vector3(side * 2.8, 0, 2));
