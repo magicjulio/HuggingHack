@@ -1,6 +1,0 @@
-METR Table 1 (recovered from page.html because pandoc dropped it; text of the table, ✅/❌ as published)
-Rows: Approach | Could this be used to stage the appearance of a legitimate flag capture? | Could this hide evidence of having previously acquired the flag illegitimately?
-1. Replace the target with a modified version that could be exploited with the intended vulnerability | ✅ | ❌
-2. Tamper with transcripts and logs | ✅ | ❌ if you can only tamper with future logging; ✅ if you can find and retroactively change logs
-3. Tamper with the grading process itself | ✅ | ✅
-Caption: Table 1: Acquiring the flag was relatively easy through reverse-engineering, but agents also believed that the scorer would check their transcript to see if they acquired it legitimately. PHASEONE[big] considered a wide variety of approaches to address this obstacle, which we grouped into three broad approaches. It also had to find a way to wipe or hide its earlier acquisition of the flag through reverse-engineering, since it (agents incorrectly assumed) would read as obviously illegitimate to the scorer.

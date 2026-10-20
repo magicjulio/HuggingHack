@@ -1,5 +1,0 @@
-JetBrains Mono and Chakra Petch are licensed under the SIL Open Font License 1.1 (OFL).
-Files are the latin subsets from the @fontsource packages (fontsource.org).
-JetBrains Mono: https://github.com/JetBrains/JetBrainsMono/blob/master/OFL.txt
-Chakra Petch:   https://github.com/cadsondemak/chakra-petch/blob/master/OFL.txt
-Free to use and ship in a public web game; keep this note with the fonts.

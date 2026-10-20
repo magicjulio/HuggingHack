@@ -1,6 +1,6 @@
 # app/ — engineer conventions
 
-Read with: `README.md` (how to run), `docs/DECISIONS.md` Part 1, `handoff/design-to-app/MANIFEST.md`. Older status notes and the external engineer's sections: `HISTORY.md` (no need to read at startup).
+Read with: `README.md` (how to run), `../docs/GAME.md` (design reference), `../docs/levels/` (level scripts).
 
 ## Stack
 Vite + TypeScript + React 19 + React Three Fiber (Three.js, drei), zustand, Vitest, Playwright (local Chrome), ESLint + Prettier.
@@ -137,12 +137,5 @@ Same pattern as Ending 1 (approved as is: `handoff/design-to-app/2026-10-18-end3
 - **drei `<Html>`** (DOM pinned in 3D): keep it mounted and toggle its children, with an explicit `portal` (ch2 `Anchor`, ch1 `ScreenHtml`); mounting/unmounting it during a render races in React 19.
 - **Status below is a whiteboard:** replace it, don't add dated sections. Old ones go to `HISTORY.md` if worth keeping.
 
-## Status (2026-10-19)
-- **Playable:** start screen, Ch1, Ch2, the bridge (stand-in), all four endings: E1 "Cluster Run", E2 "Ascent", E3 "Ghost Capture", E4 "The Letter".
-- **E2 just integrated** (report `handoff/app-to-design/2026-10-19-ascent-integrated.md`). e2e proves the approach start, the arena entry, pause, finish + save and clean exits; the full run (landing, floors 1–2, lift, boss kill) is not driven by a test. Julius plays it by hand. End text and room names are placeholders for the storyteller.
-- **E4 integrated (Codex, Julius's request):** `src/levels/end4/`, handoff `handoff/app-to-design/2026-10-18-end4-letter-built.md`.
-- **Bridge, proper version (todo, Julius):** run it inside Chapter 2 (no reload, no second renderer): store phases (film / choice / ride) driven by `bridge.js direct(t)`, the real Ch2 controller + `sim.world` colliders, ThirdPerson with `camPose` override, the React HUD, `phaseOne` as a `WorldModule`, crowd hidden, quality tiers, sound cues, pause menu (today: none, mouse drag to look).
-- **E1:** moving enemies and the sandbox-door question wait on Julius (`handoff/build-to-story/2026-10-16-end1-integrated.md`).
-- **Ch1/Ch2 done for now**; refinements after all chapters. Still to come from the designer: whole-game map regions (then cross-chapter travel).
-- **Known limits:** after leaving a machine the browser may need a click to re-lock the mouse; e2e renders on the GPU (Vulkan), `E2E_SWIFTSHADER=1` falls back to CPU WebGL (~1 FPS); DOM screens are never hidden by 3D objects.
-- Tests: 53 unit + 15 browser.
+## Status
+All chapters and four endings are playable; only refinement is left. Known limits: after leaving a machine the browser may need a click to re-lock the mouse; e2e renders on the GPU (Vulkan), `E2E_SWIFTSHADER=1` falls back to CPU WebGL (~1 FPS); DOM screens are never hidden by 3D objects. Open ideas: a proper bridge inside Chapter 2 (no reload, shared renderer), moving enemies in E1, a whole-game map. Tests: `npm test` (unit) and `npm run e2e` (Playwright).

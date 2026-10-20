@@ -1,7 +1,0 @@
-- [Workflow with Julius](feedback_workflow.md) — propose first, wait for OK; designer runs before integration
-- [Direct changes from Julius](feedback_direct_changes.md) — "just make it": build small gameplay changes now, log + tell story after
-- [Tooling gotchas](reference_tooling_gotchas.md) — zsh `> file` hang, prettier vs CSS, drei Html root/portal/always-mounted, e2e on GPU via Vulkan, ad-hoc screenshots, reach test
-- [Design protocol](feedback_design_protocol.md) — designer handoffs: models plug in, rigs/values don't; send screenshots back
-- [Esc is reserved](feedback_esc_key.md) — never close/leave on Esc; WASD, step-back button, click beside
-- [Swappable assets](feedback_swappable_assets.md) — placeholder now, real model later: views behind stable interfaces, logic separate
-- [Build before assets](feedback_build_before_assets.md) — rules + greybox + tests early; read designers' WIP in design/ first, adapt to their data
