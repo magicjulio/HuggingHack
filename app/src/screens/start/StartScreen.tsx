@@ -32,6 +32,7 @@ import { MODELS, modelById } from '../../data/models';
 import { useGame } from '../../state/store';
 import { cycleUnlocked } from '../../state/selection';
 import { Orb2D, Swarm, type ArtState } from './canvasArt';
+import { useStartMusic } from './music';
 import { InfoWindow, SettingsWindow, type StartWindowId } from './StartWindows';
 import './start-screen.css';
 
@@ -154,6 +155,8 @@ export function StartScreen() {
   winOpen.current = win !== null;
   const closeWin = useCallback(() => setWin(null), []);
 
+  const fadeMusic = useStartMusic();
+
   // --- launch ---------------------------------------------------------------
   const [launchK, setLaunchK] = useState(0);
   const launching = useRef(false);
@@ -164,6 +167,7 @@ export function StartScreen() {
     const name = (modelById(s.selectedModel)?.name ?? '').toUpperCase();
     showToast(`INJECTING ${name} → ${s.selectedChapter.toUpperCase()}`);
     const dur = prefersReducedMotion() ? 1 : LAUNCH_MS;
+    fadeMusic.current(dur);
     const t0 = performance.now();
     const step = (t: number) => {
       const k = Math.min(1, (t - t0) / dur);
@@ -173,7 +177,7 @@ export function StartScreen() {
       else startGame();
     };
     requestAnimationFrame(step);
-  }, [showToast, startGame]);
+  }, [showToast, startGame, fadeMusic]);
 
   // --- selection ------------------------------------------------------------
   const deny = (el: HTMLElement, msg: string) => {
