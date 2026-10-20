@@ -26,5 +26,9 @@
 .ch2{--c2-letterbox:10vh}
 .ch2-film{position:absolute;inset:0;pointer-events:none;z-index:20}
 .ch2-film-fade{position:absolute;inset:0;background:#000;pointer-events:none;z-index:40}
+/* during the film the HUD and log drop their stacking: the log's backing and faded lines sit under the
+   memories (.c2-mem z 3), only the big flag lines (and the montage highlight) rise above them */
+.ch2 .c2-hud.is-cinematic,.ch2 .c2-hud.is-cinematic .c2-log{z-index:auto}
+.ch2 .c2-hud.is-cinematic .c2-line--big,.ch2 .c2-hud.is-cinematic .c2-line--hl{z-index:30}
 .ch2-memory-still{position:absolute;inset:0;background-size:cover;background-position:center;pointer-events:none;z-index:2}
 
