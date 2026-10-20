@@ -8,7 +8,7 @@ import * as THREE from "three";
 import { levels } from "./levels.js";
 import { loadArt } from "./art.js";
 import { MARKUP } from "./markup.js";
-import { rackCanvas } from "./rack.js";
+import { archiveBlockCanvas } from "./rack.js";
 import { createSfx } from "../../ch2/ui/sfx.js"; // app: sound
 import { sfxVolume } from "../../../state/settings"; // app: settings
 
@@ -31,7 +31,7 @@ export const T = {
   clearDelay: 1.05,
 };
 const startingLevel = 0;
-// archive blocks at least this tall are drawn as racks (rack.js), lower ones keep the slab art
+// archive blocks at least this tall are rebuilt from the slab art's pieces (rack.js), lower ones show it whole
 const RACK_MIN_H = 1.2;
 
 /**
@@ -143,12 +143,12 @@ function makeRoom() {
     }
   }
   for (const p of L.platforms) {
-    // app: a tall archive block is a rack painted at its own size (rack.js); the slab art smeared on it
+    // app: a tall archive block is rebuilt from the slab art's pieces at its own size (rack.js)
     let map = archive ? art.archivePlatform : art.platform;
     if (archive && !p.oneWay && p.h >= RACK_MIN_H) {
       const px = T.pixelWidth / T.width;
       map = new THREE.CanvasTexture(
-        rackCanvas(Math.round(p.w * px), Math.round(p.h * px), level * 31 + roomMaps.length),
+        archiveBlockCanvas(art.archivePlatform.image, Math.round(p.w * px), Math.round(p.h * px)),
       );
       map.magFilter = map.minFilter = THREE.NearestFilter;
       map.generateMipmaps = false;
