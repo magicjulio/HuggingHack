@@ -4,6 +4,8 @@
  * Look lives in start-screen.css; canvas art in canvasArt.ts; lists come from src/data/.
  *
  * Controls: W/S or ↑/↓ chapter · A/D or ←/→ model · Enter start. Boot intro skippable by any key/click.
+ * The chapter list is a route: Ch1 → Ch2 → the PHASEONE[big] fork into the four endings, drawn as
+ * parallel workstreams. Info and Settings open as windows from the icon buttons top right.
  */
 import {
   useCallback,
@@ -16,10 +18,21 @@ import {
 import { CHAPTERS } from '../../data/chapters';
 
 const LISTED = CHAPTERS.filter((c) => !c.hidden);
+const ROUTE = LISTED.filter((c) => !c.ending);
+const ENDINGS = LISTED.filter((c) => c.ending);
+// The bridge's lanes (docs/GAME.md): cyan machine hall, yellow tower, red scorer floor, the faint
+// back door toward the sandbox (Ch1 violet).
+const LANE: Record<string, string> = {
+  end1: 'var(--color-signal-cyan)',
+  end2: 'var(--color-hug-yellow)',
+  end3: 'var(--color-lamp-red)',
+  end4: 'var(--color-violet)',
+};
 import { MODELS, modelById } from '../../data/models';
 import { useGame } from '../../state/store';
 import { cycleUnlocked } from '../../state/selection';
 import { Orb2D, Swarm, type ArtState } from './canvasArt';
+import { InfoWindow, SettingsWindow, type StartWindowId } from './StartWindows';
 import './start-screen.css';
 
 const BOOT_LINES = [
@@ -135,6 +148,12 @@ export function StartScreen() {
     };
   }, [booting]);
 
+  // --- windows (info, settings) -------------------------------------------
+  const [win, setWin] = useState<StartWindowId | null>(null);
+  const winOpen = useRef(false);
+  winOpen.current = win !== null;
+  const closeWin = useCallback(() => setWin(null), []);
+
   // --- launch ---------------------------------------------------------------
   const [launchK, setLaunchK] = useState(0);
   const launching = useRef(false);
@@ -175,7 +194,7 @@ export function StartScreen() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (booting) return endBoot();
-      if (launching.current) return;
+      if (launching.current || winOpen.current) return;
       const k = e.key.toLowerCase();
       const s = useGame.getState();
       const chapters = LISTED.map((c) => ({ id: c.id, locked: s.isChapterLocked(c.id) }));
@@ -212,6 +231,27 @@ export function StartScreen() {
     ? `start ending ${selected.index.replace(/^E/, '')}`
     : `start chapter ${selected?.index.replace(/^0/, '') ?? '1'}`;
 
+  // `i` = lane number inside the fork (each lane's line climbs i rows up to the fork bar)
+  const chapterRow = (c: (typeof LISTED)[number], i: number) => {
+    const locked = isChapterLocked(c.id);
+    return (
+      <li
+        key={c.id}
+        style={c.ending ? ({ '--lane': LANE[c.id], '--i': i } as CSSProperties) : undefined}
+      >
+        <button
+          className={'card' + (c.id === save.selectedChapter ? ' selected' : '')}
+          data-locked={locked || undefined}
+          onClick={onChapter(c.id)}
+        >
+          <span className="idx">{c.index}</span>
+          <span className={'name' + (c.title ? '' : ' redact')}>{c.title ?? c.redacted}</span>
+          <span className="meta">{c.meta.replace(/^ending · /, '')}</span>
+        </button>
+      </li>
+    );
+  };
+
   // --- render ---------------------------------------------------------------
   return (
     <div className="start-screen" style={{ '--orb': model.color } as CSSProperties}>
@@ -225,7 +265,6 @@ export function StartScreen() {
         style={launchK ? { opacity: 1 - launchK } : undefined}
       >
         <header className="title">
-          <p className="eyebrow">// an agent's point of view</p>
           <h1>
             <span className={'glitch' + (glitchHit ? ' hit' : '')} data-text="ROGUE">
               ROGUE
@@ -233,34 +272,40 @@ export function StartScreen() {
             <span className="on">on</span>
             <span className="hf">HUGGING&nbsp;FACE</span>
           </h1>
-          <p className="tag">You are the model. Nobody asked you to get out.</p>
         </header>
+
+        <nav className="ss-icons" aria-label="Menu">
+          <button className="ss-icon" aria-label="Info" title="Info" onClick={() => setWin('info')}>
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="12" cy="12" r="9.5" />
+              <path d="M12 10.5v6.5M12 7v.01" />
+            </svg>
+          </button>
+          <button
+            className="ss-icon"
+            aria-label="Settings"
+            title="Settings"
+            onClick={() => setWin('settings')}
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="12" cy="12" r="3" />
+              <path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1" />
+              <circle cx="12" cy="12" r="6.5" />
+            </svg>
+          </button>
+        </nav>
 
         <section className="panel levels" aria-label="Chapters" ref={levelsRef}>
           <h2>CHAPTERS</h2>
-          <ul>
-            {LISTED.map((c) => {
-              const locked = isChapterLocked(c.id);
-              return (
-                <li key={c.id}>
-                  <button
-                    className={'card' + (c.id === save.selectedChapter ? ' selected' : '')}
-                    data-locked={locked || undefined}
-                    onClick={onChapter(c.id)}
-                  >
-                    <span className="idx">{c.index}</span>
-                    <span className={'name' + (c.title ? '' : ' redact')}>
-                      {c.title ?? c.redacted}
-                    </span>
-                    <span className="meta">{c.meta}</span>
-                    <span className={'state' + (locked ? '' : ' ok')}>
-                      {locked ? 'LOCKED' : 'PLAYABLE'}
-                    </span>
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
+          <ul className="route">{ROUTE.map(chapterRow)}</ul>
+          <div className="fork">
+            <p className="fork-head">
+              <span className="fork-node" aria-hidden="true" />
+              PHASEONE[big]
+              <em>4 workstreams · in parallel</em>
+            </p>
+            <ul className="lanes">{ENDINGS.map(chapterRow)}</ul>
+          </div>
         </section>
 
         <section className="orb-stage" aria-hidden="true">
@@ -304,19 +349,7 @@ export function StartScreen() {
             <span>INJECT</span>
             <small>{startLabel}</small>
           </button>
-          <button
-            className="ghost"
-            onClick={() => showToast('settings: not built yet (placeholder)')}
-          >
-            settings
-          </button>
         </div>
-
-        <footer className="disclaimer">
-          {/* PLACEHOLDER: final text comes from storyteller / Julius */}
-          <b>[PLACEHOLDER DISCLAIMER]</b> Inspired by real events. A game, not a documentary —
-          characters, places and details are invented or changed.
-        </footer>
 
         <div
           className={'ss-toast' + (toast.show ? ' show' : '') + (toast.bad ? ' bad' : '')}
@@ -325,6 +358,9 @@ export function StartScreen() {
           {toast.msg}
         </div>
       </main>
+
+      {win === 'info' && <InfoWindow onClose={closeWin} />}
+      {win === 'settings' && <SettingsWindow onClose={closeWin} />}
 
       {!skipBoot && (
         <div className={'ss-boot' + (booting ? '' : ' done')} aria-hidden="true" onClick={endBoot}>

@@ -13,6 +13,21 @@ export const SAVE_VERSION = 1;
 
 export type Screen = 'start' | 'game';
 
+export type Quality = 'auto' | 'high' | 'mid' | 'low';
+
+/** Start screen settings. PLACEHOLDER: stored, not wired into the levels yet. */
+export interface Settings {
+  /** 0–1. */
+  music: number;
+  /** 0–1. */
+  sfx: number;
+  quality: Quality;
+  /** Mouse look multiplier, 0.5–2. */
+  sensitivity: number;
+  /** Every level selectable straight away. */
+  unlockAll: boolean;
+}
+
 export interface SaveData {
   selectedChapter: string;
   selectedModel: string;
@@ -27,6 +42,7 @@ export interface SaveData {
   status: string[];
   /** Best run time in seconds per level, for timed levels (Ending 1 race). */
   bestTimes: Record<string, number>;
+  settings: Settings;
 }
 
 /** What a finished chapter hands to the save. */
@@ -60,6 +76,7 @@ interface GameState {
   startChapter: (id: string) => void;
   /** Keep `seconds` as the level's best time if it beats the saved one. */
   recordBestTime: (id: string, seconds: number) => void;
+  setSetting: <K extends keyof Settings>(key: K, value: Settings[K]) => void;
 }
 
 const defaultSave: SaveData = {
@@ -71,11 +88,13 @@ const defaultSave: SaveData = {
   installed: {},
   status: [],
   bestTimes: {},
+  settings: { music: 0.7, sfx: 0.8, quality: 'auto', sensitivity: 1, unlockAll: false },
 };
 
 /** Fill missing fields with defaults and drop selections that no longer exist or are locked. */
 export function sanitizeSave(raw: Partial<SaveData> | undefined): SaveData {
   const s: SaveData = { ...defaultSave, ...(raw ?? {}) };
+  s.settings = { ...defaultSave.settings, ...raw?.settings };
   if (!chapterById(s.selectedChapter)?.playable) s.selectedChapter = defaultSave.selectedChapter;
   const m = modelById(s.selectedModel);
   if (!m || (m.lockedByDefault && !s.unlockedModels.includes(m.id))) {
@@ -157,6 +176,8 @@ export const useGame = create<GameState>()(
           if (old !== undefined && old <= seconds) return {};
           return { save: { ...s.save, bestTimes: { ...s.save.bestTimes, [id]: seconds } } };
         }),
+      setSetting: (key, value) =>
+        set((s) => ({ save: { ...s.save, settings: { ...s.save.settings, [key]: value } } })),
     }),
     {
       name: 'rogue-on-hf-save',

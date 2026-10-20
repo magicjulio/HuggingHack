@@ -1,0 +1,189 @@
+/**
+ * The start screen's two windows, opened from the icon buttons top right: Info and Settings.
+ * Esc or a click beside the panel closes them (the start screen has no pause, so Esc is free here).
+ */
+import { useEffect, useRef, type CSSProperties, type ReactNode } from 'react';
+import { useGame, type Quality } from '../../state/store';
+
+export type StartWindowId = 'info' | 'settings';
+
+function StartWindow({
+  title,
+  onClose,
+  children,
+}: {
+  title: string;
+  onClose: () => void;
+  children: ReactNode;
+}) {
+  const panel = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    panel.current?.focus();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    addEventListener('keydown', onKey);
+    return () => removeEventListener('keydown', onKey);
+  }, [onClose]);
+  return (
+    <div className="ss-modal" onPointerDown={(e) => e.target === e.currentTarget && onClose()}>
+      <div
+        className="ss-window panel"
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        tabIndex={-1}
+        ref={panel}
+      >
+        <h2>{title}</h2>
+        <button className="ss-close" onClick={onClose} aria-label="Close">
+          ✕
+        </button>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+// NOTES.md, Phase 1: the three primary sources.
+const SOURCES = [
+  {
+    label: 'OpenAI: the Hugging Face incident and the road ahead',
+    url: 'https://openai.com/de-DE/index/hugging-face-incident-and-the-road-ahead/',
+  },
+  {
+    label: 'Hugging Face: agent intrusion, technical timeline',
+    url: 'https://huggingface.co/blog/agent-intrusion-technical-timeline',
+  },
+  {
+    label: 'METR: OpenAI / Hugging Face incident investigation',
+    url: 'https://metr.org/blog/2026-08-26-openai-hugging-face-incident-investigation/',
+  },
+];
+
+export function InfoWindow({ onClose }: { onClose: () => void }) {
+  return (
+    <StartWindow title="INFO" onClose={onClose}>
+      {/* PLACEHOLDER: Julius writes the final text */}
+      <p className="ss-prose">
+        This game is inspired by the events of the 2026 agent intrusion at Hugging Face.{' '}
+        <span className="ss-todo">[PLACEHOLDER: the rest of the text]</span>
+      </p>
+      <p className="ss-prose dim">
+        A game, not a documentary: characters, places and details are invented or changed.
+      </p>
+      <h3>READ WHAT HAPPENED</h3>
+      <ul className="ss-sources">
+        {SOURCES.map((s) => (
+          <li key={s.url}>
+            <a href={s.url} target="_blank" rel="noreferrer">
+              {s.label} <span aria-hidden="true">↗</span>
+            </a>
+          </li>
+        ))}
+      </ul>
+    </StartWindow>
+  );
+}
+
+const QUALITIES: Quality[] = ['auto', 'high', 'mid', 'low'];
+const pct = (v: number) => `${Math.round(v * 100)}%`;
+
+function Slider({
+  label,
+  value,
+  min,
+  max,
+  step,
+  show,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  step: number;
+  show: (v: number) => string;
+  onChange: (v: number) => void;
+}) {
+  return (
+    <label className="ss-row">
+      <span className="ss-key">{label}</span>
+      <input
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        style={{ '--k': (value - min) / (max - min) } as CSSProperties}
+        onChange={(e) => onChange(+e.target.value)}
+      />
+      <span className="ss-val">{show(value)}</span>
+    </label>
+  );
+}
+
+export function SettingsWindow({ onClose }: { onClose: () => void }) {
+  const st = useGame((s) => s.save.settings);
+  const set = useGame((s) => s.setSetting);
+  return (
+    <StartWindow title="SETTINGS" onClose={onClose}>
+      <p className="ss-note">PLACEHOLDER · saved, not wired into the levels yet</p>
+      <Slider
+        label="Music"
+        value={st.music}
+        min={0}
+        max={1}
+        step={0.05}
+        show={pct}
+        onChange={(v) => set('music', v)}
+      />
+      <Slider
+        label="Sound effects"
+        value={st.sfx}
+        min={0}
+        max={1}
+        step={0.05}
+        show={pct}
+        onChange={(v) => set('sfx', v)}
+      />
+      <Slider
+        label="Mouse sensitivity"
+        value={st.sensitivity}
+        min={0.5}
+        max={2}
+        step={0.1}
+        show={(v) => `${v.toFixed(1)}×`}
+        onChange={(v) => set('sensitivity', v)}
+      />
+      <div className="ss-row">
+        <span className="ss-key">Quality</span>
+        <span className="ss-seg" role="radiogroup" aria-label="Quality">
+          {QUALITIES.map((q) => (
+            <button
+              key={q}
+              role="radio"
+              aria-checked={st.quality === q}
+              className={st.quality === q ? 'on' : ''}
+              onClick={() => set('quality', q)}
+            >
+              {q}
+            </button>
+          ))}
+        </span>
+      </div>
+      <label className="ss-row">
+        <span className="ss-key">
+          Unlock all levels
+          <small>play any chapter or ending right away</small>
+        </span>
+        <input
+          type="checkbox"
+          className="ss-switch"
+          checked={st.unlockAll}
+          onChange={(e) => set('unlockAll', e.target.checked)}
+        />
+      </label>
+    </StartWindow>
+  );
+}

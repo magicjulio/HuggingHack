@@ -6,6 +6,9 @@
    - global resets (html/body/button/ul) moved to src/styles/base.css.
    - .levels scrolls inside its grid row (min-height:0, overflow-y:auto), so six chapter rows keep the
      START button on a 720 px tall screen (engineer, 2026-10-18).
+   - homepage redesign (engineer, 2026-10-20): eyebrow, tagline, disclaimer and the settings ghost
+     button are gone; info + settings are icon buttons (.ss-icons) that open windows (.ss-modal);
+     the chapter list is a route with the four endings as parallel lanes (.route, .fork, .lanes).
    When the designer sends a -v2, diff against their file and re-apply these renames. */
 
 .start-screen{position:fixed;inset:0;overflow:hidden;background:var(--color-void)}
@@ -24,12 +27,11 @@
 
 .start-screen .ss-screen{position:fixed;inset:0;display:grid;padding:3vh 3vw;gap:2vh 2vw;
   grid-template-columns:minmax(240px,22vw) 1fr minmax(240px,22vw);
-  grid-template-rows:auto 1fr auto auto;
-  grid-template-areas:"title title title" "levels orb models" "cta cta cta" "disc disc disc";
+  grid-template-rows:auto 1fr auto;
+  grid-template-areas:"title title title" "levels orb models" "cta cta cta";
   transition:opacity .6s,filter .6s}
 .start-screen .ss-screen.booting{opacity:0;filter:blur(6px)}
 .start-screen .title{grid-area:title;text-align:center;position:relative;z-index:2}
-.start-screen .eyebrow{color:var(--color-text-dim);font-size:var(--fs-xs);letter-spacing:.4em;text-transform:uppercase}
 .start-screen h1{font-family:var(--font-display);font-weight:700;font-size:var(--fs-xl);line-height:1;letter-spacing:.04em;display:flex;gap:.35em;justify-content:center;align-items:baseline;flex-wrap:wrap;margin:.15em 0 .1em;text-shadow:0 0 30px rgba(57,255,156,.25)}
 .start-screen h1 .on{font-size:.4em;color:var(--color-text-dim);font-weight:500;letter-spacing:.2em}
 .start-screen h1 .hf{color:var(--color-hug-yellow);text-shadow:0 0 24px rgba(255,210,30,.35)}
@@ -39,7 +41,6 @@
 .start-screen .glitch::after{color:var(--color-lamp-red);clip-path:inset(55% 0 0 0)}
 .start-screen .glitch.hit::before{opacity:.9;transform:translate(-4px,0)}
 .start-screen .glitch.hit::after{opacity:.9;transform:translate(4px,1px)}
-.start-screen .tag{color:var(--color-text-dim);font-size:var(--fs-md);letter-spacing:.08em}
 
 .start-screen .panel{position:relative;z-index:2;align-self:center;padding:var(--space-3);background:var(--color-panel);backdrop-filter:blur(6px);
   border:1px solid var(--color-line);clip-path:polygon(var(--cut) 0,100% 0,100% calc(100% - var(--cut)),calc(100% - var(--cut)) 100%,0 100%,0 var(--cut))}
@@ -85,10 +86,6 @@
 @keyframes ss-pulse{50%{filter:brightness(1.18) drop-shadow(0 0 18px rgba(57,255,156,.6))}}
 .start-screen .start:hover{transform:scale(1.04)}
 .start-screen .start:active{transform:scale(.98)}
-.start-screen .ghost{color:var(--color-text-dim);font-size:var(--fs-sm);letter-spacing:.2em;text-transform:uppercase;padding:.6rem 1rem;border:1px solid var(--color-line)}
-.start-screen .ghost:hover{color:var(--color-text);border-color:var(--color-line-strong)}
-.start-screen .disclaimer{grid-area:disc;z-index:2;text-align:center;color:var(--color-text-faint);font-size:var(--fs-xs);max-width:80ch;margin:0 auto}
-.start-screen .disclaimer b{color:var(--color-warn-amber)}
 
 .start-screen .ss-toast{position:fixed;left:50%;top:14vh;transform:translate(-50%,-10px);opacity:0;padding:.7rem 1.2rem;border:1px solid var(--color-hack-green);background:var(--color-panel-solid);color:var(--color-hack-green);font-size:var(--fs-sm);letter-spacing:.1em;transition:.3s;pointer-events:none;z-index:9}
 .start-screen .ss-toast.show{opacity:1;transform:translate(-50%,0)}
@@ -99,4 +96,81 @@
 .start-screen .ss-boot pre{font-family:var(--font-mono);white-space:pre-wrap;text-shadow:var(--glow-green)}
 .start-screen .ss-boot p{position:absolute;bottom:4vh;right:4vw;color:var(--color-text-faint);font-size:var(--fs-xs)}
 .start-screen .ss-flash{position:fixed;inset:0;background:#fff;opacity:0;pointer-events:none;z-index:30}
+/* --- chapter route: 01 → 02 → PHASEONE[big] fork → four lanes --------------------------------
+   Rows have a fixed height (--row) so lane i's line can climb exactly i rows to the fork bar.
+   x positions in the 34 px gutter: spine at 5 px, lanes at 5 + i·6 px. */
+.start-screen .levels{--row:calc(var(--fs-lg)*1.2 + var(--fs-xs)*1.35 + 1.1rem);--gap:6px;--gut:34px}
+.start-screen .levels li+li{margin-top:var(--gap)}
+.start-screen .levels .card{height:var(--row);grid-template-columns:2.6em 1fr;align-content:center;gap:0 .6rem;padding:0 .8rem}
+.start-screen .levels .card .idx{font-size:1.25em}
+.start-screen .levels .card .name{line-height:1.2}
+.start-screen .levels .card .meta{line-height:1.35}
+.start-screen .route,.start-screen .lanes{padding-left:var(--gut)}
+.start-screen .route li{position:relative}
+.start-screen .route li::before{content:"";position:absolute;left:calc(5px - var(--gut));top:0;bottom:calc(-1*var(--gap));width:2px;background:var(--color-line-strong)}
+.start-screen .route li::after{content:"";position:absolute;left:calc(2px - var(--gut));top:calc(50% - 4px);width:8px;height:8px;border-radius:50%;background:var(--color-void);border:2px solid var(--color-line-strong)}
+.start-screen .route li:has(.selected)::after{border-color:var(--color-hack-green);background:var(--color-hack-green);box-shadow:var(--glow-green)}
+.start-screen .fork{position:relative;margin-top:var(--gap)}
+.start-screen .fork-head{position:relative;display:flex;align-items:baseline;flex-wrap:wrap;gap:0 .6em;padding:.55rem 0 .55rem var(--gut);
+  font-family:var(--font-display);font-size:var(--fs-sm);letter-spacing:.12em;color:var(--color-text)}
+.start-screen .fork-head em{font-style:normal;font-family:var(--font-mono);font-size:var(--fs-xs);letter-spacing:.08em;color:var(--color-text-dim)}
+.start-screen .fork-head::before{content:"";position:absolute;left:5px;top:0;height:50%;width:2px;background:var(--color-line-strong)}
+.start-screen .fork-node{position:absolute;left:3px;top:calc(50% - 3px);width:24px;height:6px;border-radius:3px;background:var(--color-text-dim);box-shadow:0 0 10px rgba(120,200,255,.35)}
+.start-screen .lanes li{position:relative;--top:calc(var(--i)*(var(--row) + var(--gap)) + 1rem)}
+/* lane line: up from this row's middle to the fork bar, then right into the card */
+.start-screen .lanes li::before{content:"";position:absolute;left:calc(5px + var(--i)*6px - var(--gut));top:calc(-1*var(--top));bottom:50%;
+  right:100%;border-left:2px solid var(--lane);border-bottom:2px solid var(--lane);border-bottom-left-radius:7px;opacity:.55;pointer-events:none}
+.start-screen .lanes li:has(.selected)::before{opacity:1;filter:drop-shadow(0 0 4px var(--lane))}
+/* one pulse per lane, same clock for all four: they leave the fork and arrive together */
+.start-screen .lanes li::after{content:"";position:absolute;width:6px;height:6px;margin:-2px 0 0 -2px;border-radius:50%;background:var(--lane);box-shadow:0 0 8px var(--lane);
+  pointer-events:none;animation:ss-lane 3.2s cubic-bezier(.5,0,.5,1) infinite}
+@keyframes ss-lane{
+  0%{left:calc(5px + var(--i)*6px - var(--gut));top:calc(-1*var(--top));opacity:0}
+  10%{opacity:1}
+  65%{left:calc(5px + var(--i)*6px - var(--gut));top:calc(50% - 1px)}
+  85%{opacity:1}
+  100%{left:-3px;top:calc(50% - 1px);opacity:0}}
+.start-screen .lanes .card .idx{color:var(--lane);opacity:.75}
+.start-screen .lanes .card.selected .idx{opacity:1;text-shadow:0 0 12px var(--lane)}
+
+/* --- icon buttons + windows ----------------------------------------------------------------- */
+.start-screen .ss-icons{position:fixed;top:3vh;right:3vw;z-index:3;display:flex;gap:var(--space-2)}
+.start-screen .ss-icon{width:42px;height:42px;display:grid;place-items:center;color:var(--color-text-dim);background:var(--color-panel);border:1px solid var(--color-line);transition:.18s;
+  clip-path:polygon(8px 0,100% 0,100% calc(100% - 8px),calc(100% - 8px) 100%,0 100%,0 8px)}
+.start-screen .ss-icon svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round}
+.start-screen .ss-icon:hover,.start-screen .ss-icon:focus-visible{color:var(--color-signal-cyan);border-color:var(--color-line-strong);background:rgba(56,216,255,.08);box-shadow:var(--glow-cyan)}
+.start-screen .ss-modal{position:fixed;inset:0;z-index:15;display:grid;place-items:center;padding:4vh 4vw;background:rgba(2,4,9,.62);backdrop-filter:blur(4px);animation:ss-fade .2s ease-out}
+@keyframes ss-fade{from{opacity:0}}
+.start-screen .ss-window{width:min(560px,100%);max-height:100%;overflow-y:auto;align-self:center;padding:var(--space-4);background:var(--color-panel-solid);border-color:var(--color-line-strong);outline:none;animation:ss-rise .25s ease-out}
+@keyframes ss-rise{from{transform:translateY(10px);opacity:0}}
+.start-screen .ss-close{position:absolute;top:var(--space-3);right:var(--space-3);width:30px;height:30px;color:var(--color-text-dim);font-size:var(--fs-md)}
+.start-screen .ss-close:hover{color:var(--color-text)}
+.start-screen .ss-window h3{font-family:var(--font-display);font-size:var(--fs-xs);letter-spacing:.3em;color:var(--color-text-dim);font-weight:500;margin:var(--space-4) 0 var(--space-2)}
+.start-screen .ss-prose{font-size:var(--fs-md);line-height:1.6;color:var(--color-text)}
+.start-screen .ss-prose+.ss-prose{margin-top:var(--space-2)}
+.start-screen .ss-prose.dim{color:var(--color-text-dim);font-size:var(--fs-sm)}
+.start-screen .ss-todo{color:var(--color-warn-amber)}
+.start-screen .ss-sources li+li{margin-top:var(--space-1)}
+.start-screen .ss-sources a{color:var(--color-signal-cyan);font-size:var(--fs-sm);text-decoration:none;border-bottom:1px solid transparent}
+.start-screen .ss-sources a:hover{border-bottom-color:currentColor}
+.start-screen .ss-note{font-size:var(--fs-xs);letter-spacing:.12em;color:var(--color-warn-amber);margin:-.4rem 0 var(--space-2)}
+.start-screen .ss-row{display:grid;grid-template-columns:1fr minmax(8rem,12rem) 3.2rem;align-items:center;gap:var(--space-3);padding:.85rem 0;border-top:1px solid var(--color-line)}
+.start-screen .ss-key{font-family:var(--font-display);font-size:var(--fs-md);letter-spacing:.04em}
+.start-screen .ss-key small{display:block;font-family:var(--font-mono);font-size:var(--fs-xs);color:var(--color-text-dim);letter-spacing:0;margin-top:.15em}
+.start-screen .ss-val{font-size:var(--fs-sm);color:var(--color-text-dim);text-align:right}
+.start-screen .ss-row input[type=range]{appearance:none;width:100%;height:4px;cursor:pointer;
+  background:linear-gradient(90deg,var(--color-hack-green) calc(var(--k)*100%),rgba(255,255,255,.1) 0)}
+.start-screen .ss-row input[type=range]::-webkit-slider-thumb{appearance:none;width:14px;height:14px;border-radius:50%;background:var(--color-text);box-shadow:0 0 0 3px rgba(57,255,156,.25)}
+.start-screen .ss-row input[type=range]::-moz-range-thumb{width:14px;height:14px;border:0;border-radius:50%;background:var(--color-text)}
+.start-screen .ss-seg{grid-column:2/4;display:flex;border:1px solid var(--color-line)}
+.start-screen .ss-seg button{flex:1;text-align:center;padding:.4rem 0;font-size:var(--fs-xs);letter-spacing:.15em;text-transform:uppercase;color:var(--color-text-dim)}
+.start-screen .ss-seg button+button{border-left:1px solid var(--color-line)}
+.start-screen .ss-seg button:hover{color:var(--color-text)}
+.start-screen .ss-seg button.on{color:#02140b;background:var(--color-hack-green)}
+.start-screen .ss-switch{grid-column:3;justify-self:end;appearance:none;width:40px;height:22px;border-radius:11px;background:rgba(255,255,255,.1);border:1px solid var(--color-line-strong);position:relative;cursor:pointer;transition:.18s}
+.start-screen .ss-switch::after{content:"";position:absolute;top:3px;left:3px;width:14px;height:14px;border-radius:50%;background:var(--color-text-dim);transition:.18s}
+.start-screen .ss-switch:checked{background:rgba(57,255,156,.2);border-color:var(--color-hack-green)}
+.start-screen .ss-switch:checked::after{left:21px;background:var(--color-hack-green);box-shadow:var(--glow-green)}
+.start-screen .ss-row:has(.ss-switch) .ss-key{grid-column:1/3}
+
 @media (prefers-reduced-motion:reduce){.start-screen *{animation:none!important;transition:none!important}}
