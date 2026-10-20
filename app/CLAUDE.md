@@ -83,7 +83,7 @@ src/
       End3.tsx           mounts the game in a div, passes callbacks (completion only, no best time), disposes on unmount
       game/*.js          ported from prototypes/end3-ghost/ (prototype's formatting, not linted/formatted): ghostCapture.js =
                          its main.js as a factory createGhostCapture(root, opts) → {dispose}; markup.js (its DOM);
-                         levels.js + level4–6.js (the six rooms) and art.js verbatim; assets/ (+ advanced/ Deep Archive, rooms 4–6)
+                         levels.js + level4–6.js (the six rooms) and art.js verbatim; rack.js (app: tall Deep Archive blocks painted as racks); assets/ (+ advanced/ Deep Archive, rooms 4–6)
       end3.css, DESIGN.md, ART.md  prototype styles scoped under .end3 · how it plays · art provenance
   screens/start|game/    start screen (designer port) · game host
 src/assets/models/       designer .glb files (verbatim copies) · sprites/ designer bug SVGs · fonts/ typeface JSON

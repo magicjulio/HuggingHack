@@ -8,6 +8,7 @@ import * as THREE from "three";
 import { levels } from "./levels.js";
 import { loadArt } from "./art.js";
 import { MARKUP } from "./markup.js";
+import { rackCanvas } from "./rack.js";
 import { createSfx } from "../../ch2/ui/sfx.js"; // app: sound
 import { sfxVolume } from "../../../state/settings"; // app: settings
 
@@ -30,8 +31,8 @@ export const T = {
   clearDelay: 1.05,
 };
 const startingLevel = 0;
-// height / width of deep-archive-platform-surface.png (2172 × 430)
-const ARCHIVE_SLAB_ASPECT = 430 / 2172;
+// archive blocks at least this tall are drawn as racks (rack.js), lower ones keep the slab art
+const RACK_MIN_H = 1.2;
 
 /**
  * @param {HTMLElement} root  empty element the game fills (full viewport)
@@ -86,7 +87,8 @@ let held = { left: false, right: false, jump: false, down: false },
   jumpQueued = false,
   jumpHeld = false,
   switchHeld = false;
-const actorMeshes = {},
+const roomMaps = [],
+  actorMeshes = {},
   scannerMeshes = [];
 const sharedPlane = new THREE.PlaneGeometry(1, 1);
 function plane(x, y, w, h, color, z = 0, texture = null, opacity = 1) {
@@ -112,6 +114,8 @@ function disposeRoom() {
     child.material.dispose();
   }
   scannerMeshes.length = 0;
+  for (const t of roomMaps) t.dispose();
+  roomMaps.length = 0;
 }
 function makeActor(type, spawn) {
   return { x: spawn.x, y: spawn.y, vx: 0, vy: 0, grounded: false, type };
@@ -139,20 +143,19 @@ function makeRoom() {
     }
   }
   for (const p of L.platforms) {
-    // app: a tall archive block stacks the slab art near its own aspect instead of stretching one slab
-    // over the whole height (room 4's divider read as a smeared pillar)
-    const slab = archive ? p.w * ARCHIVE_SLAB_ASPECT : p.h;
-    const rows = Math.max(1, Math.round(p.h / slab));
-    for (let i = 0; i < rows; i++)
-      plane(
-        p.x,
-        p.y - (p.h / rows) * (i + 0.5),
-        p.w,
-        p.h / rows,
-        "#ffffff",
-        0,
-        archive ? art.archivePlatform : art.platform,
+    // app: a tall archive block is a rack painted at its own size (rack.js); the slab art smeared on it
+    let map = archive ? art.archivePlatform : art.platform;
+    if (archive && !p.oneWay && p.h >= RACK_MIN_H) {
+      const px = T.pixelWidth / T.width;
+      map = new THREE.CanvasTexture(
+        rackCanvas(Math.round(p.w * px), Math.round(p.h * px), level * 31 + roomMaps.length),
       );
+      map.magFilter = map.minFilter = THREE.NearestFilter;
+      map.generateMipmaps = false;
+      map.colorSpace = THREE.SRGBColorSpace;
+      roomMaps.push(map);
+    }
+    plane(p.x, p.y - p.h / 2, p.w, p.h, "#ffffff", 0, map);
     plane(
       p.x,
       p.y + 0.025,
