@@ -2,7 +2,14 @@
  * The start screen's two windows, opened from the icon buttons top right: Info and Settings.
  * Esc or a click beside the panel closes them (the start screen has no pause, so Esc is free here).
  */
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from 'react';
 import { useGame, type Quality } from '../../state/store';
 
 export type StartWindowId = 'info' | 'settings';
@@ -56,7 +63,7 @@ const INFO_TEXT = [
 /** Played inside the Info window (youtu.be/ujkD4SxPKOI, privacy-enhanced embed). */
 const VIDEO = 'https://www.youtube-nocookie.com/embed/ujkD4SxPKOI';
 
-/** Music credits (assets/music/). Cipher2 and sonican are Julius's own and need no line. */
+/** Music credits (assets/music/). PLACEHOLDER: sources of cipher2.mp3 and sonican.mp3 not recorded yet. */
 const MUSIC_CREDITS = [
   {
     text: 'RECOMMENDED background music: "AI Agents Chaos" by Epic Mountain (Spotify)',
@@ -166,6 +173,10 @@ export function SettingsWindow({ onClose }: { onClose: () => void }) {
   const st = useGame((s) => s.save.settings);
   const set = useGame((s) => s.setSetting);
   const resetAll = useGame((s) => s.resetAll);
+  // the app-wide Spotify dock lays itself over this slot while the window is open
+  const slot = useCallback((el: HTMLDivElement | null) => {
+    useGame.setState({ spotifySlot: el });
+  }, []);
   // Reset asks once: the first click arms it, the second wipes
   const [armed, setArmed] = useState(false);
   return (
@@ -225,6 +236,16 @@ export function SettingsWindow({ onClose }: { onClose: () => void }) {
           onChange={(e) => set('unlockAll', e.target.checked)}
         />
       </label>
+      <div className="ss-row ss-spotify">
+        <span className="ss-key">
+          Recommended background music
+          <small>
+            Plays on through the levels. Log in at open.spotify.com in this browser for the full
+            track; logged out, Spotify plays a 30 s preview.
+          </small>
+        </span>
+        <div className="ss-spotify-slot" ref={slot} />
+      </div>
       <div className="ss-row">
         <span className="ss-key">
           Reset everything

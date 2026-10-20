@@ -305,7 +305,7 @@ export function StartScreen() {
             <p className="fork-head">
               <span className="fork-node" aria-hidden="true" />
               PHASEONE[big]
-              <em>4 workstreams · in parallel</em>
+              <em>pick a workstream</em>
             </p>
             <ul className="lanes">{ENDINGS.map(chapterRow)}</ul>
           </div>

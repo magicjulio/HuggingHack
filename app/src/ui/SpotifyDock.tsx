@@ -1,7 +1,8 @@
 /**
  * Spotify player for the recommended background music (AI Agents Chaos, Epic Mountain).
- * Mounted once in App, outside the screen switch, so it keeps playing through the levels:
- * visible bottom right on the start screen, moved off screen (still mounted) during a level.
+ * Mounted once in App, outside the screen switch, so it keeps playing through the levels. It shows
+ * itself laid over the slot in Settings (`spotifySlot`); otherwise it sits off screen, still mounted
+ * (moving an iframe in the DOM would reload it and stop the music).
  * Spotify's iFrame API reports play/pause; while it plays, the start screen's own music fades out.
  * Logged-out listeners get Spotify's 30 s preview; logged in, the full track.
  */
@@ -41,8 +42,29 @@ const loadApi = () =>
   }));
 
 export function SpotifyDock() {
-  const screen = useGame((s) => s.screen);
+  const slot = useGame((s) => s.spotifySlot);
   const host = useRef<HTMLDivElement>(null);
+  const dock = useRef<HTMLDivElement>(null);
+
+  // follow the slot while it exists (the Settings window can scroll and resize)
+  useEffect(() => {
+    if (!slot) return;
+    const el = dock.current!;
+    let raf = 0;
+    const follow = () => {
+      const r = slot.getBoundingClientRect();
+      const d = el.style;
+      d.left = `${r.left}px`;
+      d.top = `${r.top}px`;
+      d.width = `${r.width}px`;
+      raf = requestAnimationFrame(follow);
+    };
+    follow();
+    return () => {
+      cancelAnimationFrame(raf);
+      el.removeAttribute('style');
+    };
+  }, [slot]);
 
   useEffect(() => {
     const box = host.current!;
@@ -70,11 +92,7 @@ export function SpotifyDock() {
   }, []);
 
   return (
-    <div
-      className={'spotify-dock' + (screen === 'start' ? '' : ' away')}
-      aria-hidden={screen !== 'start'}
-    >
-      <p className="spotify-label">RECOMMENDED BACKGROUND MUSIC</p>
+    <div ref={dock} className={'spotify-dock' + (slot ? '' : ' away')} aria-hidden={!slot}>
       <div ref={host} />
     </div>
   );

@@ -1,5 +1,4 @@
-/* Spotify dock (SpotifyDock.tsx): bottom right on the start screen, off screen but alive in levels. */
-.spotify-dock{position:fixed;right:3vw;bottom:3vh;z-index:5;width:300px;transition:opacity .4s}
-.spotify-dock.away{left:-10000px;right:auto;opacity:0;pointer-events:none}
-.spotify-label{margin-bottom:.35rem;font-family:var(--font-mono);font-size:var(--fs-xs);letter-spacing:.2em;color:var(--color-text-faint)}
+/* Spotify dock (SpotifyDock.tsx): laid over Settings' slot (inline left/top/width), else off screen but alive. */
+.spotify-dock{position:fixed;z-index:16;height:80px}
+.spotify-dock.away{left:-10000px;top:0;width:300px;opacity:0;pointer-events:none}
 .spotify-dock iframe{display:block;border:0;border-radius:12px}

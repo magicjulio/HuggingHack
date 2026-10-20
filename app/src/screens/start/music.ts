@@ -1,10 +1,10 @@
 /**
- * Start screen music: Cipher2 on a loop (Julius's track, ~/Music; chase.mp3 and sonican.mp3 sit next
- * to it in assets/music/ until they get a level). Browsers only play sound after a click or key, so
+ * Start screen music: "Chase" by Adiutorium (CC0, credited in Info) on a loop; cipher2.mp3 and
+ * sonican.mp3 sit next to it in assets/music/ until they get a place. Browsers only play sound after a click or key, so
  * it starts on mount if allowed, else on the first input. Volume follows Settings → Music live.
  */
 import { useEffect, useRef } from 'react';
-import cipherUrl from '../../assets/music/cipher2.mp3?url';
+import chaseUrl from '../../assets/music/chase.mp3?url';
 import { useGame } from '../../state/store';
 
 /** Full volume at Music 100 %. */
@@ -14,7 +14,7 @@ const FADE_IN_S = 1.5;
 export function useStartMusic() {
   const fadeOut = useRef<(ms: number) => void>(() => {});
   useEffect(() => {
-    const audio = new Audio(cipherUrl);
+    const audio = new Audio(chaseUrl);
     audio.loop = true;
     audio.volume = 0;
     let level = 1; // fade multiplier

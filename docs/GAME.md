@@ -47,7 +47,7 @@ What the game is and the rules it was built on. Where `NOTES.md` (Julius's origi
 - Agent orbs (NPCs, crowd) never bloom. Only the player orb does.
 - Motion longer than ~2 s is skippable and honours prefers-reduced-motion. The ASCENT landing is the exception: no skip.
 - Performance: 60 fps on an Intel Iris Xe at 1080p. Pixel ratio ≤ 1.5, adaptive quality tiers, and stills and shaders warmed up before films. Report measured numbers.
-- Sound is synthesised live with WebAudio (Ch2 `sfx.js`, ASCENT `audio.js`), and sounds are named after game events. Films carry their cue lists in their directors. Music files (Julius 2026-10-20, his tracks): `app/src/assets/music/` holds cipher2.mp3 (start screen loop), chase.mp3 and sonican.mp3 (not placed yet). Using someone else's music needs Julius's permission.
+- Sound is synthesised live with WebAudio (Ch2 `sfx.js`, ASCENT `audio.js`), and sounds are named after game events. Films carry their cue lists in their directors. Music files (Julius 2026-10-20): `app/src/assets/music/` holds chase.mp3 ("Chase" by Adiutorium, CC0, start screen loop), cipher2.mp3 and sonican.mp3 (sources not recorded yet, not placed). Settings has a Spotify player for the recommended track "AI Agents Chaos" (Epic Mountain), which keeps playing through the levels. Using someone else's music needs Julius's permission.
 
 ### Build
 - Stack: Vite + TypeScript + React 19 + React Three Fiber (three, drei), zustand (versioned localStorage save), Vitest, Playwright, ESLint + Prettier, npm. Static build, no backend. Bloom + AgX come from @react-three/postprocessing (`?nofx` turns them off). GSAP and Howler from the first stack proposal are not used.

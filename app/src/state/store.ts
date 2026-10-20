@@ -59,6 +59,8 @@ interface GameState {
   bootShown: boolean;
   /** The Spotify dock is playing (start screen music steps aside). */
   spotifyPlaying: boolean;
+  /** Where the Spotify dock shows itself (Settings' slot), or null = off screen, still playing. */
+  spotifySlot: HTMLElement | null;
   /** Bumped on every chapter start, so the game host remounts the level (e.g. Ch1 → Ch2 CONTINUE). */
   run: number;
 
@@ -127,6 +129,7 @@ export const useGame = create<GameState>()(
       screen: 'start',
       bootShown: false,
       spotifyPlaying: false,
+      spotifySlot: null,
       run: 0,
 
       isChapterLocked: (id) => chapterLocked(id, get().save),
