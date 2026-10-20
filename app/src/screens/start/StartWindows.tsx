@@ -56,6 +56,14 @@ const INFO_TEXT = [
 /** Played inside the Info window (youtu.be/ujkD4SxPKOI, privacy-enhanced embed). */
 const VIDEO = 'https://www.youtube-nocookie.com/embed/ujkD4SxPKOI';
 
+/** Music credits (assets/music/). Cipher2 and sonican are Julius's own and need no line. */
+const MUSIC_CREDITS = [
+  {
+    text: '"Chase" by Adiutorium (CC0)',
+    url: 'https://opengameart.org/content/chase-2',
+  },
+];
+
 // NOTES.md, Phase 1: the three primary sources.
 const SOURCES = [
   {
@@ -95,6 +103,16 @@ export function InfoWindow({ onClose }: { onClose: () => void }) {
           <li key={s.url}>
             <a href={s.url} target="_blank" rel="noreferrer">
               {s.label} <span aria-hidden="true">↗</span>
+            </a>
+          </li>
+        ))}
+      </ul>
+      <h3>MUSIC</h3>
+      <ul className="ss-sources">
+        {MUSIC_CREDITS.map((c) => (
+          <li key={c.url}>
+            <a href={c.url} target="_blank" rel="noreferrer">
+              {c.text} <span aria-hidden="true">↗</span>
             </a>
           </li>
         ))}
