@@ -524,11 +524,36 @@ const NPC_LOOK: Record<string, { id: NpcId; color: string; faded?: boolean }> = 
   FLAC38347: { id: 'flac', color: '#d9cfb8', faded: true },
   V8SAME: { id: 'v8same', color: '#ffd21e' },
 };
-export const NPCS: NpcSpot[] = L.npcs.map((n) => ({
-  ...NPC_LOOK[n.id],
-  handle: n.id,
-  position: [n.pos[0], n.pos[1] + 1.15, n.pos[2]],
-}));
+// ---------------------------------------------------------------- the Gate's laser door
+const TUT = L.bridges.find((b) => b.id === 'tutorial')!.points;
+const TUT_DIR = (() => {
+  const [a, b] = TUT;
+  const l = Math.hypot(b[0] - a[0], b[2] - a[2]);
+  return [(b[0] - a[0]) / l, (b[2] - a[2]) / l] as V2;
+})();
+/**
+ * (Julius 2026-10-20) A laser door across the tutorial bridge, just past its start on the third
+ * stone; it opens once c03220 has been heard out, so the talk can't be skipped. `dir` = the way
+ * through (xz), `halfWidth` = the beams' half span; the store blocks a wider band so you can't jump
+ * around it.
+ */
+export const GATE_DOOR = {
+  position: [TUT[0][0] + TUT_DIR[0] * 0.8, TUT[0][1], TUT[0][2] + TUT_DIR[1] * 0.8] as V3,
+  dir: TUT_DIR,
+  halfWidth: 1.4,
+  height: 2.4,
+};
+/** (Julius 2026-10-20) c03220 waits on the third stone beside the door (layout.json: on the Gate). */
+const C03220_AT: V3 = [
+  TUT[0][0] - TUT_DIR[1] * 1.2 - TUT_DIR[0] * 1.0,
+  TUT[0][1],
+  TUT[0][2] + TUT_DIR[0] * 1.2 - TUT_DIR[1] * 1.0,
+];
+
+export const NPCS: NpcSpot[] = L.npcs.map((n) => {
+  const p = n.id === 'c03220' ? C03220_AT : n.pos;
+  return { ...NPC_LOOK[n.id], handle: n.id, position: [p[0], p[1] + 1.15, p[2]] };
+});
 export const npc = (id: NpcId) => NPCS.find((n) => n.id === id)!;
 /** (engineer) Where V8SAME goes when it leaves to post its confirmation: up and away. */
 export const V8SAME_EXIT: V3 = [F.pos[0] - 30, F.pos[1] + 16, F.pos[2] - 40];

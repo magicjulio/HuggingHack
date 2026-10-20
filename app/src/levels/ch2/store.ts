@@ -30,6 +30,7 @@ import {
   FORGE_INPUTS,
   FORGE_SLOTS,
   FORGE_WAVES,
+  GATE_DOOR,
   ITEMS,
   NPCS,
   ORB_LIFT,
@@ -521,6 +522,7 @@ export function createCh2Store(opts: Ch2Options = {}): Ch2Store {
       for (let i = 0; i < steps; i++) {
         sim.world.update(h, b);
         const ev = stepBody(b, input, sim.world, BODY, h);
+        if (!get().talked.includes('c03220')) holdAtDoor(b);
         input.dash = false;
         for (const e of ev) {
           sound(e.type, e.type === 'land' ? { speed: e.speed } : undefined);
@@ -645,6 +647,25 @@ export function createCh2Store(opts: Ch2Options = {}): Ch2Store {
     }
 
     // ------------------------------------------------------------ NPC posts
+    /** The Gate's laser door: closed until c03220 has been heard out; it holds the body back. */
+    function holdAtDoor(b: Body) {
+      const d = GATE_DOOR;
+      const x = b.pos.x - d.position[0];
+      const z = b.pos.z - d.position[2];
+      const along = x * d.dir[0] + z * d.dir[1];
+      const side = z * d.dir[0] - x * d.dir[1];
+      const dy = b.pos.y - d.position[1];
+      // a band wider and taller than the beams: no jumping or gliding around them
+      if (Math.abs(side) > 6 || dy < -4 || dy > 8 || along <= -BODY.radius || along > 3) return;
+      b.pos.x -= d.dir[0] * (along + BODY.radius);
+      b.pos.z -= d.dir[1] * (along + BODY.radius);
+      const v = b.vel.x * d.dir[0] + b.vel.z * d.dir[1];
+      if (v > 0) {
+        b.vel.x -= d.dir[0] * v;
+        b.vel.z -= d.dir[1] * v;
+      }
+    }
+
     function startDialogue(npc: NpcId) {
       set({ dialogue: { npc, line: 0, t: 0 } });
       sound('talk');
@@ -659,6 +680,7 @@ export function createCh2Store(opts: Ch2Options = {}): Ch2Store {
       const line = d.line + 1;
       if (line >= TEXT.c03220.length) {
         set((s) => ({ dialogue: null, talked: [...s.talked, d.npc] }));
+        if (d.npc === 'c03220') sound('open'); // the laser door opens
         runner.dispatch({ type: 'dialogue_done', npc: d.npc });
         return;
       }

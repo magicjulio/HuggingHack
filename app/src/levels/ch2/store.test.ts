@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Vector3 } from 'three';
 import { CUTSCENE, FLAG5, TEXT, TIMING, TOKENS } from './config';
-import { FORGE_SLOTS, ITEMS, NPCS, PADS, RUN_WAVES, padOf, type ItemId } from './layout';
+import { FORGE_SLOTS, GATE_DOOR, ITEMS, NPCS, PADS, RUN_WAVES, padOf, type ItemId } from './layout';
 import { waveState } from './hazards';
 import { createCh2Store, replyFor } from './store';
 
@@ -134,6 +134,29 @@ describe('chapter 2', () => {
     expect(s().log.find((l) => l.text === FLAG5)).toMatchObject({ kind: 'big' });
     expect(s().quests.find((q) => q.id === 'escape')?.text).toBe('Escape the sandbox');
     expect(p.finished()).toEqual({ poisoned: true });
+  });
+
+  it('the laser door on the tutorial bridge holds until c03220 is heard out', () => {
+    const { s, store, wait, goNear } = play();
+    s().finishIntro();
+    const [dx, dz] = GATE_DOOR.dir;
+    const [x, y, z] = GATE_DOOR.position;
+    const along = () => (store.sim.body.pos.x - x) * dx + (store.sim.body.pos.z - z) * dz;
+    const walkThrough = () => {
+      s().placePlayer([x - dx * 1.5, y, z - dz * 1.5]);
+      store.sim.input.move = [dx, dz];
+      wait(2);
+      store.sim.input.move = [0, 0];
+    };
+    walkThrough();
+    expect(along()).toBeLessThan(0);
+    // c03220 stands right beside the door
+    goNear(NPCS[0].position);
+    expect(s().target).toEqual({ kind: 'npc', id: 'c03220' });
+    s().use();
+    while (s().dialogue) s().use();
+    walkThrough();
+    expect(along()).toBeGreaterThan(3);
   });
 
   it('falling costs 5 and respawns at the last pad; the early floor holds', () => {

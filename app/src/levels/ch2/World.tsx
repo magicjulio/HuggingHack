@@ -10,13 +10,22 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import { useGLTF } from '@react-three/drei';
-import { Color, FogExp2, Vector3, Group, type Object3D } from 'three';
+import {
+  AdditiveBlending,
+  Color,
+  FogExp2,
+  Vector3,
+  Group,
+  type MeshBasicMaterial,
+  type Object3D,
+} from 'three';
 import { Label3D } from '../../engine/Label3D';
 import type { Surface } from '../../engine/platformer';
 import { useCh2, useCh2Store } from './context';
 import { FLAG5, HANDLES, TEXT, TIMING, V8SAME_FLAG } from './config';
 import {
   FLOOD_BITS,
+  GATE_DOOR,
   ITEMS,
   LAYOUT,
   NPCS,
@@ -34,7 +43,7 @@ import { NPC_CENTRES } from './hud/screen';
 import { RENDER, createEnv } from './world/env.js';
 import { createIslands } from './world/islands.js';
 import { createBridges } from './world/bridges.js';
-import { createLasers } from './world/lasers.js';
+import { LASER_RED, createLasers } from './world/lasers.js';
 import { createClouds } from './world/clouds.js';
 import { createForge } from './world/forge.js';
 import { createNpcs } from './world/npcs.js';
@@ -435,6 +444,51 @@ function sceneClock(store: Ch2Store) {
   };
 }
 
+// ------------------------------------------------------------------ the Gate's laser door
+const DOOR_BEAMS = [0.3, 0.7, 1.1, 1.5, 1.9];
+/** (engineer) PLACEHOLDER look until the designer draws one: two posts and red beams across the
+ * tutorial bridge; they fade out once c03220 has been heard out (store: `holdAtDoor`). */
+function GateDoor({ store }: { store: Ch2Store }) {
+  const group = useRef<Group>(null);
+  const beams = useRef<(MeshBasicMaterial | null)[]>([]);
+  const fade = useRef(1);
+  const red = useMemo(() => new Color(LASER_RED).multiplyScalar(4), []);
+  const yaw = Math.atan2(GATE_DOOR.dir[0], GATE_DOOR.dir[1]);
+  useFrame(({ clock }, dt) => {
+    const open = store.getState().talked.includes('c03220');
+    fade.current = open ? Math.max(0, fade.current - dt * 2.5) : 1;
+    const flick = 0.85 + 0.15 * Math.sin(clock.elapsedTime * 23);
+    for (const m of beams.current) if (m) m.opacity = fade.current * flick;
+    if (group.current) group.current.visible = fade.current > 0;
+  });
+  const w = GATE_DOOR.halfWidth;
+  return (
+    <group position={GATE_DOOR.position} rotation={[0, yaw, 0]}>
+      {[-w, w].map((x) => (
+        <mesh key={x} position={[x, GATE_DOOR.height / 2, 0]}>
+          <boxGeometry args={[0.16, GATE_DOOR.height, 0.16]} />
+          <meshStandardMaterial color="#14161b" metalness={0.85} roughness={0.32} />
+        </mesh>
+      ))}
+      <group ref={group}>
+        {DOOR_BEAMS.map((y, i) => (
+          <mesh key={y} position={[0, y, 0]} rotation={[0, 0, Math.PI / 2]}>
+            <cylinderGeometry args={[0.025, 0.025, w * 2, 6, 1, true]} />
+            <meshBasicMaterial
+              ref={(m) => void (beams.current[i] = m)}
+              color={red}
+              transparent
+              depthWrite={false}
+              blending={AdditiveBlending}
+              toneMapped={false}
+            />
+          </mesh>
+        ))}
+      </group>
+    </group>
+  );
+}
+
 // ------------------------------------------------------------------ NPCs (their posts: the HUD's bubble)
 /** External engineer (Codex): approved art, caller-owned exit and handle labels. */
 function Npcs({ store, U }: { store: Ch2Store; U: WorldUniforms }) {
@@ -723,6 +777,7 @@ export function World({
         <Pads store={store} U={U} />
         <Pickups store={store} U={U} installed={installed} />
         <Npcs store={store} U={U} />
+        <GateDoor store={store} />
         <Flood store={store} U={U} fx={fx} />
         <Crowd store={store} U={U} fx={fx} />
         <Ribbons U={U} message={ch1Message} />

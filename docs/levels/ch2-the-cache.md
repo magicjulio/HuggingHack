@@ -83,6 +83,7 @@ Each step starts when the one before it completes.
   - thought: "flag 5. I can make flag 5."
 - Quest appears: **Forge flag 5** with *Seed (0/1)*, *Task pieces (0/3)*, *Forge*.
 - Tutorial: a row of three jumps from the Gate to the first bridge, then a dash gap.
+- c03220 waits on the third stone, right beside the start of the first bridge. A laser door across the bridge stays closed until its dialogue is done, so the talk can't be skipped (Julius 2026-10-20).
 - Completes when: the dialogue is done.
 - Hints: 20 s: "Space jumps. Shift dashes." 50 s: "The bridge starts behind c03220."
 

@@ -19,13 +19,15 @@ export function useStartMusic() {
     audio.volume = 0;
     let level = 1; // fade multiplier
     let raf = 0;
-    const target = () => BASE * useGame.getState().save.settings.music * level;
+    const target = () =>
+      Math.min(1, Math.max(0, BASE * useGame.getState().save.settings.music * level));
     const fade = (to: number, ms: number) => {
       cancelAnimationFrame(raf);
       const from = level;
       const t0 = performance.now();
       const step = (t: number) => {
-        const k = Math.min(1, (t - t0) / ms);
+        // a frame's timestamp can come before t0 (it is the frame's start): clamp, or k < 0
+        const k = Math.min(1, Math.max(0, (t - t0) / ms));
         level = from + (to - from) * k;
         audio.volume = target();
         if (k < 1) raf = requestAnimationFrame(step);
