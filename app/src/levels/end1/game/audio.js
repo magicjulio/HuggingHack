@@ -7,7 +7,8 @@ export function initAudio() {
   try {
     ctx = new (window.AudioContext || window.webkitAudioContext)();
   } catch { return; }
-  master = ctx.createGain(); master.gain.value = 0.55 * sfxVolume(); // app: settings master.connect(ctx.destination);
+  master = ctx.createGain(); master.gain.value = 0.55 * sfxVolume(); // app: settings
+  master.connect(ctx.destination);
   noiseBuf = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
   const d = noiseBuf.getChannelData(0);
   for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
