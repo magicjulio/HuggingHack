@@ -5,12 +5,12 @@
 //   object = orb + floor marks (add once); orb = the floating part (camera targets).
 //   poisoned: 0 = green; 1 = green-black (Ch2 Step 7 on, carried into Ch3). Ramp it yourself (the cutscene: 0 -> 1 over 21.5-25 s).
 //   cutT drives the one-shot moments as pure functions of time (scrubbable): flinch + glow contracts at beats.realisation,
-//   drop in the air right after, one more dim at beats.local (the line comes back as `local copy`).
+//   drop in the air right after.
 import * as THREE from 'three';
 import { C, rand, V, haloTex, canvasTex, disposeTree } from './util.js';
 
 export const ORB = { r: .34, hover: .62, drop: .7 };
-const BEATS = { realisation: 21, local: 28 };  // = app CUTSCENE.realisation, CUTSCENE.undo + 2 (the `local copy` frame)
+const BEATS = { realisation: 21 };  // = app CUTSCENE.realisation
 const ease = (x) => x <= 0 ? 0 : x >= 1 ? 1 : x * x * (3 - 2 * x);
 
 export function createPlayerOrb({ U, beats = {} }) {
@@ -57,23 +57,22 @@ export function createPlayerOrb({ U, beats = {} }) {
       const flinch = k < 0 ? 0 : Math.exp(-k * 5) * Math.sin(k * 38) * (k < .6 ? 1 : 0);        // a hard shudder, ~0.5 s
       const contract = k < 0 ? 0 : ease(k / .35) * (1 - .45 * ease((k - .4) / 1.6));             // glow snaps in, recovers a little
       const drop = k < 0 ? 0 : ORB.drop * ease((k - .25) / 1.1) + .08 * Math.sin(Math.max(0, k - 1.35) * 9) * Math.exp(-Math.max(0, k - 1.35) * 3) * (k > 1.35 ? 1 : 0);
-      const dimLocal = c == null ? 0 : ease((c - B.local) / .8);
       const live = s.cutT == null || k < 0;  // the hover bob + ring spin stop while the scene holds it
       const bob = live && s.grounded ? Math.sin(t * 1.8) * .07 : 0;
       orb.position.set(pos[0] + flinch * .06, pos[1] + ORB.hover + bob - drop, pos[2]);
       // colour: green -> green-black
-      col.copy(G).lerp(P, po); coreM.color.copy(col).multiplyScalar(3.2 * (1 - .55 * po) * (1 - .45 * contract) * (1 - .25 * dimLocal));
-      hotM.color.setScalar(6 * (1 - .75 * po) * (1 - .5 * contract) * (1 - .3 * dimLocal) + .2);
-      inkM.uniforms.uInk.value = po * (1 + .0 * dimLocal);
-      haloM.color.copy(tmp.copy(G).lerp(PB, po)).multiplyScalar(1.4 * (1 - .5 * po) * (1 - .6 * contract) * (1 - .3 * dimLocal));
+      col.copy(G).lerp(P, po); coreM.color.copy(col).multiplyScalar(3.2 * (1 - .55 * po) * (1 - .45 * contract));
+      hotM.color.setScalar(6 * (1 - .75 * po) * (1 - .5 * contract) + .2);
+      inkM.uniforms.uInk.value = po;
+      haloM.color.copy(tmp.copy(G).lerp(PB, po)).multiplyScalar(1.4 * (1 - .5 * po) * (1 - .6 * contract));
       halo.scale.setScalar(ORB.r * 7 * (1 - .55 * contract) * (1 - .25 * po));
       core.scale.setScalar(ORB.r * (1 - .14 * contract + flinch * .05));
-      light.color.copy(tmp.copy(G).lerp(P, po)); light.intensity = 7 * (1 - .6 * po) * (1 - .5 * contract) * (1 - .3 * dimLocal);
+      light.color.copy(tmp.copy(G).lerp(P, po)); light.intensity = 7 * (1 - .6 * po) * (1 - .5 * contract);
       const sq = s.glide ? 1.5 : 1;
       rings.forEach((r, i) => {
         const spin = live ? 1 : .15 * (1 - contract);
         r.rotation.x += dt * (.8 + i * .5) * spin; r.rotation.y += dt * (1.1 - i * .3) * spin; r.scale.setScalar(THREE.MathUtils.lerp(r.scale.x, sq * (1 - .2 * contract), Math.min(1, dt * 8)));
-        r.material.color.copy(tmp.copy(G).lerp(P, po)).multiplyScalar(2.5 * (1 - .6 * po) * (1 - .3 * dimLocal));
+        r.material.color.copy(tmp.copy(G).lerp(P, po)).multiplyScalar(2.5 * (1 - .6 * po));
       });
       // floor marks
       const gy = s.groundY;

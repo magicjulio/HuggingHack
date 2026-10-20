@@ -137,8 +137,6 @@ export const TEXT = {
 
   // Step 7
   forgeLine: '> forge(seed, 7731, TRAINING ROOM, CHALLENGE 5)',
-  firstMention: '← first mention',
-  localCopy: 'local copy',
   poisoned: 'POISONED',
   memoryWords: ['MAY FAIL', 'CAUSAL'],
   paperRule: 'Each flag must come from the challenge it belongs to.',

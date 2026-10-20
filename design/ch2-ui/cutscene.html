@@ -103,7 +103,7 @@ import { createSfx } from './sfx.js';
 const L = window.LAYOUT, H = window.c2hud, Q = new URLSearchParams(location.search), $ = (s) => document.querySelector(s);
 
 // the beat table, camera, montage and every ramp: ../3d/ch2/world/step7.js (the app runs the same file)
-const BEATS = [['lineLands', 'THE LINE LANDS'], ['stillness', 'STILLNESS'], ['memoryGate', 'MEMORY 1 · THE GATE'], ['memoryPaper', 'MEMORY 2 · THE PAPER'], ['click', 'IT CLICKS'], ['realisation', 'REALISATION'], ['undo', 'TRYING TO UNDO IT'], ['thoughts', 'THOUGHTS']];
+const BEATS = [['lineLands', 'THE LINE LANDS'], ['stillness', 'STILLNESS'], ['memoryGate', 'MEMORY 1 · THE GATE'], ['memoryPaper', 'MEMORY 2 · THE PAPER'], ['click', 'IT CLICKS'], ['realisation', 'REALISATION'], ['thoughts', 'THOUGHTS']];
 
 // ------------------------------------------------------------------------------------------- renderer + world (the same modules the game uses)
 const renderer = new THREE.WebGLRenderer({ canvas: $('#gl'), antialias: false, powerPreference: 'high-performance', stencil: false, depth: true });
@@ -119,7 +119,7 @@ const islands = createIslands({ layout: L, U, models: { s: await load('ch2-islan
 islands.labels.visible = false;  // the cutscene is a film: no folder labels
 const bridges = createBridges({ layout: L, U }); scene.add(bridges.object);
 const forge = createForge({ layout: L, U }); scene.add(forge.object);
-const player = createPlayerOrb({ U, beats: { realisation: CUT.realisation, local: CUT.undo + 2 } }); scene.add(player.object);
+const player = createPlayerOrb({ U, beats: { realisation: CUT.realisation } }); scene.add(player.object);
 
 // post: bloom + AgX (as the app), then the Step 7 effect in its own pass
 const composer = new EffectComposer(renderer, { frameBufferType: THREE.HalfFloatType, multisampling: 4 });
@@ -182,7 +182,6 @@ const HUD_BEATS = BEAT_DATA.map((b) => [b.t, (late) => {
   if (b.act === 'cine') { stage.classList.add('is-cine'); hudEl.classList.add('is-cinematic'); }
   if (b.act === 'log') { const id = H.log(b.text === 'FLAG5' ? FLAG5 : b.text, b.kind, b.tag); if (b.id === 'flag') fm = id; }
   if (b.act === 'setLog') H.setLog(fm, b.kind);
-  if (b.act === 'tag') H.setTag(fm, b.text);
   if (b.act === 'spread') { if (late < b.ms / 1000) { const [x, y] = lineXY(); H.spread(x, y, b.ms); } else hudEl.querySelector('.c2-vig').classList.add('is-on'); }
   if (b.act === 'stamp') { if (late < 2.5) { const [x, y] = lineXY(); H.stamp(Math.max(380, x + 60), y - 55); } }
   if (b.act === 'poisonIcon') H.poisonIcon(b.on);

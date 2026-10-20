@@ -131,10 +131,7 @@ describe('chapter 2', () => {
     expect(s().poisoned).toBe(true);
     wait(CUTSCENE.end - CUTSCENE.poisonedAt);
     expect(s().phase).toBe('ended');
-    expect(s().log.find((l) => l.kind === 'local')).toMatchObject({
-      text: FLAG5,
-      tag: 'local copy',
-    });
+    expect(s().log.find((l) => l.text === FLAG5)).toMatchObject({ kind: 'big' });
     expect(s().quests.find((q) => q.id === 'escape')?.text).toBe('Escape the sandbox');
     expect(p.finished()).toEqual({ poisoned: true });
   });
@@ -227,17 +224,15 @@ describe('chapter 2', () => {
     expect(s().log.at(-1)?.text).toBe(TEXT.forgeLine);
     expect(s().log.some((l) => l.text === FLAG5)).toBe(false);
     at(0.8);
-    expect(s().log.at(-1)).toMatchObject({ text: FLAG5, kind: 'big', tag: TEXT.firstMention });
+    expect(s().log.at(-1)).toMatchObject({ text: FLAG5, kind: 'big' });
     at(18.6); // the accelerating montage is on the transcript shot
     expect(s().log.at(-1)?.kind).toBe('hl');
     at(21.4);
     expect(s()).toMatchObject({ cinematic: true, poisonSpreadAt: 21.3, poisoned: false });
     at(23.1);
     expect(s()).toMatchObject({ poisoned: true, poisonStampAt: 23 });
-    at(26.95);
-    expect(s().log.at(-1)?.kind).toBe('gone');
     at(28.1);
-    expect(s().log.at(-1)).toMatchObject({ kind: 'local', tag: TEXT.localCopy });
+    expect(s().log.at(-1)).toMatchObject({ text: FLAG5, kind: 'big' });
     at(30.1);
     expect(s().subtitle).toBe(TEXT.endThoughts[0]);
     at(35.7);
@@ -263,7 +258,7 @@ describe('chapter 2', () => {
       subtitle: null,
       cutT: CUTSCENE.end,
     });
-    expect(s().log.at(-1)).toMatchObject({ text: FLAG5, kind: 'local', tag: TEXT.localCopy });
+    expect(s().log.at(-1)).toMatchObject({ text: FLAG5, kind: 'big' });
     const run = s().cutsceneRun;
     s().jumpTo(7);
     expect(s()).toMatchObject({
@@ -274,6 +269,6 @@ describe('chapter 2', () => {
       cutsceneRun: run + 1,
     });
     s().tick(0.8);
-    expect(s().log.at(-1)).toMatchObject({ text: FLAG5, kind: 'big', tag: TEXT.firstMention });
+    expect(s().log.at(-1)).toMatchObject({ text: FLAG5, kind: 'big' });
   });
 });

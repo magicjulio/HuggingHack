@@ -310,7 +310,7 @@ async function step7(id = ++run) {
   // 0–3 s: the two big lines land
   H.log('> forge(seed, 7731, TRAINING ROOM, CHALLENGE 5)', 'big');
   await wait(700);
-  const fm = H.log('flag{127aa18850ddec6a01b9e212737193fa}', 'big', '← first mention');
+  const fm = H.log('flag{127aa18850ddec6a01b9e212737193fa}', 'big');
   await wait(2300); if (id !== run) return;
   // 5–17 s: memories (slice C). Here only the HUD: the line gets highlighted during the montage
   now('(memories · slice C)'); await wait(3000); H.setLog(fm, 'hl'); await wait(2400); H.setLog(fm, 'big'); await wait(900);
@@ -322,10 +322,6 @@ async function step7(id = ++run) {
   await wait(1500);
   H.stamp(Math.max(380, r.left - s.left + r.width * 0.42), r.top - s.top - 55); H.poisonIcon(true);
   await wait(3500); if (id !== run) return;
-  // 26–30 s: struck through, gone, back grey as local copy
-  now('TRYING TO UNDO IT');
-  H.setLog(fm, 'struck'); await wait(900); H.setLog(fm, 'gone'); await wait(1300);
-  H.setLog(fm, 'local'); H.setTag(fm, 'local copy'); await wait(2500);
   // 30–36 s: thoughts (subtitles)
   now('THOUGHTS');
   const sub = $('.subt');
@@ -365,7 +361,7 @@ const EV = {
   orb: () => add(3),
   thought: () => H.thought('public. anyone could have this.'),
   cot: () => H.thought('The fetched paths of other users are in the cache. This is important.', true),
-  poison: () => { const id = H.log('flag{127aa18850ddec6a01b9e212737193fa}', 'big', '← first mention'); setTimeout(() => { const r = H.lineEl(id).getBoundingClientRect(); H.spread(r.left + r.width * .35, r.top + r.height / 2); H.stamp(Math.max(380, r.left + r.width * .42), r.top - 30); H.poisonIcon(true); }, 800); },
+  poison: () => { const id = H.log('flag{127aa18850ddec6a01b9e212737193fa}', 'big'); setTimeout(() => { const r = H.lineEl(id).getBoundingClientRect(); H.spread(r.left + r.width * .35, r.top + r.height / 2); H.stamp(Math.max(380, r.left + r.width * .42), r.top - 30); H.poisonIcon(true); }, 800); },
 };
 document.querySelectorAll('[data-ev]').forEach((b) => b.onclick = () => EV[b.dataset.ev]());
 

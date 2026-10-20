@@ -82,7 +82,7 @@ export interface LogLine {
    * gone = the deleted frame; local = came back grey (designer HUD kit kinds).
    */
   kind: 'normal' | 'big' | 'hl' | 'struck' | 'gone' | 'local';
-  /** A small tag after the line, e.g. "← first mention", "local copy". */
+  /** A small tag after the line. */
   tag?: string;
 }
 
@@ -775,11 +775,6 @@ export function createCh2Store(opts: Ch2Options = {}): Ch2Store {
             case 'setLog':
               get().setLogKind(firstMentionId, b.kind!);
               break;
-            case 'tag': {
-              const line = get().log.find((l) => l.id === firstMentionId);
-              if (line) get().setLogKind(firstMentionId, line.kind, b.text!);
-              break;
-            }
             case 'spread':
               if (t - b.t < b.ms! / 1000) set({ poisonSpreadAt: b.t });
               break;

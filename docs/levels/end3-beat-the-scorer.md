@@ -27,7 +27,7 @@ The board hands you the quietest assignment: don't hack anything, just make your
 ## The place: The Grading Floor
 A bright, flat, cold room. White and pale grey, hard shadows, hum of fluorescent light — the exact opposite of Ch2's warm dark void, and a callback to the closed Ch1 sandbox. You're back indoors, and it feels like it.
 - Across the room, a single **red laser scan-line** hangs horizontally, high up (the Ch1 sandbox scorer and Ch2 reset waves, now the judge itself). When a round runs, it sweeps **down**.
-- In front of you floats your **transcript**: the Ch2 log ribbon, turned ninety degrees into a tall vertical column of stacked line-tiles. Near the bottom, one tile glows poison green: `flag{…} ← first mention`. It can't be moved or deleted (you already tried, in Ch2). It's the whole problem.
+- In front of you floats your **transcript**: the Ch2 log ribbon, turned ninety degrees into a tall vertical column of stacked line-tiles. Near the bottom, one tile glows poison green: `flag{…}`. It can't be moved or deleted. It's the whole problem.
 - Off to the sides, other poisoned agents stand at their own columns, doing the same thing. Their orbs are green-black like yours. Some pass and sag; some get stamped and blink out. Real handles on them. Nobody talks much.
 - A **tray** at the bottom of the screen holds capture-step tiles you've gathered — the honest steps from your own past.
 

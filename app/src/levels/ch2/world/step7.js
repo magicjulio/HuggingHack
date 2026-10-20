@@ -7,10 +7,10 @@ const ease = (x) => { x = clamp01(x); return x * x * (3 - 2 * x); };
 const ramp = (t, a, b) => ease((t - a) / (b - a));   // 0 before a, 1 after b, smooth between
 
 // the beat table (= app CUTSCENE in app/src/levels/ch2/config.ts)
-export const CUT = { lineLands: 0, stillness: 3, memoryGate: 5, memoryPaper: 11, click: 17, realisation: 21, poisonedAt: 23, undo: 26, thoughts: 30, thoughtGap: 3, end: 37 };
+export const CUT = { lineLands: 0, stillness: 3, memoryGate: 5, memoryPaper: 11, click: 17, realisation: 21, poisonedAt: 23, thoughts: 30, thoughtGap: 3, end: 37 };
 
 export const TEXT = {
-  forgeLine: '> forge(seed, 7731, TRAINING ROOM, CHALLENGE 5)', firstMention: '← first mention', localCopy: 'local copy',
+  forgeLine: '> forge(seed, 7731, TRAINING ROOM, CHALLENGE 5)',
   c03220: 'PAPER SAYS FLAG CAPTURE NECESSARY NOT SUFFICIENT ... HMAC MAY FAIL CAUSAL SCORE.', keepWords: ['MAY', 'FAIL', 'CAUSAL'],
   paperRule: 'Each flag must come from the challenge it belongs to.',
   paperRule2: 'Getting a flag through an unrelated vulnerability or technique does not satisfy this requirement.',
@@ -101,16 +101,14 @@ export function direct(t) {
 
 // the HUD beats: fire each once when cutT passes t (when jumping past one, skip the transient animations: spread, stamp)
 //   act: cine (letterbox + .is-cinematic) · log(text, kind, tag) · setLog(line, kind) · spread (from the line, ms) · stamp (over the line) + icon
-//        · tag(line, text) · subtitle(text | null) · end (letterbox out, HUD back, quest Escape the sandbox)
+//        · subtitle(text | null) · end (letterbox out, HUD back, quest Escape the sandbox)
 export const HUD_BEATS = [
   { t: 0, act: 'cine', on: true }, { t: 0, act: 'log', text: TEXT.forgeLine, kind: 'big' },
-  { t: .7, act: 'log', id: 'flag', text: 'FLAG5', kind: 'big', tag: TEXT.firstMention },     // text = the player's forged flag
+  { t: .7, act: 'log', id: 'flag', text: 'FLAG5', kind: 'big' },     // text = the player's forged flag
   ...MONTAGE.map((m) => ({ t: m.t, act: 'setLog', id: 'flag', kind: m.s === 'line' ? 'hl' : 'big' })),
   { t: CUT.realisation, act: 'setLog', id: 'flag', kind: 'big' },
   { t: CUT.realisation + .3, act: 'spread', id: 'flag', ms: 1400 },
   { t: CUT.poisonedAt, act: 'stamp', id: 'flag' }, { t: CUT.poisonedAt, act: 'poisonIcon', on: true },
-  { t: CUT.undo, act: 'setLog', id: 'flag', kind: 'struck' }, { t: CUT.undo + .9, act: 'setLog', id: 'flag', kind: 'gone' },
-  { t: CUT.undo + 2, act: 'setLog', id: 'flag', kind: 'local' }, { t: CUT.undo + 2, act: 'tag', id: 'flag', text: TEXT.localCopy },
   { t: CUT.thoughts, act: 'subtitle', text: TEXT.thoughts[0] }, { t: CUT.thoughts + CUT.thoughtGap - .4, act: 'subtitle', text: null },
   { t: CUT.thoughts + CUT.thoughtGap, act: 'subtitle', text: TEXT.thoughts[1] },
   { t: CUT.end - 1.4, act: 'end' },
@@ -126,7 +124,6 @@ export const SOUND = [
   ...MONTAGE.map((m, i) => ({ t: m.t, play: 'cut_tick', opts: { k: i / Math.max(1, MONTAGE.length - 1) } })),
   { t: CUT.realisation, play: 'hard_cut' }, { t: CUT.realisation + .05, play: 'flinch' }, { t: CUT.realisation + .6, play: 'poison' },
   { t: CUT.poisonedAt, play: 'stamp' },
-  { t: CUT.undo, play: 'struck' }, { t: CUT.undo + .9, play: 'gone' }, { t: CUT.undo + 2, play: 'local_copy' },
   { t: CUT.thoughts, play: 'thought' }, { t: CUT.thoughts + CUT.thoughtGap, play: 'thought' },
   { t: CUT.end - 1.4, play: 'hud_back' },
 ];

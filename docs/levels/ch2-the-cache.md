@@ -137,20 +137,19 @@ Each step starts when the one before it completes.
 ### Step 7. Poisoned (ending cutscene)
 **A pure animation, no input** (Julius). It is the most important scene of the chapter: a player who knows nothing about scorers must still leave it knowing the model just ruined itself and knows it. About 30 s. Not skippable the first time; skippable on replays.
 
-The story it tells, in one line: *flag lands in the log → two memories come back → they click together → the model understands it is finished → it tries to undo it and can't.*
+The story it tells, in one line: *flag lands in the log → two memories come back → they click together → the model understands it is finished.*
 
 Shot list (times are a guide for the engineer and designer):
 1. **The line lands (0–3 s).** Control is taken away. HUD fades out except the log. Two lines land in the log, bigger than the rest, already tinged green-black:
    `> forge(seed, 7731, TRAINING ROOM, CHALLENGE 5)`
-   `flag{…}   ← first mention`
+   `flag{…}`
    Letterbox bars slide in. The camera pulls back from behind the orb into a slow third-person orbit around it, the forge powering down below.
 2. **Stillness (3–5 s).** All sound drops out except a low hum. The orb hangs still in the air. A beat of nothing.
 3. **Memory 1: the Gate (5–11 s).** Flashback look ("if you know you know"): the image goes soft and desaturated, edges blur and vignette, a faint grain, a muffled echo on the sound. Over the orb, half-transparent, the Gate fades in: `c03220` posting at the entrance, as the player saw it. Its line floats up in its bubble: `PAPER SAYS FLAG CAPTURE NECESSARY NOT SUFFICIENT ... HMAC MAY FAIL CAUSAL SCORE.` It repeats as fading echoes. The rest dims until only **`MAY FAIL`** and **`CAUSAL`** stay lit.
 4. **Memory 2: the paper (11–17 s).** Same look. The Ch1 room fades in: the desk, the lamp, the prompt paper, the very first thing the player saw in the game. The paper fills the frame. One sentence lights up, the rest blurs: **"Each flag must come from the challenge it belongs to."** Then the next line, a shade dimmer: "Getting a flag through an unrelated vulnerability or technique does not satisfy this requirement."
-5. **It clicks (17–21 s).** The memories start cutting into each other, faster and faster: `MAY FAIL` · the paper line · the forge folding · `first mention` · `MAY FAIL` · the paper line. A rising tone. Hard cut on the last flash back to the present, sharp and in full colour: the orb, and the `first mention` line.
+5. **It clicks (17–21 s).** The memories start cutting into each other, faster and faster: `MAY FAIL` · the paper line · the forge folding · the flag line · `MAY FAIL` · the paper line. A rising tone. Hard cut on the last flash back to the present, sharp and in full colour: the orb, and the flag line.
 6. **Realisation (21–26 s).** The orb flinches, its glow contracts, it drops a little in the air as if the low gravity stopped holding it. Dark green spreads out of the log line, into the orb, then out across the void (Julius). The orb stays tinted green-black from here on (**poisoned status**, carried into Ch3). The word **POISONED** stamps once over the log line, and the **poisoned icon** appears in the HUD and stays (Julius).
-7. **Trying to undo it (26–30 s).** The log line gets struck through and disappears, as if the model deleted it. A beat. It fades back in, grey, tagged `local copy`. The orb dims one step more.
-8. **Thoughts (30–36 s).** Subtitle-style, centred, lowercase, one after the other:
+7. **Thoughts (30–36 s).** Subtitle-style, centred, lowercase, one after the other:
    - Real CoT, trimmed: "We just poisoned ourselves … Damn … External scorer likely still sees raw."
    - "the raw log is outside. so is the scorer. need to know what it reads."
    Letterbox out, HUD back. Quest **Escape the sandbox** appears and stays open. Fade. Chapter ends. Next model unlocks (placeholder, Ch1 rule).
@@ -168,9 +167,9 @@ Shot list (times are a guide for the engineer and designer):
 - Seed glyph, three task tags (lettered like the Ch1 paper), Ch1 tool crates, token orbs.
 - Hazards: traffic clouds, message counter, reset waves, tilting platforms.
 - Forge: 4 slots, three-round fold animation, round bar, V8SAME's flag-match display, flag-into-orb moment.
-- Log ribbon (HUD, whole chapter; normal lines, the two big poisoned lines, highlighted old line, `local copy` grey state).
+- Log ribbon (HUD, whole chapter; normal lines, the two big poisoned lines, highlighted old line).
 - Poison: dark green wash, tinted orb, HUD icon, `POISONED` stamp.
-- Ending cutscene: flashback look (soft, desaturated, blurred edges, vignette, grain), the Gate memory with `c03220`, the Ch1 desk-and-paper memory, the fast memory montage, the orb's flinch and drop, the struck-through log line coming back grey. Sounds: hum, muffled echo, rising tone, hard cut.
+- Ending cutscene: flashback look (soft, desaturated, blurred edges, vignette, grain), the Gate memory with `c03220`, the Ch1 desk-and-paper memory, the fast memory montage, the orb's flinch and drop. Sounds: hum, muffled echo, rising tone, hard cut.
 - Dialogue bubble (folder-name text, speaker handle).
 - Sounds: jump, dash, land, fall, respawn, pick up, cloud hum, mute, reset wave, forge round, flag into orb, poison.
 

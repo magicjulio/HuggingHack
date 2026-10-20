@@ -78,10 +78,7 @@ export function Ch2Hud({
       const h = root.current;
       if (!h) return;
       const r = h.getBoundingClientRect();
-      const tag = [...h.querySelectorAll('.c2-line__tag')].find(
-        (t) => t.textContent === TEXT.firstMention,
-      );
-      const l = tag?.closest('.c2-line')?.getBoundingClientRect() ?? {
+      const l = [...h.querySelectorAll('.c2-line--big')].at(-1)?.getBoundingClientRect() ?? {
         left: r.left + r.width * 0.1,
         top: r.top + r.height * 0.8,
         width: 400,
