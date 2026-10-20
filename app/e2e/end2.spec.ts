@@ -50,7 +50,7 @@ function instrument() {
 }
 
 async function enter(page: Page) {
-  await page.getByText('Ascent', { exact: true }).click();
+  await page.getByText('Hugging Face', { exact: true }).click();
   await expect(page.getByText('start ending 2')).toBeVisible();
   await page.keyboard.press('Enter');
   // boot loads fonts, the logo and the approach glbs before the hooks exist
@@ -85,7 +85,7 @@ test('ending 2: approach starts, boss arena loads, finish saves, menu round trip
   await page.addInitScript(instrument);
 
   await page.goto('/?skipboot&debug');
-  await expect(page.getByText('Ascent', { exact: true })).toBeVisible();
+  await expect(page.getByText('Hugging Face', { exact: true })).toBeVisible();
   const before = await page.evaluate('window.__listeners()');
   await enter(page);
 

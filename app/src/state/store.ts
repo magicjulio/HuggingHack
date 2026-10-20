@@ -77,6 +77,8 @@ interface GameState {
   /** Keep `seconds` as the level's best time if it beats the saved one. */
   recordBestTime: (id: string, seconds: number) => void;
   setSetting: <K extends keyof Settings>(key: K, value: Settings[K]) => void;
+  /** Delete the save, every setting and all other browser data of this site, then reload. */
+  resetAll: () => void;
 }
 
 const defaultSave: SaveData = {
@@ -91,11 +93,24 @@ const defaultSave: SaveData = {
   settings: { music: 0.7, sfx: 0.8, quality: 'auto', sensitivity: 1, unlockAll: false },
 };
 
+/** Playing Ch1 through opens everything else (Ch2 and the four endings). */
+export const OPENS_ALL = 'ch1';
+const debugUnlock =
+  typeof location !== 'undefined' && new URLSearchParams(location.search).has('debug');
+
+/** Built, and reached: Ch1 always, the rest after Ch1 is finished, or all with the setting / `?debug`. */
+export function chapterLocked(id: string, save: SaveData): boolean {
+  const c = chapterById(id);
+  if (!c?.playable) return true;
+  if (id === OPENS_ALL || save.settings.unlockAll || debugUnlock) return false;
+  return !save.completedChapters.includes(OPENS_ALL);
+}
+
 /** Fill missing fields with defaults and drop selections that no longer exist or are locked. */
 export function sanitizeSave(raw: Partial<SaveData> | undefined): SaveData {
   const s: SaveData = { ...defaultSave, ...(raw ?? {}) };
   s.settings = { ...defaultSave.settings, ...raw?.settings };
-  if (!chapterById(s.selectedChapter)?.playable) s.selectedChapter = defaultSave.selectedChapter;
+  if (chapterLocked(s.selectedChapter, s)) s.selectedChapter = defaultSave.selectedChapter;
   const m = modelById(s.selectedModel);
   if (!m || (m.lockedByDefault && !s.unlockedModels.includes(m.id))) {
     s.selectedModel = defaultSave.selectedModel;
@@ -111,7 +126,7 @@ export const useGame = create<GameState>()(
       bootShown: false,
       run: 0,
 
-      isChapterLocked: (id) => !chapterById(id)?.playable,
+      isChapterLocked: (id) => chapterLocked(id, get().save),
       isModelLocked: (id) => {
         const m = modelById(id);
         return !m || (m.lockedByDefault && !get().save.unlockedModels.includes(id));
@@ -177,7 +192,30 @@ export const useGame = create<GameState>()(
           return { save: { ...s.save, bestTimes: { ...s.save.bestTimes, [id]: seconds } } };
         }),
       setSetting: (key, value) =>
-        set((s) => ({ save: { ...s.save, settings: { ...s.save.settings, [key]: value } } })),
+        set((s) => {
+          const save = { ...s.save, settings: { ...s.save.settings, [key]: value } };
+          // switching Unlock all off can leave a locked level selected
+          if (chapterLocked(save.selectedChapter, save)) save.selectedChapter = OPENS_ALL;
+          return { save };
+        }),
+      resetAll: () => {
+        // Settings → Reset: everything this site keeps in the browser, then a fresh page.
+        useGame.persist.clearStorage();
+        try {
+          localStorage.clear();
+          sessionStorage.clear();
+        } catch {
+          /* storage blocked: nothing to clear */
+        }
+        const dbs = indexedDB?.databases?.() ?? Promise.resolve([]);
+        const caches_ = typeof caches !== 'undefined' ? caches.keys() : Promise.resolve([]);
+        void Promise.all([
+          dbs.then((l) => l.forEach((d) => d.name && indexedDB.deleteDatabase(d.name))),
+          caches_.then((k) => Promise.all(k.map((n) => caches.delete(n)))),
+        ])
+          .catch(() => {})
+          .finally(() => location.replace(location.pathname));
+      },
     }),
     {
       name: 'rogue-on-hf-save',

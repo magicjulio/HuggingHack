@@ -1,12 +1,13 @@
 // Small WebAudio synth. Everything is generated, no files.
+import { sfxVolume } from '../../../state/settings'; // app: settings
 let ctx = null, master = null, windGain = null, windFilter = null, noiseBuf = null;
 
 export function initAudio() {
-  if (ctx) { if (ctx.state === 'suspended') ctx.resume(); return; }
+  if (ctx) { master.gain.value = 0.55 * sfxVolume(); if (ctx.state === 'suspended') ctx.resume(); return; } // app: settings
   try {
     ctx = new (window.AudioContext || window.webkitAudioContext)();
   } catch { return; }
-  master = ctx.createGain(); master.gain.value = 0.55; master.connect(ctx.destination);
+  master = ctx.createGain(); master.gain.value = 0.55 * sfxVolume(); // app: settings master.connect(ctx.destination);
   noiseBuf = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
   const d = noiseBuf.getChannelData(0);
   for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;

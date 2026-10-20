@@ -246,7 +246,6 @@ export function StartScreen() {
         >
           <span className="idx">{c.index}</span>
           <span className={'name' + (c.title ? '' : ' redact')}>{c.title ?? c.redacted}</span>
-          <span className="meta">{c.meta.replace(/^ending · /, '')}</span>
         </button>
       </li>
     );

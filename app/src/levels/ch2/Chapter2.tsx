@@ -19,7 +19,7 @@ import { ORB_LIFT, WORLD_RENDER, World, preloadCh2 } from './World';
 import { IntroOverlay } from './Intro';
 import { CutsceneOverlay } from './Cutscene';
 import { Rendering } from './Rendering';
-import { FIXED_QUALITY, REDUCED_MOTION, qualityDpr, type QualityTier } from './presentation';
+import { fixedTier, REDUCED_MOTION, qualityDpr, type QualityTier } from './presentation';
 import { camPose, stage } from './world/step7.js';
 import { camPose as introCamPose, orbPos as introOrbPos } from './world/step0.js';
 import { Ch2Hud } from './hud/Ch2Hud';
@@ -199,7 +199,7 @@ function Ch2View({
   const [pauseMenu, setPauseMenu] = useState(true);
   const [view] = useState<OrbitView>(() => ({ yaw: SPAWN_YAW, pitch: CAMERA.startPitch }));
   const [orbPosition] = useState(() => new Vector3());
-  const [quality, setQuality] = useState<QualityTier>(FIXED_QUALITY ?? 'high');
+  const [quality, setQuality] = useState<QualityTier>(fixedTier() ?? 'high');
   const debug = isDebug();
   useEffect(() => {
     // dev/e2e: `__ch2view.yaw/pitch` turns the camera (screenshots of a given spot)

@@ -4,6 +4,7 @@
 // in dispose() (listeners, rAF, GPU, audio); the overlays are the app's shared level card (opts.onScreen,
 // see showOv), the HTML ones are gone; the best time comes from
 // and goes to the app save (opts.best / opts.onFinish) instead of localStorage; `window.__game` → opts.debug.
+import { lookScale } from '../../../state/settings'; // app: settings
 import * as THREE from 'three';
 import { buildWorld, PORT_COLORS, CLUSTER_FRONT, ROWS, ROW_GAP } from './world.js';
 import { buildEnemies } from './enemies.js';
@@ -71,8 +72,9 @@ let locked = false;
 
 on(window, 'mousemove', (e) => {
   if (!locked) return;
-  yaw -= e.movementX * SENS;
-  pitch = THREE.MathUtils.clamp(pitch - e.movementY * SENS, -1.35, 1.25);
+  const k = SENS * lookScale(); // app: settings
+  yaw -= e.movementX * k;
+  pitch = THREE.MathUtils.clamp(pitch - e.movementY * k, -1.35, 1.25);
   if (Math.abs(e.movementX) + Math.abs(e.movementY) > 1) { mouseIdle = 0; introSpin = false; }
 });
 on(window, 'mousedown', (e) => {

@@ -1,7 +1,7 @@
 /**
  * The one card every level uses for intro, pause, fail, finish and loading (Julius 2026-10-20,
  * review page design/cards/index.html). A level fills in only its texts, stats and actions; the
- * eyebrow ("CHAPTER 01 · THE ROOM", "ENDING 02 · ASCENT") comes from data/chapters.ts.
+ * eyebrow ("CHAPTER 01 · THE SANDBOX", "ENDING 02 · HUGGING FACE") comes from data/chapters.ts.
  * Colour follows the kind, never the level: intro/pause/loading cyan, finish green, fail red.
  * Rendered into document.body, so no level's styles (e.g. `.end4 button`) reach it.
  */

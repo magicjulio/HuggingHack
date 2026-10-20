@@ -6,6 +6,7 @@
  * Mouse (pointer lock) orbits; WASD/arrows move relative to the camera; Space = jump (held =
  * glide); Shift = dash. `override` takes the camera over (cutscenes); `enabled` gates input.
  */
+import { lookScale } from '../state/settings';
 import { useEffect, useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import { PerspectiveCamera, Vector3 } from 'three';
@@ -83,8 +84,9 @@ export function ThirdPerson({
     const blur = () => keys.current.clear();
     const move = (e: MouseEvent) => {
       if (!enabledRef.current || document.pointerLockElement !== gl.domElement) return;
-      view.yaw -= e.movementX * SENSITIVITY;
-      view.pitch = Math.max(minPitch, Math.min(maxPitch, view.pitch + e.movementY * SENSITIVITY));
+      const k = SENSITIVITY * lookScale();
+      view.yaw -= e.movementX * k;
+      view.pitch = Math.max(minPitch, Math.min(maxPitch, view.pitch + e.movementY * k));
     };
     addEventListener('keydown', down);
     addEventListener('keyup', up);

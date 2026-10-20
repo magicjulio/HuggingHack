@@ -50,7 +50,7 @@ function instrument() {
 }
 
 async function enter(page: Page) {
-  await page.getByText('Ghost Capture').click();
+  await page.getByText('Fool the Scorer').click();
   await expect(page.getByText('start ending 3')).toBeVisible();
   await page.keyboard.press('Enter');
   await page.waitForFunction(() => (window as never)['__end3'], null, { timeout: 15000 });
@@ -83,7 +83,7 @@ test('ending 3: rules probes, six-room finish, menu round trips leave nothing be
   await page.addInitScript(instrument);
 
   await page.goto('/?skipboot&debug');
-  await expect(page.getByText('Ghost Capture')).toBeVisible();
+  await expect(page.getByText('Fool the Scorer')).toBeVisible();
   const before = await page.evaluate('window.__listeners()');
   await enter(page);
 

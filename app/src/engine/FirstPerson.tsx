@@ -3,6 +3,7 @@
  * Generic: a level passes its colliders, bounds and start pose.
  * `focus` glides the camera to a fixed pose (e.g. squared up to a machine's screen) and back.
  */
+import { lookScale } from '../state/settings';
 import { useEffect, useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 
@@ -124,8 +125,9 @@ export function FirstPerson({
       if (!enabledRef.current || document.pointerLockElement !== gl.domElement) return;
       const l = look.current;
       if (e.movementX || e.movementY) handedBack.current = true;
-      l.yaw -= e.movementX * SENSITIVITY;
-      l.pitch = Math.max(-1.4, Math.min(1.4, l.pitch - e.movementY * SENSITIVITY));
+      const k = SENSITIVITY * lookScale();
+      l.yaw -= e.movementX * k;
+      l.pitch = Math.max(-1.4, Math.min(1.4, l.pitch - e.movementY * k));
     };
     addEventListener('keydown', down);
     addEventListener('keyup', up);

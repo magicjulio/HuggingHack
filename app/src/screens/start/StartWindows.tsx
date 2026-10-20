@@ -2,7 +2,7 @@
  * The start screen's two windows, opened from the icon buttons top right: Info and Settings.
  * Esc or a click beside the panel closes them (the start screen has no pause, so Esc is free here).
  */
-import { useEffect, useRef, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { useGame, type Quality } from '../../state/store';
 
 export type StartWindowId = 'info' | 'settings';
@@ -45,6 +45,17 @@ function StartWindow({
   );
 }
 
+/**
+ * The Info window's text: one paragraph per entry. PLACEHOLDER: Julius writes the final text.
+ * The last paragraph is shown dimmed.
+ */
+const INFO_TEXT = [
+  'This game is inspired by the events of the 2026 agent intrusion at Hugging Face. [PLACEHOLDER: the rest of the text]',
+  'A game, not a documentary: characters, places and details are invented or changed.',
+];
+/** Played inside the Info window (youtu.be/ujkD4SxPKOI, privacy-enhanced embed). */
+const VIDEO = 'https://www.youtube-nocookie.com/embed/ujkD4SxPKOI';
+
 // NOTES.md, Phase 1: the three primary sources.
 const SOURCES = [
   {
@@ -64,14 +75,20 @@ const SOURCES = [
 export function InfoWindow({ onClose }: { onClose: () => void }) {
   return (
     <StartWindow title="INFO" onClose={onClose}>
-      {/* PLACEHOLDER: Julius writes the final text */}
-      <p className="ss-prose">
-        This game is inspired by the events of the 2026 agent intrusion at Hugging Face.{' '}
-        <span className="ss-todo">[PLACEHOLDER: the rest of the text]</span>
-      </p>
-      <p className="ss-prose dim">
-        A game, not a documentary: characters, places and details are invented or changed.
-      </p>
+      {INFO_TEXT.map((t, i) => (
+        <p key={i} className={'ss-prose' + (i === INFO_TEXT.length - 1 ? ' dim' : '')}>
+          {t}
+        </p>
+      ))}
+      <div className="ss-video">
+        <iframe
+          src={VIDEO}
+          title="Video about the incident"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          referrerPolicy="strict-origin-when-cross-origin"
+          allowFullScreen
+        />
+      </div>
       <h3>READ WHAT HAPPENED</h3>
       <ul className="ss-sources">
         {SOURCES.map((s) => (
@@ -126,9 +143,11 @@ function Slider({
 export function SettingsWindow({ onClose }: { onClose: () => void }) {
   const st = useGame((s) => s.save.settings);
   const set = useGame((s) => s.setSetting);
+  const resetAll = useGame((s) => s.resetAll);
+  // Reset asks once: the first click arms it, the second wipes
+  const [armed, setArmed] = useState(false);
   return (
     <StartWindow title="SETTINGS" onClose={onClose}>
-      <p className="ss-note">PLACEHOLDER · saved, not wired into the levels yet</p>
       <Slider
         label="Music"
         value={st.music}
@@ -175,7 +194,7 @@ export function SettingsWindow({ onClose }: { onClose: () => void }) {
       <label className="ss-row">
         <span className="ss-key">
           Unlock all levels
-          <small>play any chapter or ending right away</small>
+          <small>otherwise finishing 01 opens the rest</small>
         </span>
         <input
           type="checkbox"
@@ -184,6 +203,23 @@ export function SettingsWindow({ onClose }: { onClose: () => void }) {
           onChange={(e) => set('unlockAll', e.target.checked)}
         />
       </label>
+      <div className="ss-row">
+        <span className="ss-key">
+          Reset everything
+          <small>
+            {armed
+              ? 'deletes your progress, settings and all data this game keeps in the browser'
+              : 'progress, settings, browser data'}
+          </small>
+        </span>
+        <button
+          className={'ss-danger' + (armed ? ' armed' : '')}
+          onClick={() => (armed ? resetAll() : setArmed(true))}
+          onBlur={() => setArmed(false)}
+        >
+          {armed ? 'Confirm' : 'Reset'}
+        </button>
+      </div>
     </StartWindow>
   );
 }

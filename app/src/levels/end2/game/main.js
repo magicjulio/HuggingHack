@@ -7,6 +7,7 @@
 // The menu, pause, regroup and end overlays are the app's shared level card (opts.onScreen, see showOverlay; the
 // HTML panel and end card are gone; a loading card shows during the boot); the finish calls opts.onFinish(result);
 // window.__ascent (was ?test) comes with opts.debug; body[data-aim|data-vent] and --vent-* live on `root`.
+import { lookScale } from "../../../state/settings"; // app: settings
 import * as THREE from "three";
 import { createWorld } from "./world.js";
 import { createActors } from "./actors.js";
@@ -1326,9 +1327,10 @@ on(window, "blur", () => {
 });
 on(window, "mousemove", (e) => {
   if (!locked || paused || state !== "combat") return;
-  yaw -= e.movementX * T.camera.sensitivity * (mouseAim ? 0.72 : 1);
+  const k = T.camera.sensitivity * (mouseAim ? 0.72 : 1) * lookScale(); // app: settings
+  yaw -= e.movementX * k;
   pitch = THREE.MathUtils.clamp(
-    pitch - e.movementY * T.camera.sensitivity * (mouseAim ? 0.72 : 1),
+    pitch - e.movementY * k,
     T.camera.minPitch,
     T.camera.maxPitch,
   );

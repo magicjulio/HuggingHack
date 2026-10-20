@@ -1,4 +1,5 @@
 
+import { lookScale, fixedQuality } from '../../state/settings'; // app: settings
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { EffectComposer, RenderPass, EffectPass, BloomEffect, ToneMappingEffect, ToneMappingMode } from 'postprocessing';
@@ -42,7 +43,7 @@ const _BEATS = [['rise', BR.rise, 'RISE'], ['speech', BR.speech, 'IT SPEAKS'], [
 
 // ------------------------------------------------------------------------------------------- renderer + world (the game's modules)
 const renderer = new THREE.WebGLRenderer({ canvas: $('#gl'), antialias: false, powerPreference: 'high-performance', stencil: false, depth: true });
-renderer.setPixelRatio(Math.min(devicePixelRatio, Q.get('quality') === 'low' ? .75 : 1.5)); renderer.setSize(innerWidth, innerHeight);
+renderer.setPixelRatio(Math.min(devicePixelRatio, fixedQuality() === 'low' ? .75 : 1.5)); renderer.setSize(innerWidth, innerHeight);
 const scene = new THREE.Scene(); scene.background = new THREE.Color(RENDER.background); scene.fog = new THREE.FogExp2(RENDER.fog.color, RENDER.fog.density);
 const camera = new THREE.PerspectiveCamera(RENDER.camera.fov, innerWidth / innerHeight, RENDER.camera.near, RENDER.camera.far);
 const U = { uTime: { value: 0 }, uPsy: { value: .5 } };
@@ -67,7 +68,7 @@ const G = P1.G, KEYS = camKeys(G);
 for (const h of (Q.get('hide') ?? '').split(',').filter(Boolean)) ({ p1: P1, decor, islands, bridges, forge, env, player, hf })[h].object.visible = false;   // debug
 for (const i of (Q.get('p1hide') ?? '').split(',').filter(Boolean)) P1.object.children[+i].visible = false;
 
-const composer = new EffectComposer(renderer, { frameBufferType: THREE.HalfFloatType, multisampling: Q.get('quality') === 'low' ? 0 : 4 });
+const composer = new EffectComposer(renderer, { frameBufferType: THREE.HalfFloatType, multisampling: fixedQuality() === 'low' ? 0 : 4 });
 composer.addPass(new RenderPass(scene, camera));
 composer.addPass(new EffectPass(camera, new BloomEffect({ luminanceThreshold: RENDER.bloom.threshold, luminanceSmoothing: .1, intensity: 1.1, mipmapBlur: true, radius: .62 }), new ToneMappingEffect({ mode: ToneMappingMode.AGX })));
 
@@ -108,7 +109,8 @@ const lock = () => { try { gl.requestPointerLock()?.catch?.(() => {}); } catch {
 on(gl, 'click', () => { if (mode === 'play' && !paused && !locked()) lock(); });
 addEventListener('mousemove', (e) => {
   if (mode !== 'play' || !locked()) return;
-  yaw -= e.movementX * LOOK; pitch = Math.max(CAMERA.minPitch, Math.min(CAMERA.maxPitch, pitch + e.movementY * LOOK));
+  const k = LOOK * lookScale(); // app: settings
+  yaw -= e.movementX * k; pitch = Math.max(CAMERA.minPitch, Math.min(CAMERA.maxPitch, pitch + e.movementY * k));
 });
 const PAUSE_KEYS = [['WASD', 'move · mouse look'], ['SPACE', 'jump · hold to glide'], ['SHIFT', 'dash']];
 function pause() {

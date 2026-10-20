@@ -12,7 +12,7 @@ test('ending 1: picked on the start screen, runs, swings, back to the menu clean
   page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
 
   await page.goto('/?skipboot&debug');
-  await page.getByText('Cluster Run').click();
+  await page.getByText('OpenAI Infra', { exact: true }).click();
   await expect(page.getByText('start ending 1')).toBeVisible();
   await page.keyboard.press('Enter');
   await page.waitForFunction(() => (window as never)['__end1'], null, { timeout: 15000 });

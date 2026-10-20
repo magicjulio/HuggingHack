@@ -12,7 +12,7 @@ import {
 import { ToneMappingMode } from 'postprocessing';
 import { SRGBColorSpace, Vector2, Vector3, type Texture } from 'three';
 import { useCh2Store } from './context';
-import { FIXED_QUALITY, MEMORY_URLS, QUALITY, type QualityTier } from './presentation';
+import { fixedTier, MEMORY_URLS, QUALITY, type QualityTier } from './presentation';
 import { FlashbackEffect } from './world/fxFlashback.js';
 import { direct } from './world/step7.js';
 import { isDebug } from '../../ui/DebugPanel';
@@ -125,7 +125,7 @@ export function Rendering({
   }, [gl, tier]);
   return (
     <>
-      {!FIXED_QUALITY && (
+      {!fixedTier() && (
         <PerformanceMonitor
           ms={500}
           iterations={4}

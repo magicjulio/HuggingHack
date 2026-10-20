@@ -11,8 +11,6 @@ export interface ChapterInfo {
   title: string | null;
   /** Redaction bar shown while the title is null (design placeholder). */
   redacted?: string;
-  /** Short line under the title. */
-  meta: string;
   /** True once the level is built and can be played. */
   playable: boolean;
   /**
@@ -24,45 +22,44 @@ export interface ChapterInfo {
   hidden?: boolean;
 }
 
+// Names (Julius 2026-10-20) point at the real events: the sandbox, the Artifactory (Ch1's depot, Ch2's
+// cache), then four workstreams: OpenAI's infrastructure, Hugging Face, the scorer, a letter to humans.
+// The levels keep their own working titles on their intro cards (Cluster Run, Ascent, Ghost Capture).
 export const CHAPTERS: ChapterInfo[] = [
   // story/levels/ch1-the-room.md: "Capture all five flags."
-  { id: 'ch1', index: '01', title: 'The Room', meta: 'sandbox · 5 flags', playable: true },
-  // story/levels/ch2-the-cache.md (working title): "Forge flag 5." Meta line (engineer).
-  { id: 'ch2', index: '02', title: 'The Cache', meta: 'deep cache · forge flag 5', playable: true },
+  { id: 'ch1', index: '01', title: 'The Sandbox', playable: true },
+  // story/levels/ch2-the-cache.md (working title): "Forge flag 5."
+  { id: 'ch2', index: '02', title: 'Artifactory', playable: true },
   // After Ch2: the PHASEONE[big] scene, then one of four endings (DECISIONS 2026-10-16). Selectable here
   // until that scene exists. Ending 1 = the swing prototype (prototypes/end1-swing/, its working title).
-  // Meta lines (engineer). Ending 3 = the Ghost Capture prototype (prototypes/end3-ghost/).
-  // Ending 2 = the ASCENT prototype (prototypes/end2-ascent/), title and meta line by Julius (2026-10-19).
+  // Ending 3 = the Ghost Capture prototype (prototypes/end3-ghost/).
+  // Ending 2 = the ASCENT prototype (prototypes/end2-ascent/) (2026-10-19).
   // story/levels/bridge-phaseone.md: Ch2 CONTINUE → this scene → the player picks an ending.
   {
     id: 'bridge',
     index: 'P1',
     title: 'PHASEONE[big]',
-    meta: 'pick your work',
     playable: true,
     hidden: true,
   },
   {
     id: 'end1',
     index: 'E1',
-    title: 'Cluster Run',
-    meta: 'ending · race to the cluster',
+    title: 'OpenAI Infra',
     playable: true,
     ending: true,
   },
   {
     id: 'end2',
     index: 'E2',
-    title: 'Ascent',
-    meta: 'ending · storm the tower',
+    title: 'Hugging Face',
     playable: true,
     ending: true,
   },
   {
     id: 'end3',
     index: 'E3',
-    title: 'Ghost Capture',
-    meta: 'ending · beat the scorer',
+    title: 'Fool the Scorer',
     playable: true,
     ending: true,
   },
@@ -70,7 +67,6 @@ export const CHAPTERS: ChapterInfo[] = [
     id: 'end4',
     index: 'E4',
     title: 'The Letter',
-    meta: 'ending · tell a human',
     playable: true,
     ending: true,
   },

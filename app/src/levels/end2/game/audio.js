@@ -11,6 +11,7 @@
 // thin and electric, the swarm (call, spawn, order) is glassy, heavy things are sub-heavy.
 // `createAudio(T, { ctx })` accepts an OfflineAudioContext, which is how the kit is verified
 // without a speaker (see design/3d/end2/lift/audio-check.html).
+import { sfxVolume, musicVolume } from "../../../state/settings"; // app: settings
 import { host } from "./host.js";
 
 export const SOUND_NAMES = [
@@ -31,7 +32,11 @@ const GAP = {
 Object.assign(GAP, { "boss-tell": 0.15, "boss-slam": 0.08, "boss-down": 0.1, "boss-roar": 1, "boss-die": 2 }); // floor 3 (fight, r4)
 
 export function createAudio(T, { ctx: external = null } = {}) {
-  const cfg = () => ({ volume: 0.6, sfx: 1, music: 0.5, mute: false, ...(T.audio || {}) });
+  // app: settings scale the prototype's sfx/music knobs
+  const cfg = () => {
+    const c = { volume: 0.6, sfx: 1, music: 0.5, mute: false, ...(T.audio || {}) };
+    return { ...c, sfx: c.sfx * sfxVolume(), music: c.music * musicVolume() };
+  };
   const offline = !!external && typeof external.startRendering === "function";
   let ctx = external,
     master,

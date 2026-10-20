@@ -1,4 +1,5 @@
 /** Quiet local synth: room tone, footsteps, paper, relay, and the fan winding down. */
+import { sfxVolume } from '../../state/settings';
 export function createSound() {
   let ctx: AudioContext | undefined;
   let master: GainNode;
@@ -13,7 +14,7 @@ export function createSound() {
     if (!ctx) {
       ctx = new AudioContext();
       master = ctx.createGain();
-      master.gain.value = 0.25;
+      master.gain.value = 0.25 * sfxVolume();
       master.connect(ctx.destination);
       hum = ctx.createOscillator();
       hum.type = 'sine';
@@ -52,7 +53,7 @@ export function createSound() {
     update(phase: string, t: number, paused: boolean) {
       muted = paused;
       if (!ctx) return;
-      master.gain.setTargetAtTime(paused ? 0 : 0.25, ctx.currentTime, 0.08);
+      master.gain.setTargetAtTime(paused ? 0 : 0.25 * sfxVolume(), ctx.currentTime, 0.08);
       const shutdown =
         phase === 'end' ? 1 : phase === 'office' ? Math.max(0, Math.min(1, (t - 39.4) / 2.5)) : 0;
       tone.gain.setTargetAtTime(0.08 * (1 - shutdown), ctx.currentTime, 0.12);

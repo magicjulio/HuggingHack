@@ -8,6 +8,7 @@
  *   them silently); their levels drive the loops, `muffle` and `duck` every frame.
  * Lives in the Canvas (useFrame after the store's tick). Paused or map open: everything quieter.
  */
+import { sfxVolume } from '../../state/settings';
 import { useEffect, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Vector3 } from 'three';
@@ -58,7 +59,10 @@ export function Sound({ quiet, ch1Message }: { quiet: boolean; ch1Message: strin
   const engine = useRef<Engine | null>(null);
   const quietRef = useRef(quiet);
   quietRef.current = quiet;
-  useEffect(() => engine.current?.sfx.volume(quiet ? VOLUME_PAUSED : VOLUME), [quiet]);
+  useEffect(
+    () => engine.current?.sfx.volume((quiet ? VOLUME_PAUSED : VOLUME) * sfxVolume()),
+    [quiet],
+  );
 
   // One audio engine per mount (React's dev double mount must not reuse a closed context).
   // Browsers start audio suspended: the start-screen click usually allows it already; any later
@@ -82,7 +86,7 @@ export function Sound({ quiet, ch1Message }: { quiet: boolean; ch1Message: strin
           e.loops[name] = sfx.loop(name, 0);
     };
     unlock();
-    sfx.volume(quietRef.current ? VOLUME_PAUSED : VOLUME);
+    sfx.volume((quietRef.current ? VOLUME_PAUSED : VOLUME) * sfxVolume());
     engine.current = e;
     addEventListener('pointerdown', unlock);
     addEventListener('keydown', unlock);

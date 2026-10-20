@@ -29,9 +29,7 @@ async function openCache(page: Page, query: string) {
   await expect(page.locator('.c2-mini canvas')).toBeVisible();
 }
 
-test('chapter 2 HUD: dialogue, pickups, map close and clicking a reached pad', async ({
-  page,
-}) => {
+test('chapter 2 HUD: dialogue, pickups, map close and clicking a reached pad', async ({ page }) => {
   test.setTimeout(90_000);
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message));

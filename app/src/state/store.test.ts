@@ -6,7 +6,14 @@ describe('game store', () => {
     localStorage.clear();
     useGame.setState({ screen: 'start' });
     useGame.setState((s) => ({
-      save: { ...s.save, selectedChapter: 'ch1', selectedModel: 'im1', unlockedModels: [] },
+      save: {
+        ...s.save,
+        selectedChapter: 'ch1',
+        selectedModel: 'im1',
+        unlockedModels: [],
+        completedChapters: [],
+        settings: { ...s.save.settings, unlockAll: false },
+      },
     }));
   });
 
@@ -67,7 +74,21 @@ describe('game store', () => {
     });
   });
 
+  it('only Ch1 is open until it is finished, then everything; Unlock all opens it at once', () => {
+    const s = () => useGame.getState();
+    expect(s().selectChapter('ch2')).toBe(false);
+    expect(s().selectChapter('end1')).toBe(false);
+    s().setSetting('unlockAll', true);
+    expect(s().selectChapter('end1')).toBe(true);
+    s().setSetting('unlockAll', false);
+    expect(s().save.selectedChapter).toBe('ch1'); // the locked pick falls back
+    s().finishChapter('ch1');
+    expect(s().selectChapter('ch2')).toBe(true);
+    expect(s().selectChapter('end3')).toBe(true);
+  });
+
   it('endings are selectable and ending 1 keeps the best run time', () => {
+    useGame.getState().finishChapter('ch1');
     expect(useGame.getState().selectChapter('end1')).toBe(true);
     // all four endings are built now; an unknown id is still locked
     expect(useGame.getState().selectChapter('end2')).toBe(true);
