@@ -78,10 +78,13 @@ describe('game store', () => {
     const s = () => useGame.getState();
     expect(s().selectChapter('ch2')).toBe(false);
     expect(s().selectChapter('end1')).toBe(false);
+    expect(s().selectModel('astra')).toBe(false);
     s().setSetting('unlockAll', true);
     expect(s().selectChapter('end1')).toBe(true);
+    expect(s().selectModel('astra')).toBe(true);
     s().setSetting('unlockAll', false);
     expect(s().save.selectedChapter).toBe('ch1'); // the locked pick falls back
+    expect(s().save.selectedModel).toBe('im1');
     s().finishChapter('ch1');
     expect(s().selectChapter('ch2')).toBe(true);
     expect(s().selectChapter('end3')).toBe(true);

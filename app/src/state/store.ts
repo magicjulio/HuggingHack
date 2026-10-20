@@ -110,15 +110,20 @@ export function chapterLocked(id: string, save: SaveData): boolean {
   return !save.completedChapters.includes(OPENS_ALL);
 }
 
+/** Locked unless unlocked by a finished chapter, the Unlock all setting or `?debug`. */
+export function modelLocked(id: string, save: SaveData): boolean {
+  const m = modelById(id);
+  if (!m) return true;
+  if (!m.lockedByDefault || save.settings.unlockAll || debugUnlock) return false;
+  return !save.unlockedModels.includes(id);
+}
+
 /** Fill missing fields with defaults and drop selections that no longer exist or are locked. */
 export function sanitizeSave(raw: Partial<SaveData> | undefined): SaveData {
   const s: SaveData = { ...defaultSave, ...(raw ?? {}) };
   s.settings = { ...defaultSave.settings, ...raw?.settings };
   if (chapterLocked(s.selectedChapter, s)) s.selectedChapter = defaultSave.selectedChapter;
-  const m = modelById(s.selectedModel);
-  if (!m || (m.lockedByDefault && !s.unlockedModels.includes(m.id))) {
-    s.selectedModel = defaultSave.selectedModel;
-  }
+  if (modelLocked(s.selectedModel, s)) s.selectedModel = defaultSave.selectedModel;
   return s;
 }
 
@@ -133,10 +138,7 @@ export const useGame = create<GameState>()(
       run: 0,
 
       isChapterLocked: (id) => chapterLocked(id, get().save),
-      isModelLocked: (id) => {
-        const m = modelById(id);
-        return !m || (m.lockedByDefault && !get().save.unlockedModels.includes(id));
-      },
+      isModelLocked: (id) => modelLocked(id, get().save),
       selectChapter: (id) => {
         if (get().isChapterLocked(id)) return false;
         set((s) => ({ save: { ...s.save, selectedChapter: id } }));
@@ -200,8 +202,9 @@ export const useGame = create<GameState>()(
       setSetting: (key, value) =>
         set((s) => {
           const save = { ...s.save, settings: { ...s.save.settings, [key]: value } };
-          // switching Unlock all off can leave a locked level selected
+          // switching Unlock all off can leave a locked level or model selected
           if (chapterLocked(save.selectedChapter, save)) save.selectedChapter = OPENS_ALL;
+          if (modelLocked(save.selectedModel, save)) save.selectedModel = defaultSave.selectedModel;
           return { save };
         }),
       resetAll: () => {
