@@ -1,7 +1,8 @@
 // Bridge scene world: PHASEONE[big] (a huge poisoned agent), the swarm it drags out of the Cache, the three streams it
 // splits that swarm into, the three far places they run to, the lane labels, and the faint door behind you (the way back).
 // Draft v0 for Julius. All motion comes from bridge.js (pure): this module only draws it.
-// createPhaseOne({ layout, U }) -> { object, paths, G, bigAnchor(), update(t, dt, state), dispose() }
+// createPhaseOne({ layout, U }) -> { object, paths, G, places, bigAnchor(), update(t, dt, state), dispose() }
+//   places { hall, tower, floor }: the far stand-ins, so a host can swap one for a real model (the app puts E2's HQ in the tower's place)
 //   state { t: film time (s; past BR.control the streams keep flowing), D: direct(t), orb: [x,y,z] player orb centre,
 //           back: 'faint' | 'hidden' | 'lit' }
 import * as THREE from 'three';
@@ -172,7 +173,7 @@ export function createPhaseOne({ layout, U, count = 600 }) {
   const laneCols = LANES.map((l) => capCol(new THREE.Color(l.color))), white = new THREE.Color(CAP, CAP, CAP);
   const lookDown = new THREE.Quaternion(), lookYou = new THREE.Quaternion(), tmpM = new THREE.Matrix4();
   return {
-    object, paths, G,
+    object, paths, G, places: { hall, tower, floor },
     bigAnchor: (t) => { const p = bigPos(G, t); return [p[0], p[1] + BIG.r + 5, p[2]]; },
     update(t, dt, s) {
       const D = s.D, bp = bigPos(G, t), orb = s.orb ?? G.orb;

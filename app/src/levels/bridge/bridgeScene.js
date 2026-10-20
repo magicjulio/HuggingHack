@@ -17,9 +17,11 @@ import islandS from '../../assets/models/ch2-island-s.glb?url';
 import islandM from '../../assets/models/ch2-island-m.glb?url';
 import islandL from '../../assets/models/ch2-island-l.glb?url';
 import { MARKUP } from './markup.js';
+import { loadHFTower } from './hfTower.js';
 import { CAMERA } from '../ch2/config';
 
 const LOOK = .0022;   // ThirdPerson.tsx SENSITIVITY
+const HF_SCALE = .1;   // E2's HQ in the far tower slot
 
 /**
  * The bridge scene, ported from the designer's reference page design/ch2-ui/bridge.html (its whole script, same order).
@@ -46,9 +48,9 @@ const camera = new THREE.PerspectiveCamera(RENDER.camera.fov, innerWidth / inner
 const U = { uTime: { value: 0 }, uPsy: { value: .5 } };
 await Promise.all(['700 52px "JetBrains Mono"', '400 40px "JetBrains Mono"', '700 80px "Chakra Petch"'].map((f) => document.fonts.load(f).catch(() => {})));
 const loader = new GLTFLoader(), load = (u) => loader.loadAsync(u).then((g) => g.scene);
-const [ms, mm, ml] = await Promise.all([load(islandS), load(islandM), load(islandL)]);
+const [ms, mm, ml, hf] = await Promise.all([load(islandS), load(islandM), load(islandL), loadHFTower()]);
 const models = { s: ms, m: mm, l: ml };
-if (opts.cancelled?.()) { for (const off of offs) off(); renderer.dispose(); renderer.forceContextLoss(); return { dispose() {} }; }   // unmounted while loading
+if (opts.cancelled?.()) { hf.dispose(); for (const off of offs) off(); renderer.dispose(); renderer.forceContextLoss(); return { dispose() {} }; }   // unmounted while loading
 const env = createEnv({ U, camera, renderer }); scene.add(env.object); scene.environment = env.environment; scene.environmentIntensity = RENDER.envIntensity;
 const islands = createIslands({ layout: L, U, models }); scene.add(islands.object); islands.labels.visible = false;
 const bridges = createBridges({ layout: L, U }); scene.add(bridges.object);
@@ -57,7 +59,12 @@ const decor = Q.has('nodecor') ? null : createDecor({ layout: L, U, models }); i
 const player = createPlayerOrb({ U }); scene.add(player.object);
 const P1 = createPhaseOne({ layout: L, U }); scene.add(P1.object);
 const G = P1.G, KEYS = camKeys(G);
-for (const h of (Q.get('hide') ?? '').split(',').filter(Boolean)) ({ p1: P1, decor, islands, bridges, forge, env, player })[h].object.visible = false;   // debug
+{ // app: E2's HQ stands in the stand-in tower's place, its logo where the yellow stream ends
+  const t = P1.places.tower; t.visible = false;
+  hf.object.position.set(...P1.paths[1].dest); hf.object.quaternion.copy(t.quaternion); hf.object.position.y -= hf.logo.y * HF_SCALE;
+  hf.object.scale.setScalar(HF_SCALE); scene.add(hf.object);
+}
+for (const h of (Q.get('hide') ?? '').split(',').filter(Boolean)) ({ p1: P1, decor, islands, bridges, forge, env, player, hf })[h].object.visible = false;   // debug
 for (const i of (Q.get('p1hide') ?? '').split(',').filter(Boolean)) P1.object.children[+i].visible = false;
 
 const composer = new EffectComposer(renderer, { frameBufferType: THREE.HalfFloatType, multisampling: Q.get('quality') === 'low' ? 0 : 4 });
@@ -204,13 +211,13 @@ renderer.setAnimationLoop(() => {
   frame((mode === 'film' && !playing) || paused ? rdt * .0001 : dt);
   if (mode !== 'film') $('#skipHint').hidden = true;
 });
-const hooks = { seek, pause, resume, get paused() { return paused; }, get T() { return T; }, set T(v) { T = v; }, P1, G, camera, scene, renderer, commit, pl, play: (v) => (playing = v), frame };
+const hooks = { hf, seek, pause, get yaw() { return yaw; }, set yaw(v) { yaw = v; }, get pitch() { return pitch; }, set pitch(v) { pitch = v; }, orb: orbP, resume, get paused() { return paused; }, get T() { return T; }, set T(v) { T = v; }, P1, G, camera, scene, renderer, commit, pl, play: (v) => (playing = v), frame };
 if (opts.debug) window.__bridge = hooks;
 return { dispose() {
   renderer.setAnimationLoop(null);
   if (locked()) document.exitPointerLock(); opts.onScreen?.(null);
   for (const off of offs) off();
-  for (const m of [P1, decor, islands, bridges, forge, env, player]) m?.dispose?.();
+  for (const m of [P1, decor, islands, bridges, forge, env, player, hf]) m?.dispose?.();
   composer.dispose(); renderer.dispose(); renderer.forceContextLoss();
   if (window.__bridge === hooks) delete window.__bridge;
   root.innerHTML = '';
