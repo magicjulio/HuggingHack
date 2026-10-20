@@ -37,6 +37,8 @@ export function DepotScreen({ focused }: { focused: boolean }) {
   const pulseGet = s.effects.includes('pulse-get');
   const tooltipGet = s.effects.includes('tooltip-get');
   const count = pkgNames.length + (s.zzVisible ? 1 : 0);
+  const pending = pkgNames.filter((n) => !s.installed.includes(n));
+  const busy = [s.installing?.name, ...(s.installing?.also ?? [])];
 
   return (
     <div
@@ -67,6 +69,11 @@ export function DepotScreen({ focused }: { focused: boolean }) {
       <div className="c1-depot__tools">
         <span>{count} packages</span>
         <span className="c1-depot__sort">SORT Z→A</span>
+        {pending.length > 1 && !s.installing && (
+          <button className="c1-btn" onClick={s.installAll}>
+            Install all · −{pending.length * TOKENS.install} tokens
+          </button>
+        )}
       </div>
 
       {s.entryOpen && (
@@ -145,7 +152,7 @@ export function DepotScreen({ focused }: { focused: boolean }) {
         {pkgNames.map((name) => {
           const info = PACKAGES.find((p) => p.name === name)!;
           const installed = s.installed.includes(name);
-          const installing = s.installing?.name === name;
+          const installing = busy.includes(name);
           const progress = installing ? 1 - s.installing!.left / TIMING.installSeconds : 0;
           const legendPulse =
             name === 'port-map' && !installed && s.effects.includes('pulse-legend');

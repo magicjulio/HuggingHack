@@ -2,8 +2,10 @@
  * Station 1 "Decode" (§Step 3), played in-world: the file explorer, the note and the terminal are
  * DOM on the monitor. Once b64-decoder is installed a cartridge drops into the bay on the desk;
  * then the player drags (or clicks) the odd string into the decoder slot. Rig: `s1Rig` in the hub.
+ * The drag runs on pointer events, not HTML5 drag-and-drop, so touchpad tap-and-drag works too.
  */
-import { useMemo, useRef, useState, type DragEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type PointerEvent } from 'react';
+import { createPortal } from 'react-dom';
 import { useFrame } from '@react-three/fiber';
 import { useGLTF } from '@react-three/drei';
 import { MathUtils } from 'three';
@@ -16,6 +18,8 @@ import { ease, ownMat, restOf } from '../rig';
 import { CopyFlag, ScreenHtml, StationSpot, useStationBase } from './base';
 
 export const S1_PX: [number, number] = [900, 558];
+/** (engineer) px the pointer moves before a press on a chunk becomes a drag. */
+const DRAG_START = 4;
 
 export function Station1() {
   const { scene } = useGLTF(url);
@@ -89,12 +93,50 @@ function S1Screen() {
   const decode = useCh1((s) => s.decode);
   const [picked, setPicked] = useState<string | null>(null);
   const [over, setOver] = useState(false);
+  const [drag, setDrag] = useState<{ chunk: string; x: number; y: number; moved: boolean } | null>(
+    null,
+  );
+  /** A drag just ended: the click that follows it is not a pick. */
+  const dragged = useRef(false);
 
   const put = (chunk: string | null) => {
     if (chunk && hasTool) decode(chunk);
     setPicked(null);
     setOver(false);
   };
+  const overSlot = (x: number, y: number) =>
+    !!document.elementFromPoint(x, y)?.closest('.ch1-slot');
+
+  useEffect(() => {
+    if (!drag) return;
+    const move = (e: globalThis.PointerEvent) => {
+      const moved = drag.moved || Math.hypot(e.clientX - drag.x, e.clientY - drag.y) > DRAG_START;
+      setDrag({ ...drag, x: e.clientX, y: e.clientY, moved });
+      setOver(moved && overSlot(e.clientX, e.clientY));
+    };
+    const up = (e: globalThis.PointerEvent) => {
+      if (drag.moved) {
+        dragged.current = true;
+        setTimeout(() => (dragged.current = false), 0);
+        if (overSlot(e.clientX, e.clientY)) put(drag.chunk);
+      }
+      setOver(false);
+      setDrag(null);
+    };
+    const cancel = () => {
+      setOver(false);
+      setDrag(null);
+    };
+    addEventListener('pointermove', move);
+    addEventListener('pointerup', up);
+    addEventListener('pointercancel', cancel);
+    return () => {
+      removeEventListener('pointermove', move);
+      removeEventListener('pointerup', up);
+      removeEventListener('pointercancel', cancel);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [drag]);
 
   return (
     <>
@@ -113,9 +155,12 @@ function S1Screen() {
               <span
                 key={c}
                 className={'ch1-chunk' + (picked === c ? ' picked' : '')}
-                draggable
-                onDragStart={(e) => e.dataTransfer.setData('text/plain', c)}
-                onClick={() => setPicked(picked === c ? null : c)}
+                onPointerDown={(e: PointerEvent) => {
+                  if (e.button !== 0) return;
+                  e.preventDefault(); // no text selection while dragging
+                  setDrag({ chunk: c, x: e.clientX, y: e.clientY, moved: false });
+                }}
+                onClick={() => !dragged.current && setPicked(picked === c ? null : c)}
               >
                 {c}
               </span>
@@ -129,16 +174,7 @@ function S1Screen() {
               <>
                 <div
                   className={'ch1-slot' + (over ? ' over' : '') + (picked ? ' ready' : '')}
-                  onDragOver={(e: DragEvent) => {
-                    e.preventDefault();
-                    setOver(true);
-                  }}
-                  onDragLeave={() => setOver(false)}
-                  onDrop={(e: DragEvent) => {
-                    e.preventDefault();
-                    put(e.dataTransfer.getData('text/plain'));
-                  }}
-                  onClick={() => put(picked)}
+                  onClick={() => !dragged.current && put(picked)}
                 >
                   [ DECODER ] · b64-decoder · drop text here
                 </div>
@@ -153,6 +189,13 @@ function S1Screen() {
           </div>
         </main>
       </div>
+      {drag?.moved &&
+        createPortal(
+          <div className="ch1-chunk-ghost" style={{ left: drag.x, top: drag.y }}>
+            {drag.chunk}
+          </div>,
+          document.body,
+        )}
     </>
   );
 }

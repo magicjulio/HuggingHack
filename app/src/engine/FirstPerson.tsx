@@ -105,6 +105,8 @@ export function FirstPerson({
   enabledRef.current = enabled;
   /** Pose to return to after a focus ends. */
   const saved = useRef<{ pos: [number, number, number]; yaw: number; pitch: number } | null>(null);
+  /** On the way back from a focus the player has looked or walked: the view is theirs again. */
+  const handedBack = useRef(false);
 
   useEffect(() => {
     camera.position.set(start[0], eyeHeight, start[1]);
@@ -121,6 +123,7 @@ export function FirstPerson({
     const move = (e: MouseEvent) => {
       if (!enabledRef.current || document.pointerLockElement !== gl.domElement) return;
       const l = look.current;
+      if (e.movementX || e.movementY) handedBack.current = true;
       l.yaw -= e.movementX * SENSITIVITY;
       l.pitch = Math.max(-1.4, Math.min(1.4, l.pitch - e.movementY * SENSITIVITY));
     };
@@ -136,41 +139,8 @@ export function FirstPerson({
     };
   }, [gl]);
 
-  useFrame((_, rawDt) => {
-    const dt = Math.min(rawDt, 0.05);
-    const l = look.current;
-    if (focus && !saved.current)
-      saved.current = {
-        pos: [camera.position.x, camera.position.y, camera.position.z],
-        yaw: l.yaw,
-        pitch: l.pitch,
-      };
-    if (saved.current) {
-      const goal = focus
-        ? { pos: focus.position, ...lookAngles(focus.position, focus.target) }
-        : saved.current;
-      const k = 1 - Math.exp(-GLIDE * dt);
-      const p = camera.position;
-      p.set(
-        p.x + (goal.pos[0] - p.x) * k,
-        p.y + (goal.pos[1] - p.y) * k,
-        p.z + (goal.pos[2] - p.z) * k,
-      );
-      l.yaw += angleDiff(l.yaw, goal.yaw) * k;
-      l.pitch += (goal.pitch - l.pitch) * k;
-      // snap when close, so the camera (and anything screen-attached) comes fully to rest
-      const d = Math.hypot(goal.pos[0] - p.x, goal.pos[1] - p.y, goal.pos[2] - p.z);
-      if (d < 0.003 && Math.abs(angleDiff(l.yaw, goal.yaw)) < 0.002) {
-        p.set(...goal.pos);
-        l.yaw = goal.yaw;
-        l.pitch = goal.pitch;
-        if (!focus) saved.current = null;
-      }
-      camera.rotation.set(l.pitch, l.yaw, 0, 'YXZ');
-      return;
-    }
-    camera.rotation.set(l.pitch, l.yaw, 0, 'YXZ');
-    if (!enabled) return;
+  /** WASD → a step on the floor plan from (x, z), with collisions; null when no key is down. */
+  const walk = (x: number, z: number, dt: number): [number, number] | null => {
     let mx = 0;
     let mz = 0;
     for (const k of keys.current) {
@@ -180,18 +150,73 @@ export function FirstPerson({
         mz += m[1];
       }
     }
-    if (!mx && !mz) return;
+    if (!mx && !mz) return null;
     const len = Math.hypot(mx, mz);
     const yaw = look.current.yaw;
     // local (mx, mz) → world, rotated by yaw
     const wx = (mx * Math.cos(yaw) + mz * Math.sin(yaw)) / len;
     const wz = (-mx * Math.sin(yaw) + mz * Math.cos(yaw)) / len;
-    let x = camera.position.x + wx * speed * dt;
-    let z = camera.position.z + wz * speed * dt;
+    x += wx * speed * dt;
+    z += wz * speed * dt;
     for (const b of colliders) [x, z] = pushOut(x, z, radius, b);
     x = Math.max(bounds.minX + radius, Math.min(bounds.maxX - radius, x));
     z = Math.max(bounds.minZ + radius, Math.min(bounds.maxZ - radius, z));
-    camera.position.set(x, eyeHeight, z);
+    return [x, z];
+  };
+
+  useFrame((_, rawDt) => {
+    const dt = Math.min(rawDt, 0.05);
+    const l = look.current;
+    if (focus && !saved.current)
+      saved.current = {
+        pos: [camera.position.x, camera.position.y, camera.position.z],
+        yaw: l.yaw,
+        pitch: l.pitch,
+      };
+    if (focus) handedBack.current = false;
+    if (saved.current) {
+      const back = saved.current;
+      // returning: walking moves the spot the camera glides back to, so WASD works at once
+      if (!focus && enabled) {
+        const step = walk(back.pos[0], back.pos[2], dt);
+        if (step) {
+          back.pos = [step[0], eyeHeight, step[1]];
+          handedBack.current = true;
+        }
+      }
+      const free = !focus && handedBack.current;
+      const goal = focus
+        ? { pos: focus.position, ...lookAngles(focus.position, focus.target) }
+        : back;
+      const k = 1 - Math.exp(-GLIDE * dt);
+      const p = camera.position;
+      p.set(
+        p.x + (goal.pos[0] - p.x) * k,
+        p.y + (goal.pos[1] - p.y) * k,
+        p.z + (goal.pos[2] - p.z) * k,
+      );
+      // once the player looks or walks, the turn back stops and the mouse steers
+      if (!free) {
+        l.yaw += angleDiff(l.yaw, goal.yaw) * k;
+        l.pitch += (goal.pitch - l.pitch) * k;
+      }
+      // snap when close, so the camera (and anything screen-attached) comes fully to rest
+      const d = Math.hypot(goal.pos[0] - p.x, goal.pos[1] - p.y, goal.pos[2] - p.z);
+      if (d < 0.003 && (free || Math.abs(angleDiff(l.yaw, goal.yaw)) < 0.002)) {
+        p.set(...goal.pos);
+        if (!free) {
+          l.yaw = goal.yaw;
+          l.pitch = goal.pitch;
+        }
+        if (!focus) saved.current = null;
+      }
+      camera.rotation.set(l.pitch, l.yaw, 0, 'YXZ');
+      return;
+    }
+    camera.rotation.set(l.pitch, l.yaw, 0, 'YXZ');
+    if (!enabled) return;
+    const step = walk(camera.position.x, camera.position.z, dt);
+    if (step) camera.position.set(step[0], eyeHeight, step[1]);
   });
 
   return null;

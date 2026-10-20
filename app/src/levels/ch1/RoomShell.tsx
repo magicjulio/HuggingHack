@@ -4,8 +4,8 @@
  * …-desk-and-eye.md). Values follow `buildRoom` / `deskRig` in design/3d/index.html.
  *
  *   wake        only the desk lamp, the glowing paper frame and a weak room spot on the desk
- *   lightsOn    the room "powers up" faintly: base strip, door lock, dim ceiling lamp, dim
- *               spots on the depot and the plinth. No general light: stations light themselves
+ *   lightsOn    the room "powers up": base strip, door lock, ceiling lamp, spots on the depot
+ *               and the plinth, a soft general light (Julius 2026-10-20). Stations light themselves
  *               (stations/base.tsx) and the floor path of the awake station leads there.
  */
 import { useEffect, useMemo, useRef } from 'react';
@@ -33,6 +33,8 @@ import type { Ch1State } from './store';
 
 /** Room spot values (cd) from the hub; tune by eye. */
 const DESK_SPOT = 7;
+/** (engineer, Julius 2026-10-20 "more light in the room") the powered-up room's general light. */
+const AWAKE_AMBIENT = 0.12;
 const DEPOT_SPOT = 18;
 const PLINTH_SPOT = 14;
 const CEILING = 30;
@@ -97,15 +99,15 @@ export function RoomShell() {
     const flicker =
       s.phase === 'ending' && s.endTime > 1.8 && s.endTime < 2.6 ? 1 : s.ceilingFlicker;
     const lit = Math.random() > flicker * 0.55 ? 1 : 0.08;
-    rig.lamp.intensity = on ? CEILING * 0.12 * lit : 0;
+    rig.lamp.intensity = on ? CEILING * 0.4 * lit : 0;
     // (engineer) hub value 1.2 glares through our bloom when the lamp is in view
     if (rig.lampMat) rig.lampMat.emissiveIntensity = on ? 0.6 * lit : 0;
     if (rig.base) rig.base.emissiveIntensity = 0.35 * up;
     if (rig.lock) rig.lock.emissiveIntensity = on ? 2.5 : 0;
-    rig.desk.intensity = on ? DESK_SPOT * 0.35 : DESK_SPOT;
-    rig.depot.intensity = on ? DEPOT_SPOT * 0.6 : 0;
-    rig.plinth.intensity = on ? PLINTH_SPOT * 0.5 : 0;
-    if (ambient.current) ambient.current.intensity = on ? 0.015 : 0.003;
+    rig.desk.intensity = on ? DESK_SPOT * 0.6 : DESK_SPOT;
+    rig.depot.intensity = on ? DEPOT_SPOT : 0;
+    rig.plinth.intensity = on ? PLINTH_SPOT * 0.8 : 0;
+    if (ambient.current) ambient.current.intensity = on ? AWAKE_AMBIENT * up : 0.003;
 
     // floor paths: the awake station's path pulses, finished ones keep a faint trace
     rig.paths.forEach((m, i) => {
@@ -156,7 +158,7 @@ export function Reflections() {
     };
   }, [gl, scene]);
   useFrame(() => {
-    scene.environmentIntensity = awake(store.getState()) ? 0.03 : 0.02;
+    scene.environmentIntensity = awake(store.getState()) ? 0.08 : 0.02;
   });
   return null;
 }

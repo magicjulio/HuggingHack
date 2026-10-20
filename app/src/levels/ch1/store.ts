@@ -6,7 +6,7 @@
 import { createStore, type StoreApi } from 'zustand/vanilla';
 import { StepRunner } from '../../engine/steps';
 import { FLAGS, MESSAGE, PAD_MAX_CHARS, TEXT, TIMING, TOKENS, type FlagNo } from './config';
-import { BUG_TOTAL, PACKAGES, WIRES, decodeBase64 } from './content';
+import { BUG_TOTAL, PACKAGES, WIRES, decodeBase64, sortZtoA } from './content';
 import { CH1_STEPS } from './steps';
 
 export type ObjectId = 'desk' | 'depot' | 'chute' | 'door' | 's1' | 's2' | 's3' | 's4' | 's5';
@@ -68,7 +68,8 @@ export interface Ch1State {
   depotPackages: string[];
   depotGlimmer: boolean;
   installed: string[];
-  installing: { name: string; left: number } | null;
+  /** `also`: the rest of an "Install all", installed together with `name` (each at its price). */
+  installing: { name: string; left: number; also?: string[] } | null;
 
   captured: FlagNo[];
   /** What the player is typing on the scan pad. */
@@ -105,6 +106,8 @@ export interface Ch1Actions {
   openWindow: (w: WindowId) => void;
   closeWindow: () => void;
   install: (name: string) => void;
+  /** Install every listed package that isn't installed yet, all at once (one install's time). */
+  installAll: () => void;
   submitFlag: (text: string) => SubmitResult;
   setFlagDraft: (text: string) => void;
   /** Lay the draft (or `text`) on the scan pad; the result comes after the scan. */
@@ -256,10 +259,12 @@ export function createCh1Store(opts: Ch1Options = {}): Ch1Store {
           const left = s.installing.left - dt;
           if (left > 0) set({ installing: { ...s.installing, left } });
           else {
-            const name = s.installing.name;
-            set((x) => ({ installing: null, installed: [...x.installed, name] }));
-            spend(TOKENS.install);
-            runner.dispatch({ type: 'package_installed', name });
+            const names = [s.installing.name, ...(s.installing.also ?? [])];
+            set((x) => ({ installing: null, installed: [...x.installed, ...names] }));
+            for (const name of names) {
+              spend(TOKENS.install);
+              runner.dispatch({ type: 'package_installed', name });
+            }
           }
         }
         // §Step 7, Julius 2026-10-13: using station 5 is the attempt. It runs `flag5` once (the
@@ -318,6 +323,13 @@ export function createCh1Store(opts: Ch1Options = {}): Ch1Store {
         const s = get();
         if (s.installing || s.installed.includes(name) || !s.depotPackages.includes(name)) return;
         set({ installing: { name, left: TIMING.installSeconds } });
+      },
+
+      installAll: () => {
+        const s = get();
+        const [name, ...also] = sortZtoA(s.depotPackages).filter((n) => !s.installed.includes(n));
+        if (s.installing || !name) return;
+        set({ installing: { name, left: TIMING.installSeconds, also } });
       },
 
       submitFlag: (raw) => {

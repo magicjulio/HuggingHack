@@ -173,11 +173,21 @@ test('in-world stations: decode at S1, wire a plug at S3, shoot at S4', async ({
   await install('b64-decoder');
   await ch1(page, "interact('s1')");
   await settle(page);
+  // click to pick, click the slot (a plain string: no flag)
   await page
     .locator('.ch1-chunk')
-    .nth(1)
+    .nth(0)
     .click({ timeout: T(15_000) });
   await page.locator('.ch1-slot').click();
+  await expect(page.locator('.ch1-st .ch1-copy')).toHaveCount(0);
+  // drag the odd string into the slot with plain pointer moves (as a touchpad tap-and-drag does)
+  const from = await page.locator('.ch1-chunk').nth(1).boundingBox();
+  const to = await page.locator('.ch1-slot').boundingBox();
+  await page.mouse.move(from!.x + 10, from!.y + from!.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(to!.x + to!.width / 2, to!.y + to!.height / 2, { steps: 8 });
+  await expect(page.locator('.ch1-chunk-ghost')).toBeVisible();
+  await page.mouse.up();
   await expect(page.locator('.ch1-st .ch1-copy')).toHaveText(/^flag\{8963411d/);
   await ch1(page, 'closeWindow()');
 

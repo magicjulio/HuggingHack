@@ -224,4 +224,19 @@ describe('depot list', () => {
     expect(s().stepId).toBe('flag1');
     expect(PACKAGES.filter((x) => x.station === null).length).toBeGreaterThanOrEqual(6);
   });
+
+  it('Install all installs every listed package at once, in one install time, each at its price', () => {
+    const p = play();
+    const { s } = p;
+    s().finishIntro();
+    s().interact('desk');
+    s().closeWindow();
+    const before = s().tokens;
+    s().installAll();
+    s().install('left-pad'); // busy: ignored
+    wait(p, TIMING.installSeconds + 0.1);
+    expect([...s().installed].sort()).toEqual(PACKAGES.map((x) => x.name).sort());
+    expect(s().installing).toBeNull();
+    expect(s().tokens).toBeLessThanOrEqual(before - TOKENS.install * PACKAGES.length);
+  });
 });
