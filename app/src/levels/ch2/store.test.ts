@@ -76,11 +76,7 @@ describe('chapter 2', () => {
     wait(0.1);
     expect(s().stepId).toBe('yard');
 
-    // Step 3: a decoy crumbles and costs 2; the two pieces
-    const t0 = s().tokens;
-    take('d7713');
-    expect(s().items.d7713).toBe('crumbled');
-    expect(s().tokens).toBe(t0 - TOKENS.decoy);
+    // Step 3: the two pieces
     take('p7731');
     expect(s().quests.some((q) => q.text === TEXT.firstPieceThought)).toBe(true);
     take('pTraining');
@@ -192,7 +188,7 @@ describe('chapter 2', () => {
     expect(s().shoot(origin, new Vector3(0, 1, 0))).toBe(false);
   });
 
-  it('queues sound moments where they happen (fall, shot, decoy, the 16 proof pairs)', () => {
+  it('queues sound moments where they happen (fall, shot, the 16 proof pairs)', () => {
     const { s, store, wait } = play();
     const heard = () => store.sim.sounds.splice(0).map((c) => c.name);
     s().finishIntro();
@@ -205,8 +201,6 @@ describe('chapter 2', () => {
     const bit = store.sim.bits[0];
     s().shoot(bit.pos.clone().add(new Vector3(0, 0, 10)), new Vector3(0, 0, -1));
     expect(heard()).toEqual(['shoot', 'muted']);
-    s().takeItem('d7713');
-    expect(heard()).toContain('crumble');
     s().jumpTo(6);
     store.sim.sounds.length = 0;
     wait(TIMING.proofSeconds + 0.1);

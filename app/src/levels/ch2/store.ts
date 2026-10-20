@@ -63,7 +63,7 @@ import { CH2_STEPS } from './steps';
 import { HUD_BEATS } from './world/step7.js';
 
 export type Phase = 'intro' | 'play' | 'cutscene' | 'ended';
-export type ItemState = 'there' | 'taken' | 'crumbled';
+export type ItemState = 'there' | 'taken';
 
 export interface QuestLine {
   id: string;
@@ -472,13 +472,6 @@ export function createCh2Store(opts: Ch2Options = {}): Ch2Store {
         const s = get();
         if (s.items[id] !== 'there') return;
         const spot = ITEMS.find((i) => i.id === id)!;
-        if (spot.kind === 'decoy') {
-          set((x) => ({ items: { ...x.items, [id]: 'crumbled' } }));
-          sound('crumble');
-          spend(TOKENS.decoy);
-          get().addLog(LOG.dropped(spot.label));
-          return;
-        }
         set((x) => ({ items: { ...x.items, [id]: 'taken' }, inventory: [...x.inventory, id] }));
         sound('item_taken');
         get().addLog(LOG.took(spot.label));

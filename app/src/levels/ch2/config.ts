@@ -18,7 +18,6 @@ export const TOKENS = {
   resetHit: 10,
   tokenOrb: 3,
   mute: 2,
-  decoy: 2,
   dash: 1, // §Controls: "Shift dash (short, 1 token)"
   shot: 1,
   /** On the Gate and the Old Board the bar can't drop below this; after that no floor. */
@@ -159,7 +158,6 @@ export const LOG = {
   reset: 'reset',
   // (engineer) lines the script doesn't list; same plain style
   fell: 'fell',
-  dropped: (what: string) => `dropped: ${what}`,
   muted: 'muted: flood bit',
   forgeIn: (what: string) => `> forge.put(${what})`,
   round: (n: number) => `forge round ${n}/3`,

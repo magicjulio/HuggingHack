@@ -502,8 +502,8 @@ function Npcs({ store, U }: { store: Ch2Store; U: WorldUniforms }) {
 
 // ------------------------------------------------------------------ pickups, flood
 /**
- * Seed, task tags and decoys (+ the CHALLENGE 5 plinth), the player's Ch1 installs as crates and
- * the token orbs (pickups.js). Taken items snap up; a decoy crumbles.
+ * Seed, task tags (+ the CHALLENGE 5 plinth), the player's Ch1 installs as crates and
+ * the token orbs (pickups.js). Taken items snap up.
  */
 function Pickups({
   store,

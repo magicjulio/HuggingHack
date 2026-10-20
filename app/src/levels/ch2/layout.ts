@@ -374,8 +374,7 @@ function forgeSurfaces(): Island[] {
 }
 
 // ---------------------------------------------------------------- items (pickups)
-export type ItemId =
-  'seed' | 'p7731' | 'pTraining' | 'pChallenge' | 'd7713' | 'dTrainingRm' | 'dChallenge3';
+export type ItemId = 'seed' | 'p7731' | 'pTraining' | 'pChallenge';
 export type PieceId = 'p7731' | 'pTraining' | 'pChallenge';
 
 /** layout.json pickup id → game item id (the rules and steps use the game ids). */
@@ -384,15 +383,12 @@ const ITEM_IDS: Record<string, ItemId> = {
   'piece-7731': 'p7731',
   'piece-env': 'pTraining',
   'piece-chal': 'pChallenge',
-  'decoy-1': 'd7713',
-  'decoy-2': 'dTrainingRm',
-  'decoy-3': 'dChallenge3',
 };
 
 export interface ItemSpot {
   id: ItemId;
   layoutId: string;
-  kind: 'seed' | 'piece' | 'decoy';
+  kind: 'seed' | 'piece';
   /** Lettered like the Ch1 paper (§Step 3). */
   label: string;
   position: V3;

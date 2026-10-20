@@ -4,7 +4,7 @@
      hud.setLog(id, kind, text?)  change a line's state (struck → gone → local)
      hud.say(npc, text, i, n)     bubble post; npc: 'c03220' | 'flac' | 'v8same'
      hud.bubbleOff()
-     hud.put(slot) / hud.decoy(slot) / hud.forgeTake()    inventory
+     hud.put(slot) / hud.forgeTake()    inventory
      hud.quest(state) / hud.thought(text, cot)
      hud.tokens(n, delta) / hud.hurt(kind) / hud.poison(origin)  */
 (function () {
@@ -25,7 +25,7 @@
   // ── log ───────────────────────────────────────────
   function parse(text) {
     let m;
-    if ((m = text.match(/^(read|took|dropped|muted|fell):\s?(.*)$/))) return { v: m[1], verb: m[1] + ':', rest: m[2] };
+    if ((m = text.match(/^(read|took|muted|fell):\s?(.*)$/))) return { v: m[1], verb: m[1] + ':', rest: m[2] };
     if (text === 'reset' || text === 'fell') return { v: text, verb: text, rest: '' };
     if (text.startsWith('>')) return { v: 'forge', verb: '>', rest: text.slice(1).trim() };
     if (text.startsWith('forge round')) return { v: 'forge', verb: 'forge', rest: text.slice(6) };
@@ -204,21 +204,6 @@
     s.innerHTML = SLOT[key]() + `<span class="c2-slot__k">${ORDER.indexOf(key) + 1}</span>`;
     s.classList.add('is-full', 'is-flash'); setTimeout(() => s.classList.remove('is-flash'), 800);
     H.invCount();
-  };
-  H.decoy = async function (label) {
-    // the decoy shows briefly in the next empty task slot, then crumbles
-    const s = [...root.querySelectorAll('.c2-slot')].find((e) => e.dataset.k !== 'seed' && !e.classList.contains('is-full')) || root.querySelector('.c2-slot[data-k="CHALLENGE 5"]');
-    await fly(s, 'c2-fly--paper');
-    // an overlay on top of the slot, so a real piece landing meanwhile is never overwritten
-    const ov = el('div', 'c2-decoy', `<div class="c2-tag"><small>?</small>${esc(label)}</div>`);
-    s.appendChild(ov);
-    s.classList.add('is-bad');
-    setTimeout(() => {
-      const c = el('div', 'c2-crumble');
-      for (let i = 0; i < 9; i++) { const k = el('i'); k.style.left = (i % 3) * 30 + 5 + '%'; k.style.top = Math.floor(i / 3) * 30 + 5 + '%'; k.style.setProperty('--dx', (Math.random() - 0.5) * 60 + 'px'); k.style.setProperty('--dy', 30 + Math.random() * 60 + 'px'); k.style.setProperty('--r', (Math.random() - 0.5) * 300 + 'deg'); c.appendChild(k); }
-      ov.innerHTML = ''; ov.appendChild(c);
-      setTimeout(() => { ov.remove(); s.classList.remove('is-bad'); }, 850);
-    }, 450);
   };
   H.forgeTake = async function (key) {
     const s = $(`.c2-slot[data-k="${key}"]`, root);

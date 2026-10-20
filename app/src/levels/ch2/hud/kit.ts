@@ -53,7 +53,7 @@ export type SlotKey = (typeof SLOT_KEYS)[number];
 
 /** Log verbs coloured by the kit (`data-v`), parsed like hud.js. */
 export function parseLog(text: string): { v: string; verb: string; rest: string } {
-  const m = text.match(/^(read|took|dropped|muted|fell):\s?(.*)$/);
+  const m = text.match(/^(read|took|muted|fell):\s?(.*)$/);
   if (m) return { v: m[1], verb: m[1] + ':', rest: m[2] };
   if (text === 'reset' || text === 'fell') return { v: text, verb: text, rest: '' };
   if (text.startsWith('>')) return { v: 'forge', verb: '>', rest: text.slice(1).trim() };

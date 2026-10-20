@@ -71,7 +71,7 @@ export const CH2_STEPS: Ch2Step[] = [
       take(c, 'seed');
     },
   },
-  // Step 3. Task Yard: 7731 on the plinth, TRAINING ROOM on the ledge; decoys crumble.
+  // Step 3. Task Yard: 7731 on the plinth, TRAINING ROOM on the ledge.
   {
     id: 'yard',
     check: (c) => has(c, 'p7731') && has(c, 'pTraining'),

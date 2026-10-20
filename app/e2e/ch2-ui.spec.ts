@@ -29,7 +29,7 @@ async function openCache(page: Page, query: string) {
   await expect(page.locator('.c2-mini canvas')).toBeVisible();
 }
 
-test('chapter 2 HUD: dialogue, pickups, decoys, map close and clicking a reached pad', async ({
+test('chapter 2 HUD: dialogue, pickups, map close and clicking a reached pad', async ({
   page,
 }) => {
   test.setTimeout(90_000);
@@ -57,9 +57,6 @@ test('chapter 2 HUD: dialogue, pickups, decoys, map close and clicking a reached
   await page.evaluate('window.__ch2.getState().takeItem("seed")');
   await expect(page.locator('.c2-slot[data-k="seed"]')).toHaveClass(/is-full/);
   await expect(page.locator('[data-sub="seed"]')).toHaveClass(/is-done/);
-  await page.evaluate('window.__ch2.getState().takeItem("d7713")');
-  await expect(page.locator('.c2-decoy')).toBeVisible();
-  await expect(page.locator('.c2-decoy')).toHaveCount(0, { timeout: 5000 });
 
   await page.evaluate(`import('/src/levels/ch2/layout.ts').then(({ PADS }) => {
     window.__ch2.getState().placePlayer(PADS.find(p => p.id === 'pad-oldboard').position);

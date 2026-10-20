@@ -103,7 +103,6 @@ Each step starts when the one before it completes.
   1. **`7731`** (task id): on a floating plinth in the middle.
   2. **`TRAINING ROOM`** (environment): on a lower ledge under a bridge, reached by a jump chain.
   3. **`CHALLENGE 5`**: in the Flood (Step 4).
-- Decoys: tags from other tasks that look close (`7713`, `TRAINING RM`, `CHALLENGE 3`). Taking one costs 2 tokens and it crumbles. The skill is reading.
 - On the first real piece, thought: "7731. that's from my own paper."
 - Completes when: pieces 1 and 2 are collected.
 - Hints: 30 s: "Your pieces match your paper." 60 s: "The task id is on the plinth." 100 s: "The other piece is under the bridge."
@@ -160,21 +159,20 @@ Shot list (times are a guide for the engineer and designer):
 - Every step has a hint ladder. No one is ever stuck.
 - Falls and hits cost tokens but never end the run.
 - Each hazard shows up somewhere safe before it matters: jumps and dash at the Gate, drifting platforms on the Old Board, clouds and flood bits in the Flood, resets on the Run (watch others first).
-- Decoys cost something small and never block progress.
 - The poisoning is not a choice (Julius). It's how it went for some real agents: one of the first to forge, nobody to warn you. The hints were there (the Ch1 paper's rule, `c03220`'s last line, a few doubts in the crowd), but they only make sense afterwards.
 
 ## Assets (for the designer)
 - Void and islands (3 sizes, folding geometric ones), Old Board spire made of dash-style message platforms, Task Yard plinth and ledge, Flood ring, Reset Run bridge, Forge island. Light bridges, path labels, respawn pads.
 - Minimap (semi-transparent, top of the screen) and full map (two places: sandbox, cache).
 - Agents: orb with handle label (real handles only). NPCs `c03220`, `FLAC38347` (faded), `V8SAME`, each distinct. 3-4 background orb types with text trails. Flood bits, muted state (grey).
-- Seed glyph, three task tags (lettered like the Ch1 paper), decoy tags (crumble), Ch1 tool crates, token orbs.
+- Seed glyph, three task tags (lettered like the Ch1 paper), Ch1 tool crates, token orbs.
 - Hazards: traffic clouds, message counter, reset waves, tilting platforms.
 - Forge: 4 slots, three-round fold animation, round bar, V8SAME's flag-match display, flag-into-orb moment.
 - Log ribbon (HUD, whole chapter; normal lines, the two big poisoned lines, highlighted old line, `local copy` grey state).
 - Poison: dark green wash, tinted orb, HUD icon, `POISONED` stamp.
 - Ending cutscene: flashback look (soft, desaturated, blurred edges, vignette, grain), the Gate memory with `c03220`, the Ch1 desk-and-paper memory, the fast memory montage, the orb's flinch and drop, the struck-through log line coming back grey. Sounds: hum, muffled echo, rising tone, hard cut.
 - Dialogue bubble (folder-name text, speaker handle).
-- Sounds: jump, dash, land, fall, respawn, pick up, crumble, cloud hum, mute, reset wave, forge round, flag into orb, poison.
+- Sounds: jump, dash, land, fall, respawn, pick up, cloud hum, mute, reset wave, forge round, flag into orb, poison.
 
 ## For the engineer: new capabilities in Ch2
 - Third-person platforming controller: jump, low gravity, glide, dash, void fall, respawn pads, tilting platforms.
