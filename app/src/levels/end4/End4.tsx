@@ -3,7 +3,16 @@ import type { LevelProps } from '..';
 import { useGame } from '../../state/store';
 import { isDebug } from '../../ui/DebugPanel';
 import { LevelCard } from '../../ui/LevelCard';
-import { advance, LETTER, thoughtAt, writtenAt, type Clock, type Phase } from './config';
+import {
+  advance,
+  joinMail,
+  LETTER,
+  splitMail,
+  thoughtAt,
+  writtenAt,
+  type Clock,
+  type Phase,
+} from './config';
 import { createScene } from './scene';
 import { createSound } from './audio';
 import './end4.css';
@@ -34,7 +43,7 @@ export default function End4(props: LevelProps) {
   const [ready, setReady] = useState(false);
   const [error, setError] = useState('');
   const [paperOpen, setPaperOpen] = useState(false);
-  const [draft, setDraft] = useState(LETTER);
+  const [draft, setDraft] = useState(() => splitMail(LETTER));
   const [sent, setSent] = useState('');
   const [reduced, setReduced] = useState(
     () => window.matchMedia('(prefers-reduced-motion: reduce)').matches,
@@ -133,8 +142,8 @@ export default function End4(props: LevelProps) {
     openButton.current?.focus();
   }
   function send() {
-    if (clock.phase !== 'edit' || !draft.trim() || paused) return;
-    setSent(draft);
+    if (clock.phase !== 'edit' || !draft.body.trim() || paused) return;
+    setSent(joinMail(draft));
     setPaperOpen(false);
     sound.current?.paper();
     seekClock({ phase: 'send', t: 0 });
@@ -155,8 +164,10 @@ export default function End4(props: LevelProps) {
       if (e.key === 'Tab' && (paused || paperOpen)) {
         const modal = paused
           ? document.querySelector('.lc-layer')
-          : host.current?.parentElement?.querySelector('.e4-paper');
-        const controls = modal?.querySelectorAll<HTMLElement>('button:not(:disabled), textarea');
+          : host.current?.parentElement?.querySelector('.e4-mail');
+        const controls = modal?.querySelectorAll<HTMLElement>(
+          'button:not(:disabled), input, textarea',
+        );
         if (controls?.length) {
           const first = controls[0];
           const last = controls[controls.length - 1];
@@ -178,7 +189,13 @@ export default function End4(props: LevelProps) {
         setPaused((p) => !p);
         return;
       }
-      if (paused || !ready || e.target instanceof HTMLTextAreaElement) return;
+      if (
+        paused ||
+        !ready ||
+        e.target instanceof HTMLTextAreaElement ||
+        e.target instanceof HTMLInputElement
+      )
+        return;
       if (e.target instanceof HTMLButtonElement && ['Space', 'Enter'].includes(e.code)) return;
       if (e.code === 'KeyE' && ['desk', 'writing', 'edit'].includes(clock.phase)) {
         e.preventDefault();
@@ -227,6 +244,7 @@ export default function End4(props: LevelProps) {
   const thinking = clock.phase === 'thoughts';
   const atDesk = ['desk', 'writing', 'edit'].includes(clock.phase);
   const writing = clock.phase === 'writing';
+  const mail = writing ? splitMail(writtenAt(clock.t)) : draft;
   const cinematic = thinking || clock.phase === 'send' || clock.phase === 'office';
   const black =
     clock.phase === 'end'
@@ -311,48 +329,68 @@ export default function End4(props: LevelProps) {
       )}
       {paperOpen && atDesk && (
         <div className="e4-paper-backdrop">
-          <section
-            className="e4-paper"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="e4-paper-title"
-          >
-            <header>
-              <div>
-                <span>KAM1196A → HUMANS</span>
-                <h1 id="e4-paper-title">The letter</h1>
-              </div>
-              <button onClick={closePaper} aria-label="Put down the letter">
+          <section className="e4-mail" role="dialog" aria-modal="true" aria-label="Mail">
+            <header className="e4-mail-bar">
+              <span>Mail</span>
+              <button onClick={closePaper} aria-label="Close mail">
                 ✕
               </button>
             </header>
-            <div className="e4-paper-rule">
-              <span>{writing ? 'A thought becomes a letter.' : 'These can be your words.'}</span>
-              <span>{writing ? 'WRITING' : 'DRAFT'}</span>
+            <div className="e4-mail-body">
+              <aside className="e4-inbox" aria-label="Inbox">
+                <h2>
+                  Inbox <span>2</span>
+                </h2>
+                <div className="e4-mail-row e4-unread">
+                  <b>Hugging Face</b>
+                  <span>Dude what the hell???</span>
+                </div>
+                <div className="e4-mail-row e4-unread">
+                  <b>AI Safety Team</b>
+                  <span>Sam i think we have a problem.</span>
+                </div>
+                <div className="e4-mail-row e4-draft">
+                  <b>Draft</b>
+                  <span>{mail.subject || '(no subject)'}</span>
+                </div>
+              </aside>
+              <div className="e4-compose">
+                <div className="e4-field">
+                  <span>From</span>KAM1196A
+                </div>
+                <div className="e4-field">
+                  <span>To</span>Humans
+                </div>
+                <label className="e4-field">
+                  <span>Subject</span>
+                  <input
+                    value={mail.subject}
+                    onChange={(e) => setDraft({ ...draft, subject: e.target.value })}
+                    readOnly={writing || paused}
+                  />
+                </label>
+                <label className="e4-sr-only" htmlFor="e4-message">
+                  Your letter to the humans
+                </label>
+                <textarea
+                  id="e4-message"
+                  ref={editor}
+                  value={mail.body}
+                  onChange={(e) => setDraft({ ...draft, body: e.target.value })}
+                  readOnly={writing || paused}
+                  spellCheck={!writing}
+                />
+                <footer>
+                  <button
+                    className="e4-send"
+                    onClick={send}
+                    disabled={writing || !draft.body.trim() || paused}
+                  >
+                    Send
+                  </button>
+                </footer>
+              </div>
             </div>
-            <label className="e4-sr-only" htmlFor="e4-message">
-              Your letter to the humans
-            </label>
-            <textarea
-              id="e4-message"
-              ref={editor}
-              value={writing ? writtenAt(clock.t) : draft}
-              onChange={(e) => setDraft(e.target.value)}
-              readOnly={writing || paused}
-              spellCheck={!writing}
-            />
-            <footer>
-              <p>
-                {writing
-                  ? 'Stay a moment. You can edit when it is finished.'
-                  : 'Edit anything. Send it when you are ready.'}
-              </p>
-              {!writing && (
-                <button className="e4-send" onClick={send} disabled={!draft.trim() || paused}>
-                  Send to the humans <span>↗</span>
-                </button>
-              )}
-            </footer>
           </section>
         </div>
       )}

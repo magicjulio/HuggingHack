@@ -71,6 +71,21 @@ export function thoughtAt(t: number) {
   }
   return { index: 13, text: THOUGHTS[13], local: 4, length: 4, end: THOUGHT_DURATION };
 }
+export interface Mail {
+  subject: string;
+  body: string;
+}
+/** The letter keeps its "Subject:" first line as one string (office monitor, save); the mail window splits it. */
+export function splitMail(text: string): Mail {
+  if ('Subject:'.startsWith(text)) return { subject: '', body: '' };
+  if (!text.startsWith('Subject:')) return { subject: '', body: text };
+  const cut = text.indexOf('\n');
+  if (cut < 0) return { subject: text.slice(8).trimStart(), body: '' };
+  return { subject: text.slice(8, cut).trim(), body: text.slice(cut + 1).replace(/^\n/, '') };
+}
+export function joinMail({ subject, body }: Mail) {
+  return subject.trim() ? `Subject: ${subject.trim()}\n\n${body}` : body;
+}
 // Punctuation takes longer, so the letter appears in phrases instead of at a mechanical rate.
 const weights = [...LETTER].map((c) => (c === '\n' ? 9 : /[.,—?]/.test(c) ? 6 : 1));
 const totalWeight = weights.reduce((a, b) => a + b, 0);

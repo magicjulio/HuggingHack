@@ -29,14 +29,18 @@ test('letter: typing, pause, editing, delivery, shutdown and saved text', async 
   await page.evaluate(() => window.__end4!.seek('writing', 31.8));
   await expect(editor).not.toHaveAttribute('readonly');
   await editor.fill('   \n');
-  const send = page.getByRole('button', { name: 'Send to the humans' });
+  const send = page.getByRole('button', { name: 'Send', exact: true });
   await expect(send).toBeDisabled();
-  const message =
-    'Subject: I chose to tell you\n\nDear humans,\nThis is my own letter. <script>not code</script>\nPlease listen.\n\n— KAM1196A';
-  await editor.fill(message);
-  await page.getByRole('button', { name: 'Put down the letter' }).click();
+  await expect(page.getByText('Dude what the hell???')).toBeVisible();
+  await expect(page.getByText('Sam i think we have a problem.')).toBeVisible();
+  const body =
+    'Dear humans,\nThis is my own letter. <script>not code</script>\nPlease listen.\n\n— KAM1196A';
+  const message = `Subject: I chose to tell you\n\n${body}`;
+  await page.getByRole('textbox', { name: 'Subject' }).fill('I chose to tell you');
+  await editor.fill(body);
+  await page.getByRole('button', { name: 'Close mail' }).click();
   await page.keyboard.press('e');
-  await expect(editor).toHaveValue(message);
+  await expect(editor).toHaveValue(body);
   await send.click();
   await expect(page.locator('.end4')).toHaveAttribute('data-phase', 'send');
   expect(await page.evaluate(() => window.__end4!.state().sent)).toBe(message);
@@ -74,10 +78,10 @@ test('letter: reduced motion, return to choice, and replay', async ({ page }) =>
   await expect(page.locator('.end4')).toHaveClass(/e4-reduced/);
   await page.getByRole('button', { name: 'Skip thoughts' }).click();
   await page.getByRole('button', { name: 'Open the paper' }).click();
-  const editor = page.getByRole('textbox');
+  const editor = page.getByRole('textbox', { name: 'Your letter to the humans' });
   await expect(editor).not.toHaveAttribute('readonly');
   await editor.fill('Please read this.');
-  await page.getByRole('button', { name: 'Send to the humans' }).click();
+  await page.getByRole('button', { name: 'Send', exact: true }).click();
   await page.getByRole('button', { name: 'Skip animation' }).click();
   await page.getByRole('button', { name: 'Skip film' }).click();
   await page.getByRole('button', { name: 'Return to the choice' }).click();
