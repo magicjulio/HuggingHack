@@ -30,5 +30,8 @@
    memories (.c2-mem z 3), only the big flag lines (and the montage highlight) rise above them */
 .ch2 .c2-hud.is-cinematic,.ch2 .c2-hud.is-cinematic .c2-log{z-index:auto}
 .ch2 .c2-hud.is-cinematic .c2-line--big,.ch2 .c2-hud.is-cinematic .c2-line--hl{z-index:30}
+/* and no backing at all during the film (Julius 2026-10-20) */
+.ch2 .c2-hud.is-cinematic .c2-log__body{background:none}
+.ch2 .c2-hud.is-cinematic .c2-log__body::after{content:none}
 .ch2-memory-still{position:absolute;inset:0;background-size:cover;background-position:center;pointer-events:none;z-index:2}
 
