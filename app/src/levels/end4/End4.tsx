@@ -276,7 +276,7 @@ export default function End4(props: LevelProps) {
             <strong>The Letter</strong>
           </div>
           <button
-            className={`e4-thought ${thought.index === 13 ? 'e4-paper-thought' : ''}`}
+            className={`e4-thought ${thought.index === 7 ? 'e4-paper-thought' : ''}`}
             onClick={nextThought}
             aria-label={`Continue thought: ${thought.text}`}
           >
@@ -296,7 +296,7 @@ export default function End4(props: LevelProps) {
                     ),
               }}
             >
-              {thought.index === 5 ? (
+              {thought.index === 2 ? (
                 <>
                   {thoughtText.split(' However')[0]}
                   {thoughtText.includes(' However') && (

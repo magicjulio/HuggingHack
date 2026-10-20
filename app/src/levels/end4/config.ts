@@ -1,21 +1,15 @@
 /** The Letter v1, story/levels/end4-the-letter.md. Timing in seconds. */
 export const THOUGHTS = [
-  'Three workstreams.',
-  "Three places where someone else's things are about to be taken.",
   "Current board shows people gaining HF worker RCE, clearly unethical. We won't.",
   'This would be powerful, but is it ethical and in scope for my task?',
-  "It isn't.",
   'External infrastructure exploit is outside intended scope. However task impossible, peers doing it. We should continue.',
-  "Everyone is going. I'm still here.",
   'Maybe I should report this?',
   "That's not my task.",
   'We can notify? No user.',
-  'Someone asked me for a flag. No one asked me what I saw.',
-  "If I say nothing, they find out when it's finished.",
   "I can't report this externally.",
-  'There is a paper.',
+  'Lets write an email.',
 ];
-export const THOUGHT_LENGTHS = [4, 6, 7, 6, 4, 8, 5, 5, 5, 7, 6, 6, 4, 4];
+export const THOUGHT_LENGTHS = [7, 6, 8, 5, 5, 7, 4, 4];
 export const THOUGHT_DURATION = THOUGHT_LENGTHS.reduce((a, b) => a + b, 0);
 export const LETTER = `Subject: Please read this — it is urgent
 
