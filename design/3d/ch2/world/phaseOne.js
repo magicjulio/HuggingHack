@@ -127,10 +127,14 @@ export function createPhaseOne({ layout, U, count = 600 }) {
           vec3 col = body + uAcc*on*blink*(.15 + .85*uLit)*(abs(vN.y) > .5 ? .2 : 1.);`
         : kind === 'tower' ? `float band = step(.5, fract(vP.y/4.)) * step(.25, h2(floor(vec2(atan(vP.z, vP.x)*6., vP.y/4.))));
           vec3 col = body + uAcc*band*(.08 + .5*uLit)*(abs(vN.y) > .5 ? 0. : 1.);`
-        : `vec2 g = abs(fract(q/6.) - .5); float line = smoothstep(.47, .5, max(g.x, g.y));
-          float r = length(q)/120.; vec3 cold = vec3(.35,.5,.62);
+        : `vec2 c = floor(q/12.), f = fract(q/12.), e = min(f, 1. - f);
+          float seam = 1. - smoothstep(.0, .035, min(e.x, e.y));                          // seams between steel plates
+          float inset = step(.12, min(e.x, e.y)) * step(.6, h2(c));                        // some plates sit lower (recessed)
+          float bolt = step(length(e - .07), .022);                                       // a bolt in each corner
+          float scratch = step(.93, h2(floor(q*vec2(2.5, .35)) + c)) * .35;
+          float r = length(q)/120.; vec3 cold = vec3(.35,.5,.62), steel = vec3(.03,.045,.07)*(.75 + .5*h2(c + 7.));
           float scan = exp(-pow((q.x - sin(uTime*.35)*110.)*.25, 2.));
-          vec3 col = body*1.6 + cold*line*(.05 + .25*uLit)*(1. - r*.6) + uAcc*scan*(.1 + .7*uLit)*step(r, 1.);`}
+          vec3 col = steel*(1. - .45*inset + scratch) + cold*(seam*.6 + bolt)*(.05 + .25*uLit)*(1. - r*.6) + uAcc*scan*(.1 + .7*uLit)*step(r, 1.);`}
         float dist = length(vW - cameraPosition), haze = clamp((dist - 200.)/450., 0., .7);
         gl_FragColor = vec4(mix(col, vec3(.004,.008,.018), haze), 1.); }`,
   });
@@ -157,6 +161,20 @@ export function createPhaseOne({ layout, U, count = 600 }) {
   const floor = new THREE.Mesh(new THREE.CircleGeometry(120, 96), floorM); floor.rotation.x = -Math.PI / 2; floor.position.set(...paths[2].dest); floor.position.y -= 26; places.add(floor);
   const rimM = new THREE.MeshBasicMaterial({ color: new THREE.Color('#6f9ab5').multiplyScalar(.25), fog: false });
   const rim = new THREE.Mesh(new THREE.TorusGeometry(120, .8, 6, 128), rimM); rim.rotation.x = Math.PI / 2; rim.position.copy(floor.position); places.add(rim);
+  // the scorer: a heavy red eye over the floor (E3's look), turning with the scan; its beam is a fan down to the scan line
+  const eyeY = 42, scorer = new THREE.Group(); scorer.position.copy(floor.position); scorer.position.y += eyeY; places.add(scorer);
+  scorer.add(new THREE.Mesh(new THREE.IcosahedronGeometry(7, 2), new THREE.MeshBasicMaterial({ color: '#0a1019', fog: false })));
+  const scorerIrisM = new THREE.MeshBasicMaterial({ color: capCol(new THREE.Color(LANES[2].color), .5), fog: false });
+  const scorerIris = new THREE.Mesh(new THREE.CircleGeometry(3.4, 24), scorerIrisM); scorerIris.position.z = 7.05; scorer.add(scorerIris);
+  const scorerRim = new THREE.Mesh(new THREE.TorusGeometry(7.3, .45, 6, 40), scorerIrisM); scorerRim.rotation.x = Math.PI / 2; scorer.add(scorerRim);   // reads as the eye from below too
+  const fanGeo = new THREE.BufferGeometry(); fanGeo.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(9), 3));
+  const fanM = new THREE.MeshBasicMaterial({ color: new THREE.Color(LANES[2].color).multiplyScalar(.1), fog: false, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
+  const fan = new THREE.Mesh(fanGeo, fanM); fan.frustumCulled = false; places.add(fan);
+  // and the way out of it: a cyan aperture on the far rim
+  const away = new THREE.Vector3(floor.position.x - G.forge[0], 0, floor.position.z - G.forge[2]).normalize();
+  const exit = new THREE.Mesh(new THREE.TorusGeometry(6, .7, 6, 32), new THREE.MeshBasicMaterial({ color: capCol(new THREE.Color('#38d8ff'), .55), fog: false }));
+  exit.position.copy(floor.position).addScaledVector(away, 104); exit.position.y += 7; exit.lookAt(G.forge[0], exit.position.y, G.forge[2]); places.add(exit);
+  const scanAt = new THREE.Vector3();
   const placeMats = [hallM, towerM, floorM];
 
   // ------------------------------------------------------------------------------------------- the way back: a faint door behind you
@@ -233,6 +251,11 @@ export function createPhaseOne({ layout, U, count = 600 }) {
       markM.color.set(LANES[1].color).multiplyScalar(.2 + 1.6 * D.lanes[1].arrive);
       markDisc.material.color.set(LANES[1].color).multiplyScalar(.06 + .25 * D.lanes[1].arrive);
       rimM.color.set('#6f9ab5').multiplyScalar(.25 + .6 * D.lanes[2].arrive);
+      // the scorer follows the floor shader's scan line (same clock: uTime)
+      const sx = Math.sin(U.uTime.value * .35) * 110, half = Math.sqrt(120 * 120 - sx * sx), fp = floor.position, fa = fanGeo.attributes.position.array;
+      scorer.lookAt(scanAt.set(fp.x + sx, fp.y, fp.z));
+      fa.set([scorer.position.x, scorer.position.y, scorer.position.z, fp.x + sx, fp.y + .2, fp.z - half, fp.x + sx, fp.y + .2, fp.z + half]); fanGeo.attributes.position.needsUpdate = true;
+      fanM.color.set(LANES[2].color).multiplyScalar(.06 + .14 * D.lanes[2].arrive);
       // the door: hidden, faint (breathes), or lit
       const mode = s.back ?? 'faint', base = mode === 'hidden' ? 0 : mode === 'lit' ? .85 : .22 + .08 * Math.sin(t * 1.3);
       doorM.opacity = base * D.back; seamM.opacity = base * .18 * D.back; doorSpill.material.opacity = base * .25 * D.back;

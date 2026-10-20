@@ -65,6 +65,7 @@ src/
       Chapter2.tsx       composition: canvas, camera, shooter, keys, HUD, pause, end card
       reach.test.ts      autopilot runs and jumps every gap of the golden path (on layout.json)
     bridge/              PHASEONE[big] + the choice: STAND-IN port of design/ch2-ui/bridge.html (see Status)
+                         Ch2's look (pointer lock) + an Esc pause card; hfTower.js = E2's HQ + logo in the far tower slot (cheap: no lights)
     end1/                Ending 1 "Cluster Run" (OpenAI infra race; the swing prototype, plain three.js, not R3F)
       End1.tsx           mounts the game in a div, passes best time + callbacks, disposes on unmount
       game/*.js          ported from prototypes/end1-swing/ (compact style, not linted/formatted): clusterRun.js =
