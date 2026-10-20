@@ -54,7 +54,7 @@ test('letter: typing, pause, editing, delivery, shutdown and saved text', async 
     await page.screenshot({ path: `test-results/end4-${name}.png` });
   }
   await page.evaluate(() => window.__end4!.seek('office', 45.8));
-  await expect(page.locator('.e4-end')).toBeVisible();
+  await expect(page.locator('.lc.finish')).toBeVisible();
   const save = await page.evaluate(
     () => JSON.parse(localStorage.getItem('rogue-on-hf-save')!).state.save,
   );

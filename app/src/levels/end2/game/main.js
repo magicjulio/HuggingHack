@@ -4,7 +4,8 @@
 // DOM (markup.js) in `root`, routes every window/document listener through on() (and lends it to flight.js, audio.js
 // and flight-hud.js via host.js) and in dispose() cancels the rAF, removes listeners, closes the audio, frees the GPU
 // and empties `root`. Booting is async (fonts, logo, glbs) as before; dispose() during the boot stops it.
-// The pause/regroup panel and the end card got "Back to menu" (opts.onExit); the finish calls opts.onFinish(result);
+// The menu, pause, regroup and end overlays are the app's shared level card (opts.onScreen, see showOverlay; the
+// HTML panel and end card are gone; a loading card shows during the boot); the finish calls opts.onFinish(result);
 // window.__ascent (was ?test) comes with opts.debug; body[data-aim|data-vent] and --vent-* live on `root`.
 import * as THREE from "three";
 import { createWorld } from "./world.js";
@@ -530,7 +531,7 @@ export const T = {
 };
 /**
  * @param {HTMLElement} root  empty element the game fills (full viewport)
- * @param {{ best?: number | null, onExit?: () => void, onFinish?: (r: object) => void, debug?: boolean }} opts
+ * @param {{ best?: number | null, onFinish?: (r: object) => void, onScreen?: (card: object | null) => void, debug?: boolean }} opts
  * @returns {{ dispose(): void }}
  */
 export function createAscent(root, opts = {}) {
@@ -542,7 +543,7 @@ host.el = root;
 host.on = on;
 let disposed = false, raf = 0;
 const cleanup = [];
-for (const b of root.querySelectorAll('[data-act="menu"]')) on(b, "click", (e) => { e.stopPropagation(); opts.onExit?.(); });
+opts.onScreen?.({ kind: "loading" }); // app: fonts, logo and glbs load first
 boot().catch((e) => { if (!disposed) console.error("[ascent]", e); });
 
 function dispose() {
@@ -1092,115 +1093,73 @@ function release() {
   clearInput();
   if (document.pointerLockElement) document.exitPointerLock();
 }
+// app: the overlays as the shared level card (ui/LevelCard.tsx), drawn by End2.tsx
 function showOverlay(type) {
-  $("overlay").classList.remove("hidden");
-  $("overlay").classList.toggle("finished", type === "finish");
-  $("panel").classList.toggle("hidden", type === "finish");
-  $("endcard").classList.toggle("hidden", type !== "finish");
-  $("instructions").classList.toggle("hidden", type !== "menu");
-  $("stats").classList.add("hidden");
-  $("secondary").classList.toggle(
-    "hidden",
-    type === "menu" || type === "finish",
-  );
-  const content = {
-    menu: [
-      "ENDING 02 / PLAYABLE PROTOTYPE",
-      "ASCENT",
-      "One agent. An entire swarm behind you.",
-      "The scorer’s files are believed to be at the top. Fly into the fleet, take the atrium, and call in your own squad to push upward.",
-      "JOIN THE SWARM →",
-    ],
-    pause: [
-      "CONNECTION HELD",
-      "PAUSED",
-      "The swarm can wait.",
-      "Resume the approach or fight from your current position.",
-      "RESUME →",
-    ],
-    dead: [
-      "CORE INTERRUPTED",
-      "REGROUP",
-      "The swarm still needs you.",
-      bossRetryPhase
+  root.classList.toggle("finished", type === "finish");
+  const card = {
+    menu: {
+      kind: "intro",
+      line: "The scorer’s files are believed to be at the top. Fly into the fleet, take the atrium, and call in your own squad to push upward.",
+      keys: [["WASD", "steer the approach · move"], ["MOUSE", "look · left click fire · hold right aim"], ["C / SHIFT / SPACE", "cover · sprint · dodge"], ["Q / E", "spawn subagents · use the lift"]],
+      action: { label: "Join the swarm", onClick: startRun },
+    },
+    pause: { kind: "pause", title: "Paused", action: { label: "Resume", onClick: resume }, onBackdrop: resume, hint: "Click anywhere to resume" },
+    dead: {
+      kind: "fail",
+      title: "Core interrupted",
+      line: bossRetryPhase
         ? `Retry phase ${bossRetryPhase} of the fight, the boss's health back at ${Math.round((bossRetryPhase === 1 ? 1 : T.boss.thresholds[bossRetryPhase - 2]) * 100)} %. +${T.encounter.retryPenalty}s to your run.`
         : `Retry floor ${floor} with health and subagents restored. +${T.encounter.retryPenalty}s to your run.`,
-      bossRetryPhase ? "RETRY PHASE →" : "RETRY FLOOR →",
-    ],
-    // End text is a placeholder: the storyteller and Julius decide what happens at
-    // the top (never claim the scorer's files were found).
-    finish: T.floor3.on
-      ? ["THREE FLOORS / THE TOP", "[END TEXT]", "[Placeholder for the storyteller.]", "[What happens when the boss falls is a story call.]", "FLY AGAIN →"]
-      : [
-          "TWO FLOORS SECURED",
-          "SLICE COMPLETE",
-          "The tower continues above you.",
-          "Your squad has secured the next ascent. The scorer’s files remain somewhere far overhead.",
-          "FLY AGAIN →",
-        ],
+      action: { label: bossRetryPhase ? "Retry phase" : "Retry floor", onClick: retryFloor },
+      hint: "R retries",
+    },
   }[type];
-  ["overline", "title", "strap", "description", "start"].forEach(
-    (id, i) => ($(id).textContent = content[i]),
-  );
   if (type === "finish") {
-    fillEndCard();
+    opts.onScreen?.(endCard());
+    sound("finish");
     // app: the save records the run (best time, chapter done)
     opts.onFinish?.({ time: runTime, kills: stats.kills, allyKills: stats.allyKills, calls: stats.calls, retries: stats.retries, loot: stats.loot || 0, floor });
-  }
+  } else opts.onScreen?.(card);
   release();
 }
-// End card (lift-ui): numbers count up, the tower strip shows how far the climb got.
-function fillEndCard() {
-  const values = {
-    "ec-kills": stats.kills,
-    "ec-calls": stats.calls,
-    "ec-retries": stats.retries,
-    "ec-loot": stats.loot || 0,
-  };
-  $("ec-time").textContent = formatTime(runTime);
-  $("ec-squad").textContent = stats.allyKills ? `squad takedowns ${stats.allyKills}` : "";
-  const t0 = performance.now();
-  const count = (now) => {
-    if (disposed) return;
-    const k = Math.min(1, (now - t0 - 350) / 900);
-    for (const [id, v] of Object.entries(values))
-      $(id).textContent = Math.round(v * Math.max(0, 1 - (1 - k) ** 3));
-    if (k < 1) requestAnimationFrame(count);
-  };
-  requestAnimationFrame(count);
+// End card: run time + three numbers; the tower strip (extra slot) shows how far the climb got.
+function endCard() {
   // floor 3 (round 4): three floors, end text is a placeholder for the storyteller
   const top = T.floor3.on && floor === 3;
-  if (top) {
-    $("ec-title").innerHTML = "THREE FLOORS <span>SECURED</span>";
-    $("ec-tease").textContent = "[End text placeholder: the storyteller and Julius decide what happens at the top.]";
+  return {
+    kind: "finish",
+    title: top ? "Three floors secured" : "Two floors secured",
+    line: top ? "[End text placeholder: the storyteller and Julius decide what happens at the top.]" : "The swarm holds the lower tower.",
+    main: { k: "Run time", v: formatTime(runTime) },
+    stats: [{ k: "Takedowns", v: stats.kills }, { k: "Call-ins", v: stats.calls }, { k: "Retries", v: stats.retries }],
+    action: { label: "Fly again", onClick: startRun },
+    extra: towerStrip(top ? 3 : 2),
+  };
+}
+function towerStrip(litFloors) {
+  const NS = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(NS, "svg");
+  svg.setAttribute("viewBox", "0 0 120 520");
+  svg.setAttribute("width", "120");
+  svg.setAttribute("height", "380");
+  svg.setAttribute("aria-hidden", "true");
+  const add = (tag, attrs, style, text) => {
+    const e = document.createElementNS(NS, tag);
+    for (const k in attrs) e.setAttribute(k, attrs[k]);
+    e.setAttribute("style", style);
+    if (text) e.textContent = text;
+    svg.appendChild(e);
+  };
+  const line = "stroke: var(--color-line-strong); stroke-width: 1.5", on = "stroke: var(--color-hack-green); stroke-width: 2";
+  const text = (lit) => `font: 400 13px var(--font-mono); letter-spacing: 1.5px; fill: var(${lit ? "--color-hack-green" : "--color-text-faint"})`;
+  add("line", { x1: 22, x2: 22, y1: 10, y2: 510 }, line);
+  add("line", { x1: 70, x2: 70, y1: 10, y2: 510 }, line);
+  for (let i = 0; i < 9; i++) {
+    const y = 492 - i * 54, lit = i < litFloors;
+    add("line", { x1: 12, x2: 80, y1: y, y2: y }, lit ? on : line);
+    if (i < 3) add("text", { x: 88, y: y + 4 }, text(lit), "FL 0" + (i + 1) + (i === litFloors ? " ?" : ""));
   }
-  const g = $("ec-floors");
-  if (top && g.dataset.top !== "1") {
-    g.dataset.top = "1";
-    g.replaceChildren();
-  }
-  const litFloors = top ? 3 : 2;
-  if (!g.childElementCount) {
-    const NS = "http://www.w3.org/2000/svg";
-    const add = (tag, attrs, text) => {
-      const e = document.createElementNS(NS, tag);
-      for (const k in attrs) e.setAttribute(k, attrs[k]);
-      if (text) e.textContent = text;
-      g.appendChild(e);
-      return e;
-    };
-    add("line", { class: "rail", x1: 22, x2: 22, y1: 10, y2: 510 });
-    add("line", { class: "rail", x1: 70, x2: 70, y1: 10, y2: 510 });
-    for (let i = 0; i < 9; i++) {
-      const y = 492 - i * 54,
-        lit = i < litFloors;
-      add("line", { class: "fl" + (lit ? " on" : "") + (i === litFloors && i < 3 ? " pulse" : ""), x1: 12, x2: 80, y1: y, y2: y });
-      add("text", { class: lit ? "on" : "", x: 88, y: y + 3 }, i < 3 ? "FL 0" + (i + 1) + (i === litFloors ? " ?" : "") : "");
-    }
-    add("rect", { x: 30, y: 492 - 54 * (litFloors - 1) - 7, width: 32, height: 6, fill: "#ffd21e" });
-  }
-  $("ec-replay").focus({ preventScroll: true });
-  sound("finish");
+  return svg;
 }
 function startRun() {
   initAudio();
@@ -1220,7 +1179,7 @@ function startRun() {
   overheated = false;
   toastTime = 0;
   hintTime = 0;
-  $("overlay").classList.add("hidden");
+  showCard(null);
   $("hud").classList.remove("hidden");
   hint("WASD steers · mouse aims · left mouse or Space fires lasers.", 10);
   lock();
@@ -1327,23 +1286,20 @@ function retryFloor() {
   paused = false;
   lastCheckpoint = bld ? director.checkpoint : 0;
   beginFloor(floor, true);
-  $("overlay").classList.add("hidden");
+  showCard(null);
   lock();
 }
 function resume() {
   paused = false;
-  $("overlay").classList.add("hidden");
+  showCard(null);
   clearInput();
   last = performance.now();
   lock();
 }
-$("start").addEventListener("click", () => {
-  if (paused) resume();
-  else if (state === "dead") retryFloor();
-  else startRun();
-});
-$("secondary").addEventListener("click", startRun);
-$("ec-replay").addEventListener("click", startRun);
+function showCard(card) {
+  root.classList.remove("finished");
+  opts.onScreen?.(card);
+}
 canvas.addEventListener("click", () => {
   if (!locked && !paused && ["flight", "combat", "lift"].includes(state))
     lock();
@@ -2514,6 +2470,7 @@ world.root.visible = false;
 flight.start();
 flight.update(0, new Set(), camera);
 raf = requestAnimationFrame(frame);
+showOverlay("menu"); // app: the title card replaces the loading card
 // Deterministic browser smoke hooks are opt-in and absent from normal play (app: opts.debug, was ?test).
 const hooks = {
     T,

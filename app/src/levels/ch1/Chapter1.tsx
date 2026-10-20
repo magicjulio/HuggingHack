@@ -10,6 +10,7 @@ import { Quaternion, Vector3 } from 'three';
 import { FirstPerson, type CameraPose } from '../../engine/FirstPerson';
 import { Hud } from '../../ui/Hud';
 import { DebugPanel, isDebug } from '../../ui/DebugPanel';
+import { LevelCard } from '../../ui/LevelCard';
 import type { LevelProps } from '../index';
 import { Ch1Context, useCh1, useCh1Store } from './context';
 import { PAD_MAX_CHARS, RENDER, TEXT, TOKENS } from './config';
@@ -60,6 +61,14 @@ const HELP: Partial<Record<WindowId, string>> = {
   s4: 'click to shoot · −1 token per shot · +2 per bug',
   s5: '',
 };
+
+/** Key list on the pause card. */
+const KEYS: [string, string][] = [
+  ['WASD', 'move · mouse look'],
+  ['E', 'use'],
+  ['T', 'think'],
+  ['ESC', 'pause'],
+];
 
 /** Keys that walk away from a machine (Julius 2026-10-13: Esc is kept for pause / fullscreen). */
 const WALK_KEYS = new Set([
@@ -445,45 +454,28 @@ function Ch1View({ modelName, color, onExit, onContinue }: LevelProps) {
       {needsClick && <div className="ch1-click-hint">click to look around</div>}
 
       {paused && (
-        <div className="overlay-center overlay-pause" onClick={resume}>
-          <div>
-            <h3>{s.time > 0 ? 'PAUSED' : 'CLICK TO TAKE CONTROL'}</h3>
-            <p>click to continue · WASD move · mouse look · E use · Esc pause</p>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onExit();
-              }}
-            >
-              QUIT TO MENU
-            </button>
-          </div>
-        </div>
+        <LevelCard
+          level="ch1"
+          // before the first click it is the chapter's intro card
+          {...(s.time > 0 ? { kind: 'pause', title: 'Paused', keys: KEYS } : { kind: 'intro' })}
+          action={{ label: s.time > 0 ? 'Resume' : 'Take control', onClick: resume }}
+          hint="Click anywhere to continue"
+          onBackdrop={resume}
+          onMenu={onExit}
+        />
       )}
 
       {white > 0 && <div className="ch1-white" style={{ opacity: white }} />}
       {s.phase === 'ended' && (
-        <div className="ch1-card">
-          <div>
-            <h2>{TEXT.chapterEndCard}</h2>
-            {onContinue ? (
-              <div className="ch1-card-actions">
-                {/* white card → Ch2's white flash-in: one continuous fade (Julius 2026-10-14) */}
-                <button className="ch1-card-main" onClick={onContinue} autoFocus>
-                  CONTINUE
-                </button>
-                <button onClick={onExit}>BACK TO MENU</button>
-              </div>
-            ) : (
-              <>
-                <div className="placeholder-tag">PLACEHOLDER · next chapter not written yet</div>
-                <div>
-                  <button onClick={onExit}>BACK TO MENU</button>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
+        <LevelCard
+          level="ch1"
+          kind="finish"
+          title={TEXT.chapterEndCard}
+          solid
+          // the script's fade to white (§Step 11) plays first; the card's dark backdrop fades in over it
+          action={onContinue && { label: 'Continue', onClick: onContinue }}
+          onMenu={onExit}
+        />
       )}
 
       {debug && (

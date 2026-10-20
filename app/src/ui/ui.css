@@ -50,14 +50,6 @@
 .win input.field:focus{border-color:var(--color-hack-green);box-shadow:var(--glow-green)}
 .placeholder-tag{display:inline-block;font-size:var(--fs-xs);color:var(--color-warn-amber);border:1px dashed var(--color-warn-amber);padding:0 .4rem;margin-left:.5rem;letter-spacing:.1em}
 
-/* ---------- overlays ---------- */
-.overlay-center{position:fixed;inset:0;z-index:30;display:grid;place-items:center;text-align:center;font-family:var(--font-mono)}
-.overlay-pause{background:rgba(2,4,8,.6);cursor:pointer}
-.overlay-pause h3{font-family:var(--font-display);letter-spacing:.3em;color:var(--color-hack-green);font-size:var(--fs-lg)}
-.overlay-pause p{color:var(--color-text-dim);font-size:var(--fs-sm);margin-top:.6rem}
-.overlay-pause button{margin-top:1.2rem;pointer-events:auto;padding:.5rem 1rem;border:1px solid var(--color-line-strong);color:var(--color-text-dim);font-size:var(--fs-sm);letter-spacing:.15em;text-align:center}
-.overlay-pause button:hover{color:var(--color-text);border-color:var(--color-signal-cyan)}
-
 /* ---------- debug panel (?debug) ---------- */
 .debug{position:fixed;left:8px;bottom:8px;z-index:60;width:230px;padding:.4rem;background:rgba(0,0,0,.85);border:1px dashed var(--color-warn-amber);font:12px var(--font-mono);color:var(--color-warn-amber)}
 .debug button{color:inherit;font:inherit}

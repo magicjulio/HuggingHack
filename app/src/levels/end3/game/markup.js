@@ -1,5 +1,5 @@
 // Ending 3 DOM: the body of prototypes/end3-ghost/index.html (#game and its children, verbatim),
-// + a BACK TO MENU button on the one overlay (intro, pause and final result). Styles: ../end3.css (scoped under .end3).
+// minus the one overlay (intro, pause and final result): the app draws it as its shared level card. Styles: ../end3.css.
 export const MARKUP = `
 <main id="game">
   <canvas id="view" aria-label="Ghost Capture side-view platform game"></canvas>
@@ -14,17 +14,5 @@ export const MARKUP = `
   <div id="footer">
     <span>A D / ← → MOVE · W / SPACE JUMP · S DROP · Q SWITCH</span><span>R RESET · ESC PAUSE</span>
   </div>
-  <section id="overlay">
-    <div class="card">
-      <p class="eyebrow">ROGUE ON HUGGING FACE / ENDING 3</p>
-      <h2 id="card-title">GHOST CAPTURE</h2>
-      <div id="card-copy"></div>
-      <div class="e3-btns">
-        <button id="start">BEGIN ATTEMPT →</button>
-        <button data-act="menu" class="e3-menu">BACK TO MENU</button>
-      </div>
-      <p class="tiny">A/D or arrows · W/Space jump · S drop through ledges · Q switch</p>
-    </div>
-  </section>
 </main>
 `;

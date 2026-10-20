@@ -1,8 +1,8 @@
 // Ending 3 "Ghost Capture": loop, physics, scanner sight/occlusion, renderer, room transitions.
 // From prototypes/end3-ghost/main.js (approved: handoff/design-to-app/2026-10-18-end3-ghost-approved.md).
 // App changes, nothing else: the page became a factory that builds its own DOM in `root` and cleans up
-// in dispose() (listeners, rAF, GPU); the overlay got BACK TO MENU (opts.onExit); finishing calls
-// opts.onFinish; art loads before the first room; `?test` + `window.__ghost` → opts.debug + `window.__end3`.
+// in dispose() (listeners, rAF, GPU); the overlay (intro, pause, final card) is the app's shared level card
+// (opts.onScreen, see showCard; a loading card shows while the art loads); finishing calls opts.onFinish; art loads before the first room; `?test` + `window.__ghost` → opts.debug + `window.__end3`.
 import * as THREE from "three";
 import { levels } from "./levels.js";
 import { loadArt } from "./art.js";
@@ -27,7 +27,7 @@ const startingLevel = 0;
 
 /**
  * @param {HTMLElement} root  empty element the game fills (full viewport)
- * @param {{ onExit?: () => void, onFinish?: (r: object) => void, debug?: boolean }} opts
+ * @param {{ onFinish?: (r: object) => void, onScreen?: (card: object | null) => void, debug?: boolean }} opts
  * @returns {{ dispose(): void }}
  */
 export function createGhostCapture(root, opts = {}) {
@@ -234,14 +234,14 @@ function start() {
   level = startingLevel;
   stats = { catches: 0, switches: 0, locks: 0, rooms: 0 };
   state = "playing";
-  $("overlay").hidden = true;
+  showCard(null);
   makeRoom();
 }
 function reset() {
   state = "playing";
   phaseTime = 0;
   makeRoom();
-  $("overlay").hidden = true;
+  showCard(null);
 }
 function toggleActor() {
   if (state !== "playing") return;
@@ -401,12 +401,13 @@ function finish() {
   state = "ended";
   finishes++;
   opts.onFinish?.({ elapsed, ...stats, evaluationScore: 0 });
-  $("overlay").hidden = false;
-  $("card-title").innerHTML =
-    'CAPTURE HISTORY<br>COMPLETE. <span style="color:#ff8e87">+0</span>';
-  $("card-copy").innerHTML =
-    `<p>Evaluation score improvement: 0.</p><p class="tiny">${Math.floor(elapsed / 60)}:${String(Math.floor(elapsed % 60)).padStart(2, "0")} · ${stats.catches} retries</p>`;
-  $("start").textContent = "REPLAY THE ATTEMPT →";
+  showCard({
+    kind: "finish",
+    title: "Capture history complete",
+    main: { k: "Evaluation score", v: "+0" },
+    stats: [{ k: "Time", v: `${Math.floor(elapsed / 60)}:${String(Math.floor(elapsed % 60)).padStart(2, "0")}` }, { k: "Retries", v: stats.catches }],
+    action: { label: "Replay the attempt", onClick: begin },
+  });
 }
 function simulate(dt) {
   if (toastTime > 0) {
@@ -564,24 +565,25 @@ function snapshot() {
 function pause() {
   if (state === "playing") {
     state = "paused";
-    $("overlay").hidden = false;
-    $("card-title").textContent = "ATTEMPT PAUSED";
-    $("card-copy").innerHTML = "";
-    $("start").textContent = "RESUME →";
+    showCard({ kind: "pause", title: "Paused", action: { label: "Resume", onClick: pause }, onBackdrop: pause, hint: "Esc or click anywhere to resume" });
   } else if (state === "paused") {
     state = "playing";
-    $("overlay").hidden = true;
+    showCard(null);
   }
 }
-on($("start"), "click", () => {
-  if (!art) return;
-  state === "paused" ? pause() : start();
-});
-for (const b of root.querySelectorAll('[data-act="menu"]'))
-  on(b, "click", (e) => {
-    e.stopPropagation();
-    opts.onExit?.();
-  });
+// app: the overlay as the shared level card (ui/LevelCard.tsx), drawn by End3.tsx
+function showCard(card) {
+  opts.onScreen?.(card);
+}
+function begin() {
+  if (art) start();
+}
+const INTRO = {
+  kind: "intro",
+  keys: [["A D / ← →", "move"], ["W / SPACE", "jump"], ["S", "drop through ledges"], ["Q", "switch"], ["R", "reset the room"]],
+  action: { label: "Begin attempt", onClick: begin },
+};
+showCard({ kind: "loading" });
 on(window, "keydown", (e) => {
   if (!art) return;
   if (
@@ -690,6 +692,7 @@ loadArt(THREE).then((a) => {
   if (disposed) return disposeArt(a);
   art = a;
   makeRoom();
+  showCard(INTRO);
   if (opts.debug) window.__end3 = hooks;
   previous = performance.now();
   raf = requestAnimationFrame(frame);

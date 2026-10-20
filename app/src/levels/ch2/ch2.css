@@ -28,8 +28,3 @@
 .ch2-film-fade{position:absolute;inset:0;background:#000;pointer-events:none;z-index:40}
 .ch2-memory-still{position:absolute;inset:0;background-size:cover;background-position:center;pointer-events:none;z-index:2}
 
-/* ---------- end card ---------- */
-.ch2-card{position:fixed;inset:0;z-index:50;display:grid;place-items:center;background:#020a05;color:#2fa85a;text-align:center;font-family:var(--font-mono);animation:ch2-in 1.2s}
-.ch2-card h2{font-family:var(--font-display);font-size:var(--fs-xl);letter-spacing:.1em}
-.ch2-card button{margin-top:1.6rem;padding:.6rem 1.4rem;border:1px solid #2fa85a;color:#2fa85a;letter-spacing:.2em;text-align:center}
-.ch2-card .placeholder-tag{margin-top:.8rem}

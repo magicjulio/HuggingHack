@@ -50,12 +50,12 @@ test('ending 1: picked on the start screen, runs, swings, back to the menu clean
 
   await page.screenshot({ path: 'test-results/end1-run.png' });
 
-  // pause overlay's BACK TO MENU returns to the start screen and disposes the game
-  // (headless never holds the pointer lock, so show the overlay directly)
-  await page.evaluate(() =>
-    document.querySelector<HTMLElement>('#ov-pause')!.classList.add('show'),
-  );
-  await page.locator('#ov-pause').getByRole('button', { name: 'BACK TO MENU' }).click();
+  // the pause card's Back to menu returns to the start screen and disposes the game
+  // (headless never holds the pointer lock, so pause through the hook)
+  await e1(page, 'g.pause()');
+  const card = page.locator('.lc-layer');
+  await expect(card.getByRole('heading', { name: 'Paused' })).toBeVisible();
+  await card.getByRole('button', { name: 'Back to menu' }).click();
   await expect(page.getByRole('heading', { name: /ROGUE/ })).toBeVisible();
   expect(await page.evaluate('!!window.__end1')).toBe(false);
   expect(await page.locator('.end1').count()).toBe(0);

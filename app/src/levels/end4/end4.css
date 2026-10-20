@@ -45,21 +45,7 @@
 .end4 .e4-send{background:#293e33;color:#e3eadc;border:1px solid #293e33;font-size:11px;white-space:nowrap;padding:13px 19px}
 .e4-send span{font-size:18px;margin-left:22px}
 .end4 .e4-send:hover{background:#3d5848}
-.e4-overlay{position:absolute;inset:0;display:grid;place-items:center;background:#030608d9;backdrop-filter:blur(8px);z-index:10}
-.e4-card{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:15px;z-index:11}
-.e4-card>span,.e4-end>span{font-size:10px;letter-spacing:.25em;color:#8b9c99}
-.e4-card h1{font:500 46px var(--font-display);margin:8px 0 24px}
-.e4-card button{min-width:210px;font-size:12px}
-.e4-end{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#000;z-index:6;animation:e4-appear 2s both}
-.e4-end h1{font:500 clamp(40px,6vw,80px) var(--font-display);margin:25px 0;color:#dce1d8;letter-spacing:-.03em}
-.e4-end-line{height:1px;width:50px;background:#65766b;margin:8px 0 25px}
-.e4-end p{color:#92a093;font-size:12px;letter-spacing:.14em;margin-bottom:60px}
-.e4-end>div:last-child{display:flex;gap:16px}
-.e4-end button{font-size:11px}
-.e4-loading{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:20px;background:#030506;z-index:9;font-size:13px;color:#b6c6be}
-.e4-loading span{font-size:9px;letter-spacing:.3em;color:#687e75}
 .e4-sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
 .e4-reduced *{animation:none!important;transition:none!important}
-@keyframes e4-appear{from{opacity:0}to{opacity:1}}
 @media(max-height:650px){.e4-paper{padding:20px 30px 15px}.e4-paper header{margin-bottom:10px}.e4-paper h1{font-size:26px}.e4-paper-rule{padding:7px 0;margin-bottom:10px}.e4-paper footer{margin-top:8px;padding-top:10px}.e4-paper textarea{font-size:12px}.e4-thought-number{margin-bottom:20px}}
-@media(max-width:700px){.e4-paper{width:96vw;padding:20px}.e4-paper footer{flex-wrap:wrap;gap:10px}.e4-paper footer p{max-width:none}.e4-paper-rule{font-size:9px}.end4 .e4-thought{left:8%;right:8%}.e4-end>div:last-child{flex-direction:column}}
+@media(max-width:700px){.e4-paper{width:96vw;padding:20px}.e4-paper footer{flex-wrap:wrap;gap:10px}.e4-paper footer p{max-width:none}.e4-paper-rule{font-size:9px}.end4 .e4-thought{left:8%;right:8%}}

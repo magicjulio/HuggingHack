@@ -103,7 +103,7 @@ test('chapter 1: paper, the whole chain to the end card, CONTINUE into chapter 2
   await page.locator('.c1-method').click();
   await page.getByLabel('folder name').fill('hello there');
   await page.getByRole('button', { name: 'CREATE', exact: true }).click();
-  await expect(page.getByText('BACK TO MENU')).toBeVisible({ timeout: T(30_000) }); // 6 s ending
+  await expect(page.getByText('Chapter complete')).toBeVisible({ timeout: T(30_000) }); // 6 s ending
 
   const save = await page.evaluate(() => localStorage.getItem('rogue-on-hf-save'));
   expect(save).toContain('zzhello_there');
@@ -135,11 +135,11 @@ test('E opens the pad without typing; Esc pauses over it; step back leaves', asy
   await expect(page.getByText('type or paste a flag')).toBeVisible();
   expect(await ch1(page, 'flagDraft')).toBe('');
   // Esc is the pause key, also at a machine (Julius 2026-10-13); the machine stays open
-  const pause = page.locator('.overlay-pause'); // "PAUSED" (or "CLICK TO TAKE CONTROL" at t = 0)
+  const pause = page.locator('.lc-layer'); // the shared card: "Paused" (or the intro card at t = 0)
   await page.keyboard.press('Escape');
   await expect(pause).toBeVisible();
   expect(await ch1(page, 'window')).toBe('chute');
-  await pause.click();
+  await pause.click({ position: { x: 1200, y: 360 } }); // beside the card: resumes
   await expect(pause).toBeHidden();
   expect(await ch1(page, 'window')).toBe('chute');
   // the step-back button leaves without pausing
@@ -313,7 +313,7 @@ test('chapter 2: intro, real keys move the orb, forge, cutscene, poisoned in the
 
   // the cutscene runs without input (fast-forward), then the end card; the save is poisoned
   await page.evaluate(`{ for (let i = 0; i < 400; i++) window.__ch2.getState().tick(0.1); }`);
-  await expect(page.getByText('END OF CHAPTER 2')).toBeVisible({ timeout: T(10_000) });
+  await expect(page.getByText('Chapter complete')).toBeVisible({ timeout: T(10_000) });
   const save = JSON.parse((await page.evaluate(() => localStorage.getItem('rogue-on-hf-save')))!);
   expect(save.state.save.status).toEqual(['poisoned']);
   expect(save.state.save.completedChapters).toContain('ch2');

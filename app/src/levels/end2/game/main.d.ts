@@ -1,4 +1,6 @@
 /** Types for the plain-JS game (main.js). */
+import type { ScreenCard } from '../../../ui/LevelCard';
+
 export interface AscentResult {
   /** Run time in seconds (retry penalties included). */
   time: number;
@@ -14,8 +16,8 @@ export interface AscentResult {
 export interface AscentOptions {
   /** Saved best time in seconds, or null. */
   best?: number | null;
-  /** "Back to menu" on the panel or the end card. */
-  onExit?: () => void;
+  /** The overlay to show as the shared level card (loading, menu, pause, regroup, end), or null. */
+  onScreen?: (card: ScreenCard | null) => void;
   /** The finish card came up. */
   onFinish?: (r: AscentResult) => void;
   /** Expose test hooks as window.__ascent. */

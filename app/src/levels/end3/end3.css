@@ -1,6 +1,6 @@
 /* Ending 3 "Ghost Capture": the prototype's page styles (prototypes/end3-ghost/style.css), scoped under .end3.
    Changes from the prototype: :root/body → .end3 (a fixed full-viewport host), every rule prefixed,
-   #game also fits the viewport height, + .e3-btns (BACK TO MENU next to the start button). */
+   #game also fits the viewport height; the overlay (#overlay, .card, its buttons) is gone: the app's shared level card. */
 .end3 {
   color-scheme: dark;
   font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
@@ -86,66 +86,6 @@
   transition: opacity 0.2s;
   pointer-events: none;
 }
-.end3 #overlay {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  background: #030810de;
-  backdrop-filter: blur(4px);
-  padding: 22px;
-}
-.end3 .card {
-  max-width: 650px;
-  padding: clamp(12px, 4vw, 45px);
-  border: 1px solid #35515f;
-  background: linear-gradient(140deg, #101e2b, #071018);
-  box-shadow: 0 20px 80px #0009;
-}
-.end3 h2 {
-  font-size: clamp(24px, 4vw, 50px);
-  line-height: 1.08;
-  letter-spacing: -0.06em;
-  font-weight: 600;
-  margin: 20px 0;
-  color: #c6f3ed;
-}
-.end3 p {
-  font-size: clamp(11px, 1.2vw, 15px);
-  line-height: 1.65;
-  color: #9bb1bf;
-}
-.end3 em {
-  font-style: normal;
-  color: #a5ff83;
-}
-.end3 b {
-  color: #c4f7f3;
-}
-.end3 button {
-  font: inherit;
-  font-size: 13px;
-  background: #9af48d;
-  color: #08130c;
-  border: 0;
-  padding: 14px 20px;
-  cursor: pointer;
-  margin-top: 10px;
-}
-.end3 button:hover,
-.end3 button:focus-visible {
-  background: #d2ffbd;
-  outline: 2px solid #fff;
-  outline-offset: 4px;
-}
-.end3 .tiny {
-  font-size: 10px;
-  color: #657f8d;
-  margin-bottom: 0;
-}
-.end3 #overlay[hidden] {
-  display: none;
-}
 @media (max-width: 650px) {
 .end3 #game {
     aspect-ratio: 16/10;
@@ -153,41 +93,9 @@
 .end3 #footer {
     font-size: 7px;
   }
-.end3 .card {
-    padding: 15px;
-    max-width: 95%;
-  }
-.end3 h2 {
-    margin: 8px 0;
-  }
-.end3 .card p {
-    font-size: 10px;
-    line-height: 1.4;
-  }
-.end3 .tiny {
-    display: none;
-  }
-.end3 button {
-    padding: 9px 12px;
-  }
 }
 .end3 {
   position: fixed;
   inset: 0;
   overflow: hidden;
-}
-.end3 .e3-btns {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 14px;
-}
-.end3 button.e3-menu {
-  background: transparent;
-  color: #9bb1bf;
-  border: 1px solid #35515f;
-}
-.end3 button.e3-menu:hover,
-.end3 button.e3-menu:focus-visible {
-  background: #101e2b;
-  color: #d9e6ee;
 }

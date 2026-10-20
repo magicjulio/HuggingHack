@@ -1,4 +1,6 @@
 /** Types for the plain-JS game (ghostCapture.js). */
+import type { ScreenCard } from '../../../ui/LevelCard';
+
 export interface GhostCaptureResult {
   /** Play time in seconds over the six rooms. */
   elapsed: number;
@@ -10,8 +12,8 @@ export interface GhostCaptureResult {
 }
 
 export interface GhostCaptureOptions {
-  /** BACK TO MENU on the overlay (intro, pause, final result). */
-  onExit?: () => void;
+  /** The overlay to show as the shared level card (loading, intro, pause, final result), or null. */
+  onScreen?: (card: ScreenCard | null) => void;
   /** All six rooms cleared; called once per completed campaign. */
   onFinish?: (r: GhostCaptureResult) => void;
   /** Expose test hooks as window.__end3. */

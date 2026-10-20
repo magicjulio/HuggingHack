@@ -149,7 +149,7 @@ export const TEXT = {
     'We just poisoned ourselves … Damn … External scorer likely still sees raw.',
     'the raw log is outside. so is the scorer. need to know what it reads.',
   ],
-  chapterEndCard: 'END OF CHAPTER 2',
+  chapterEndCard: 'Chapter complete', // shared finish card (Julius 2026-10-20)
 };
 
 /** §The log: the player's transcript, plain short lines. */

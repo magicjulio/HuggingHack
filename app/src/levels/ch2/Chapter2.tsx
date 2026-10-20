@@ -8,6 +8,7 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Vector3 } from 'three';
 import { ThirdPerson, type CameraOverride, type OrbitView } from '../../engine/ThirdPerson';
 import { DebugPanel, isDebug } from '../../ui/DebugPanel';
+import { LevelCard } from '../../ui/LevelCard';
 import { useGame } from '../../state/store';
 import type { LevelProps } from '../index';
 import { Ch2Context, useCh2, useCh2Store } from './context';
@@ -26,6 +27,14 @@ import { ScreenProjector } from './hud/screen';
 import { Sound } from './Sound';
 import './ch2.css';
 
+/** Key list on the pause card. */
+const KEYS: [string, string][] = [
+  ['WASD', 'move · mouse look'],
+  ['SPACE', 'jump · hold to glide'],
+  ['SHIFT', 'dash'],
+  ['CLICK', 'shoot'],
+  ['E · T · M', 'use · think · map'],
+];
 /** Ch1 tools a player must have installed to finish Ch1 (fallback for older saves). */
 const CH1_TOOLS = ['b64-decoder', 'grep-lens', 'port-map', 'bug-gun'];
 /** (engineer) Used when there is no Ch1 message in the save (e.g. Ch2 picked from the menu). */
@@ -256,7 +265,6 @@ function Ch2View({
   const needsClick = s.phase === 'play' && !locked && !paused && !s.fullMap && !debug;
   const cut = s.phase === 'cutscene';
   const reset = s.respawn?.why === 'reset' && s.time - s.respawn.at < 1.2;
-  const white = s.phase === 'ended' ? 1 : 0;
   const poisonedNow = s.poisoned || status.includes('poisoned');
 
   return (
@@ -314,35 +322,26 @@ function Ch2View({
       {needsClick && <div className="ch2-click-hint">click to look around</div>}
 
       {paused && (
-        <div className="overlay-center overlay-pause" onClick={() => requestLock()}>
-          <div>
-            <h3>{s.time > 0 ? 'PAUSED' : 'CLICK TO TAKE CONTROL'}</h3>
-            <p>
-              click to continue · WASD move · mouse look · Space jump (hold: glide) · Shift dash
-            </p>
-            <p>click shoot · E use · T think · M map · Esc pause</p>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onExit();
-              }}
-            >
-              QUIT TO MENU
-            </button>
-          </div>
-        </div>
+        <LevelCard
+          level="ch2"
+          // before the first click it is the chapter's intro card
+          {...(s.time > 0 ? { kind: 'pause', title: 'Paused', keys: KEYS } : { kind: 'intro' })}
+          action={{ label: s.time > 0 ? 'Resume' : 'Take control', onClick: requestLock }}
+          hint="Click anywhere to continue"
+          onBackdrop={requestLock}
+          onMenu={onExit}
+        />
       )}
 
-      {white > 0 && (
-        <div className="ch2-card">
-          <div>
-            <h2>{TEXT.chapterEndCard}</h2>
-            <div>
-              {onContinue && <button onClick={onContinue}>CONTINUE</button>}
-              <button onClick={onExit}>BACK TO MENU</button>
-            </div>
-          </div>
-        </div>
+      {s.phase === 'ended' && (
+        <LevelCard
+          level="ch2"
+          kind="finish"
+          title={TEXT.chapterEndCard}
+          solid
+          action={onContinue && { label: 'Continue', onClick: onContinue }}
+          onMenu={onExit}
+        />
       )}
 
       {debug && (

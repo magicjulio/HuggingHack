@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { LevelProps } from '..';
 import { useGame } from '../../state/store';
 import { isDebug } from '../../ui/DebugPanel';
+import { LevelCard } from '../../ui/LevelCard';
 import { advance, LETTER, thoughtAt, writtenAt, type Clock, type Phase } from './config';
 import { createScene } from './scene';
 import { createSound } from './audio';
@@ -152,9 +153,9 @@ export default function End4(props: LevelProps) {
     function key(e: KeyboardEvent) {
       if (e.repeat) return;
       if (e.key === 'Tab' && (paused || paperOpen)) {
-        const modal = host.current?.parentElement?.querySelector(
-          paused ? '.e4-overlay' : '.e4-paper',
-        );
+        const modal = paused
+          ? document.querySelector('.lc-layer')
+          : host.current?.parentElement?.querySelector('.e4-paper');
         const controls = modal?.querySelectorAll<HTMLElement>('button:not(:disabled), textarea');
         if (controls?.length) {
           const first = controls[0];
@@ -240,16 +241,15 @@ export default function End4(props: LevelProps) {
       <div className="e4-grain" />
       <div className="e4-black" style={{ opacity: black }} />
       {cinematic && <div className="e4-letterbox" aria-hidden="true" />}
-      {!ready && !error && (
-        <div className="e4-loading">
-          Returning to the room<span>THE LETTER</span>
-        </div>
-      )}
+      {!ready && !error && <LevelCard level="end4" kind="loading" />}
       {error && (
-        <div className="e4-card">
-          <p>{error}</p>
-          <button onClick={props.onExit}>Back to menu</button>
-        </div>
+        <LevelCard
+          level="end4"
+          kind="fail"
+          title="Could not load"
+          line={error}
+          onMenu={props.onExit}
+        />
       )}
       {ready && thinking && (
         <>
@@ -370,30 +370,27 @@ export default function End4(props: LevelProps) {
         </div>
       )}
       {paused && (
-        <div className="e4-overlay" role="dialog" aria-modal="true" aria-label="Paused">
-          <div className="e4-card">
-            <span>THE LETTER</span>
-            <h1>Paused</h1>
-            <button autoFocus onClick={() => setPaused(false)}>
-              Resume
-            </button>
-            <button onClick={props.onExit}>Back to menu</button>
-          </div>
-        </div>
+        <LevelCard
+          level="end4"
+          kind="pause"
+          title="Paused"
+          action={{ label: 'Resume', onClick: () => setPaused(false) }}
+          hint="Esc or click anywhere to resume"
+          onBackdrop={() => setPaused(false)}
+          onMenu={props.onExit}
+        />
       )}
       {clock.phase === 'end' && !paused && (
-        <div className="e4-end">
-          <span>ENDING 04</span>
-          <h1>The Letter</h1>
-          <div className="e4-end-line" />
-          <p>The end.</p>
-          <div>
-            <button onClick={() => useGame.getState().startChapter('bridge')}>
-              Return to the choice
-            </button>
-            <button onClick={props.onExit}>Back to menu</button>
-          </div>
-        </div>
+        <LevelCard
+          level="end4"
+          kind="finish"
+          title="The end."
+          action={{
+            label: 'Return to the choice',
+            onClick: () => useGame.getState().startChapter('bridge'),
+          }}
+          onMenu={props.onExit}
+        />
       )}
       <span className="e4-sr-only" aria-live="polite">
         {clock.phase === 'edit'

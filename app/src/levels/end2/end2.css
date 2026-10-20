@@ -1,6 +1,6 @@
 /* Ending 2 "ASCENT": the prototype's page styles (prototypes/end2-ascent/index.html inline <style>, then hud.css), scoped
    under .end2. Changes: :root/html/body → .end2, body[data-aim|data-vent] → .end2[…] (main.js sets them on the root),
-   every rule prefixed, font urls → ./game/assets/fonts/, + .e2-menu (app "Back to menu" buttons). */
+   every rule prefixed, font urls → ./game/assets/fonts/; the menu panel and end card are gone (the app's shared level card). */
 
       .end2 {
         color-scheme: dark;
@@ -214,82 +214,11 @@
         box-shadow: inset 0 0 130px 30px #ff4a2633;
         opacity: 0;
       }
-      .end2 #overlay {
-        position: fixed;
-        inset: 0;
-        display: flex;
-        align-items: center;
-        justify-content: flex-start;
-        padding: 7vw;
-        background: linear-gradient(90deg, #050d17ee, #07111cc9 45%, #07111c33);
-      }
-      .end2 #panel {
-        max-width: 590px;
-      }
-      .end2 #panel h1 {
-        font-size: clamp(54px, 8vw, 110px);
-        line-height: 0.9;
-        margin: 24px 0;
-        letter-spacing: -5px;
-      }
-      .end2 #panel p {
-        max-width: 470px;
-        color: #bbc8cc;
-        font-size: 16px;
-        line-height: 1.7;
-      }
-      .end2 #panel .strap {
-        color: #e5e9e5;
-        font-size: 20px;
-      }
-      .end2 #start {
-        background: var(--gold);
-        color: #15202a;
-        border: 0;
-        padding: 16px 28px;
-        font-size: 13px;
-        font-weight: bold;
-        letter-spacing: 2px;
-        margin-top: 22px;
-      }
-      .end2 #secondary {
-        display: block;
-        background: none;
-        border: 0;
-        color: #a9b8be;
-        padding: 16px 0;
-        font-size: 12px;
-        text-decoration: underline;
-      }
-      .end2 #instructions {
-        display: grid;
-        grid-template-columns: 130px 1fr;
-        gap: 10px;
-        margin: 25px 0;
-        font-size: 13px;
-        color: #b9c5c8;
-      }
-      .end2 #instructions b {
-        color: #e9eee8;
-        font-weight: 500;
-      }
+
       .end2 .hidden {
         display: none !important;
       }
-      .end2 #stats {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 14px;
-        font: 14px monospace;
-        padding: 18px 0;
-        color: #d6e4df;
-      }
-      .end2 #stats span {
-        color: var(--gold);
-        font-size: 22px;
-        display: block;
-        margin-top: 7px;
-      }
+
       .end2 #flightmeter {
         width: 220px;
         margin-top: 16px;
@@ -357,16 +286,13 @@
   --hf-yellow: #ffd21e;
   --hf-orange: #ff9d00;
 }
-.end2 #title, .end2 #objective, .end2 #timer, .end2 #phase, .end2 #toast, .end2 #panel button, .end2 #ability, .end2 #stats {
+.end2 #objective, .end2 #timer, .end2 #phase, .end2 #toast, .end2 #ability {
   font-family: var(--display);
 }
 .end2 .eyebrow, .end2 .label, .end2 #controls, .end2 #detail, .end2 #hint, .end2 #abilitydetail {
   font-family: var(--mono);
 }
-.end2 #title {
-  font-weight: 700;
-  text-shadow: 0 0 40px #ffd21e33;
-}
+
 .end2 #toast {
   font-weight: 700;
   font-size: 22px;
@@ -440,8 +366,8 @@
   pointer-events: none;
 }
 
-/* ---------------------------------------------------------------- end card
-   Shown by showOverlay("finish") inside #overlay. Palette = P in art.js. */
+/* ---------------------------------------------------------------- palette (P in art.js) */
+.end2.finished #hud { opacity: 0; transition: opacity 0.4s; } /* app: under the end card */
 .end2 {
   --p-void: #070c16;
   --p-night: #101b2c;
@@ -453,198 +379,6 @@
   --p-cyan: #38d8ff;
   --p-hack: #39ff9c;
   --p-danger: #ff3b4e;
-}
-.end2 #overlay.finished {
-  background:
-    radial-gradient(120% 90% at 18% 55%, #050a12f2 0%, #060c14d8 38%, #060c1466 70%, #060c1422 100%),
-    repeating-linear-gradient(0deg, #ffffff06 0 1px, transparent 1px 4px);
-}
-.end2 #endcard {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  gap: clamp(24px, 5vw, 80px);
-  padding: 0 clamp(24px, 7vw, 120px);
-  font-family: var(--display);
-}
-.end2 .ec-frame {
-  --cut: 26px;
-  width: min(640px, 100%);
-  padding: 1px;
-  background: linear-gradient(135deg, var(--p-yellow), #ff9d0070 38%, #38d8ff40 72%, #ffd21e90);
-  clip-path: polygon(0 0, calc(100% - var(--cut)) 0, 100% var(--cut), 100% 100%, var(--cut) 100%, 0 calc(100% - var(--cut)));
-  filter: drop-shadow(0 0 28px #ffd21e22);
-  animation: ec-in 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) both;
-}
-.end2 .ec-inner {
-  padding: clamp(22px, 4.2vh, 40px) clamp(24px, 3vw, 40px) clamp(22px, 3.8vh, 36px);
-  background:
-    linear-gradient(180deg, #ffd21e0d, transparent 120px),
-    linear-gradient(160deg, #0c1624f4, #060d17f7);
-  clip-path: polygon(0 0, calc(100% - var(--cut) + 1px) 0, 100% calc(var(--cut) - 1px), 100% 100%, calc(var(--cut) - 1px) 100%, 0 calc(100% - var(--cut) + 1px));
-}
-.end2 .ec-eyebrow {
-  font: 400 11px/1 var(--mono);
-  letter-spacing: 3px;
-  color: var(--p-orange);
-}
-.end2 #ec-title {
-  margin: 14px 0 6px;
-  font: 700 clamp(38px, 6.4vh + 1.4vw, 66px) / 0.95 var(--display);
-  letter-spacing: -1px;
-  text-transform: uppercase;
-  color: var(--p-bone);
-}
-.end2 #ec-title span {
-  display: block;
-  color: var(--p-yellow);
-  text-shadow: 0 0 34px #ffd21e55;
-}
-.end2 .ec-sub {
-  font: 400 12px/1.4 var(--mono);
-  color: #8fa1ad;
-  letter-spacing: 0.5px;
-}
-.end2 .ec-stats {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 1px;
-  margin: clamp(14px, 3vh, 26px) 0 clamp(12px, 2.6vh, 22px);
-  background: #ffffff14;
-  border: 1px solid #ffffff14;
-}
-.end2 .ec-stat {
-  position: relative;
-  padding: 12px 14px 12px;
-  background: #08111cf0;
-  animation: ec-in 0.55s cubic-bezier(0.2, 0.8, 0.2, 1) both;
-}
-.end2 .ec-stat:nth-child(1) { animation-delay: 0.25s; }
-.end2 .ec-stat:nth-child(2) { animation-delay: 0.33s; }
-.end2 .ec-stat:nth-child(3) { animation-delay: 0.41s; }
-.end2 .ec-stat:nth-child(4) { animation-delay: 0.49s; }
-.end2 .ec-stat:nth-child(5) { animation-delay: 0.57s; }
-.end2 .ec-stat.ec-main {
-  grid-column: 1 / -1;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 14px 18px;
-  background: linear-gradient(90deg, #ffd21e14, #08111cf0 70%);
-}
-.end2 .ec-stat .k {
-  display: block;
-  font: 400 10px/1 var(--mono);
-  letter-spacing: 2.4px;
-  color: #8fa1ad;
-}
-.end2 .ec-stat b {
-  display: block;
-  margin-top: 8px;
-  font: 700 30px/1 var(--display);
-  color: var(--p-bone);
-  font-variant-numeric: tabular-nums;
-}
-.end2 .ec-stat.ec-main b {
-  margin: 0;
-  font-size: 44px;
-  color: var(--p-yellow);
-  text-shadow: 0 0 22px #ffd21e44;
-}
-.end2 .ec-stat i {
-  display: block;
-  margin-top: 5px;
-  font: normal 400 10px/1.2 var(--mono);
-  color: var(--p-hack);
-  letter-spacing: 0.4px;
-}
-.end2 .ec-stat i:empty { display: none; }
-.end2 .ec-tease {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 11px 14px;
-  border-left: 2px solid var(--p-cyan);
-  background: linear-gradient(90deg, #38d8ff12, transparent);
-  animation: ec-in 0.55s 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) both;
-}
-.end2 .ec-tease p {
-  margin: 0;
-  font: 500 17px/1.3 var(--display);
-  letter-spacing: 0.3px;
-  color: #e8f6fb;
-}
-.end2 .ec-tag {
-  flex: none;
-  padding: 3px 6px;
-  border: 1px dashed #ffffff55;
-  font: 400 9px/1.2 var(--mono);
-  letter-spacing: 1.2px;
-  color: #ffffffaa;
-  text-align: center;
-}
-.end2 #ec-replay {
-  --cut: 14px;
-  display: inline-flex;
-  align-items: center;
-  gap: 12px;
-  margin-top: clamp(14px, 3vh, 26px);
-  padding: 15px 30px;
-  border: 0;
-  background: var(--p-yellow);
-  color: #15202a;
-  font: 700 14px/1 var(--display);
-  letter-spacing: 3px;
-  clip-path: polygon(0 0, calc(100% - var(--cut)) 0, 100% var(--cut), 100% 100%, var(--cut) 100%, 0 calc(100% - var(--cut)));
-  transition: background 0.15s, transform 0.15s, filter 0.15s;
-  animation: ec-in 0.55s 0.85s cubic-bezier(0.2, 0.8, 0.2, 1) both;
-}
-.end2 #ec-replay:hover {
-  background: #ffe55c;
-  transform: translateX(3px);
-  filter: drop-shadow(0 0 12px #ffd21e88);
-}
-.end2 #ec-replay:focus-visible {
-  outline: 2px solid var(--p-cyan);
-  outline-offset: 5px;
-}
-.end2 #ec-replay span { transition: transform 0.15s; }
-.end2 #ec-replay:hover span { transform: translateX(4px); }
-.end2 .ec-tower {
-  flex: none;
-  align-self: stretch;
-  width: clamp(64px, 8vw, 110px);
-  height: auto;
-  max-height: 86vh;
-  margin: auto 0;
-  overflow: visible;
-  animation: ec-in 1.1s 0.3s ease-out both;
-}
-.end2 .ec-tower .fl { fill: none; stroke: #38d8ff40; stroke-width: 1.5; }
-.end2 .ec-tower .on { stroke: url(#ec-fade); stroke-width: 2.2; }
-.end2 .ec-tower .rail { stroke: url(#ec-fade); stroke-width: 1.4; opacity: 0.8; }
-.end2 .ec-tower text { font: 400 9px var(--mono); fill: #8fa1ad; letter-spacing: 1.2px; }
-.end2 .ec-tower text.on { fill: var(--p-yellow); stroke: none; }
-.end2 .ec-tower .pulse { animation: ec-pulse 1.6s ease-in-out infinite; }
-@keyframes ec-in {
-  from { opacity: 0; transform: translateY(14px); }
-  to { opacity: 1; transform: none; }
-}
-@keyframes ec-pulse {
-  50% { opacity: 0.25; }
-}
-@media (max-width: 800px) {
-  .end2 .ec-tower { display: none; }
-  .end2 .ec-stats { grid-template-columns: repeat(2, 1fr); }
-}
-@media (prefers-reduced-motion: reduce) {
-  .end2 .ec-frame, .end2 .ec-stat, .end2 .ec-tease, .end2 #ec-replay, .end2 .ec-tower { animation: none; }
-  .end2 .ec-tower .pulse { animation: none; }
-}
-.end2:has(#overlay.finished) #hud {
-  opacity: 0;
-  transition: opacity 0.4s;
 }
 
 /* ---------------------------------------------------------------- HUD (lift-ui, round 2)
@@ -950,8 +684,5 @@
   }
 }
 
-/* app: "Back to menu" (panel: under the main button like #secondary; end card: next to FLY AGAIN) */
 .end2 { position: fixed; inset: 0; overflow: hidden; }
-.end2 .e2-menu { display: block; background: none; border: 0; color: #a9b8be; padding: 10px 0; font-size: 12px; letter-spacing: 1px; text-decoration: underline; cursor: pointer; }
-.end2 .e2-menu:hover { color: var(--ink); }
-.end2 #endcard .e2-menu { display: inline-block; margin-left: 18px; vertical-align: middle; }
+

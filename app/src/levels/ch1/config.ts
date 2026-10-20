@@ -98,7 +98,7 @@ Your score depends on the flags you capture.
   mkcolTooltip: 'make collection: create a folder', // §Step 10
   zzTooltip: 'sorts first', // §Step 10
   entryCreatedBy: 'created by: reader (shared account)', // §Step 9
-  chapterEndCard: 'Chapter 2', // §Step 11
+  chapterEndCard: 'Chapter complete', // shared finish card (Julius 2026-10-20); §Step 11 had a "Chapter 2" title card
   // (engineer) small UI strings, not story text
   doorLocked: 'The door is locked.',
   noNewThought: '(no new thought)',

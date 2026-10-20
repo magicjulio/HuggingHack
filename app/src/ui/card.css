@@ -1,0 +1,55 @@
+/* The shared level card (LevelCard.tsx). Source: design/cards/index.html (`.lc` block); tokens only.
+   One accent per kind: intro/pause/loading cyan, finish green (you made it), fail red (the scorer got you). */
+.lc-layer{position:fixed;inset:0;z-index:100;display:flex;align-items:center;gap:4vw;padding:0 7vw;background:linear-gradient(90deg,rgba(2,4,8,.82) 0,rgba(2,4,8,.55) 48%,rgba(2,4,8,.15) 100%);font-family:var(--font-mono);color:var(--color-text);text-align:left;animation:lc-fade .3s both}
+.lc-layer.is-clickable{cursor:pointer}
+.lc-layer.is-clickable .lc{cursor:default}
+.lc-layer.is-solid{background:var(--color-void);animation-duration:1.2s}
+.lc-layer.is-loading{align-items:flex-end;padding-bottom:7vh;background:var(--color-void)}
+@keyframes lc-fade{from{opacity:0}}
+.lc{--a:var(--color-signal-cyan);--cut:22px;position:relative;flex:none;width:min(560px,100%);max-height:92vh;overflow:auto;display:flex;flex-direction:column;gap:22px;padding:34px 36px 30px;background:var(--color-panel-solid);
+  clip-path:polygon(0 0,calc(100% - var(--cut)) 0,100% var(--cut),100% 100%,0 100%);animation:lc-in .45s cubic-bezier(.2,.8,.2,1) both}
+.lc::before{content:"";position:absolute;inset:0;pointer-events:none;border:1px solid var(--color-line);clip-path:inherit}
+.lc.finish{--a:var(--color-hack-green)}
+.lc.fail{--a:var(--color-lamp-red)}
+@keyframes lc-in{from{opacity:0;transform:translateY(8px)}}
+
+.lc-eyebrow{display:flex;gap:.9em;font-size:11px;letter-spacing:.28em;color:var(--color-text-dim);text-transform:uppercase}
+.lc-eyebrow b{font-weight:400;color:var(--a)}
+.lc-title{margin:-8px 0 0;font:700 52px/.95 var(--font-display);letter-spacing:-.01em;text-transform:uppercase;text-wrap:balance;color:var(--color-text)}
+.lc-line{margin:-10px 0 0;font-size:13px;line-height:1.55;color:var(--color-text-dim);max-width:44ch}
+
+.lc-stats{display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid var(--color-line)}
+.lc-main{grid-column:1/-1;display:flex;align-items:baseline;justify-content:space-between;gap:1em;padding:14px 0 12px;border-bottom:1px solid var(--color-line)}
+.lc-stat{padding:12px 0 0}
+.lc-k{font-size:10px;letter-spacing:.24em;color:var(--color-text-faint);text-transform:uppercase}
+.lc-v{display:block;margin-top:6px;font:700 22px/1 var(--font-display);font-variant-numeric:tabular-nums;color:var(--color-text)}
+.lc-main .lc-v{margin:0;font-size:44px;color:var(--a)}
+.lc-v small{font:400 11px var(--font-mono);color:var(--a);letter-spacing:.1em;margin-left:.6em}
+
+.lc-keys{display:grid;grid-template-columns:auto 1fr;gap:9px 16px;font-size:12px;align-items:baseline}
+.lc-keyrow{display:contents}
+.lc-keys kbd{justify-self:start;font:700 11px var(--font-mono);letter-spacing:.08em;padding:3px 7px;border:1px solid var(--color-line-strong);color:var(--color-text)}
+.lc-keys span span{color:var(--color-text-dim)}
+
+.lc-actions{display:flex;align-items:center;gap:22px;flex-wrap:wrap}
+.lc-btn{--c:14px;font:700 13px var(--font-display);letter-spacing:.2em;text-transform:uppercase;padding:13px 26px 13px 22px;background:var(--a);color:var(--color-void);border:0;cursor:pointer;
+  clip-path:polygon(0 0,calc(100% - var(--c)) 0,100% var(--c),100% 100%,0 100%)}
+.lc-btn:hover,.lc-btn:focus-visible{filter:brightness(1.15);outline:none}
+.lc-link{font:400 12px var(--font-mono);letter-spacing:.14em;text-transform:uppercase;color:var(--color-text-dim);background:none;border:0;cursor:pointer;padding:4px 0;border-bottom:1px solid transparent}
+.lc-link:hover,.lc-link:focus-visible{color:var(--color-text);border-color:currentColor;outline:none}
+.lc-hint{font-size:10px;letter-spacing:.2em;color:var(--color-text-faint);text-transform:uppercase}
+
+/* optional slot: one level-specific block beside the card (E2's tower) */
+.lc-extra{margin-left:auto;margin-right:4vw;align-self:center}
+@media (max-width:900px){.lc-extra{display:none}}
+
+/* loading: no panel, just the eyebrow, title and a thin bar bottom left */
+.lc.loading{background:none;padding:0;gap:14px;clip-path:none}
+.lc.loading::before{display:none}
+.lc.loading .lc-title{font-size:34px}
+.lc-bar{width:240px;height:2px;background:var(--color-line);overflow:hidden}
+.lc-bar i{display:block;height:100%;width:0;background:var(--a);transition:width .3s}
+.lc-bar.is-busy i{width:35%;animation:lc-busy 1.4s ease-in-out infinite}
+@keyframes lc-busy{from{transform:translateX(-100%)}to{transform:translateX(290%)}}
+
+@media (prefers-reduced-motion:reduce){.lc,.lc-layer{animation:none}.lc-bar.is-busy i{animation:none;width:100%;opacity:.5}}

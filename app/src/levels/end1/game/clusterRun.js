@@ -1,7 +1,8 @@
 // Ending 1 "Cluster Run": bootstrap, input, camera, game states, HUD.
 // From prototypes/end1-swing/main.js (Julius's pick, handoff/story-to-build/2026-10-16-end1-swing-promoted.md).
 // App changes, nothing else: the page became a factory that builds its own DOM in `root` and cleans up
-// in dispose() (listeners, rAF, GPU, audio); overlays got app buttons (menu); the best time comes from
+// in dispose() (listeners, rAF, GPU, audio); the overlays are the app's shared level card (opts.onScreen,
+// see showOv), the HTML ones are gone; the best time comes from
 // and goes to the app save (opts.best / opts.onFinish) instead of localStorage; `window.__game` → opts.debug.
 import * as THREE from 'three';
 import { buildWorld, PORT_COLORS, CLUSTER_FRONT, ROWS, ROW_GAP } from './world.js';
@@ -14,7 +15,7 @@ import { MARKUP } from './markup.js';
 
 /**
  * @param {HTMLElement} root  empty element the game fills (full viewport)
- * @param {{ best?: number | null, onExit?: () => void, onFinish?: (r: object) => void, debug?: boolean }} opts
+ * @param {{ best?: number | null, onFinish?: (r: object) => void, onScreen?: (card: object | null) => void, debug?: boolean }} opts
  * @returns {{ dispose(): void }}
  */
 export function createClusterRun(root, opts = {}) {
@@ -103,15 +104,9 @@ on(document, 'pointerlockchange', () => {
   setAudioPaused(paused);
 });
 function lock() { const p = canvas.requestPointerLock(); if (p && p.catch) p.catch(() => {}); }
-for (const id of ['ov-start', 'ov-pause', 'ov-fail', 'ov-finish']) {
-  on($(id), 'click', () => {
-    initAudio(); setAudioPaused(false);
-    if (id === 'ov-pause') { lock(); return; }
-    beginRun(true);
-  });
-}
-
-for (const b of root.querySelectorAll('[data-act="menu"]')) on(b, 'click', (e) => { e.stopPropagation(); opts.onExit?.(); });
+// app: the overlay buttons (clicks, so the pointer lock is allowed)
+function go() { initAudio(); setAudioPaused(false); beginRun(true); }
+function resume() { initAudio(); setAudioPaused(false); lock(); }
 
 // ---------- game state ----------
 let state = 'menu', paused = false;
@@ -125,9 +120,33 @@ const START_Z = world.startPos.z;
 const TOTAL = START_Z - world.core.pos.z;
 let best = opts.best ?? null;
 
+// app: the four overlays as the shared level card (ui/LevelCard.tsx), drawn by End1.tsx
+let lastRun = { time: 0, isBest: false };
+function card(name) {
+  if (name === 'start') return {
+    kind: 'intro',
+    line: "Race from computer to computer to the research cluster at the far end of the hall. Don't touch the floor.",
+    keys: [['RMB', 'connect a line to a port, swing'], ['LMB', 'hacking laser'], ['SPACE', 'zip in and launch · jump'], ['W / S', 'reel in · let out'], ['A / D', 'steer']],
+    action: { label: 'Start', onClick: go },
+  };
+  if (name === 'pause') return {
+    kind: 'pause', title: 'Paused',
+    action: { label: 'Resume', onClick: resume }, onBackdrop: resume, hint: 'Click anywhere to resume · R restarts the run',
+  };
+  if (name === 'fail') return {
+    kind: 'fail', title: 'Connection terminated', line: 'Detection reached 100%. The safety systems found you.',
+    action: { label: 'Run again', onClick: go }, hint: 'R restarts',
+  };
+  return {
+    kind: 'finish', title: 'You reached the cluster',
+    main: { k: 'Run time', v: fmt(lastRun.time), tag: lastRun.isBest ? 'BEST' : undefined },
+    stats: [{ k: 'Longest chain', v: '×' + stats.bestChain }, { k: 'Taken down', v: stats.kills }, { k: 'Traced', v: stats.traced }],
+    action: { label: 'Run again', onClick: go }, hint: 'R restarts',
+  };
+}
 function showOv(name) {
-  for (const id of ['start', 'pause', 'fail', 'finish']) $('ov-' + id).classList.toggle('show', id === name);
   $('hud').classList.toggle('off', name === 'start');
+  opts.onScreen?.(name ? card(name) : null);
 }
 
 function restart() {
@@ -233,16 +252,7 @@ function finish() {
   particles.burst(world.core.pos, GREEN, 120, 60, 2.2, 1.4);
   const isBest = best === null || runTime < best;
   if (isBest) best = runTime;
-  $('fin-time').textContent = fmt(runTime) + (isBest ? '  · best' : '');
-  const rows = [
-    ['Best time', fmt(best)],
-    ['Chains', stats.chains + ' (longest ×' + stats.bestChain + ')'],
-    ['Safety measures taken down', stats.kills],
-    ['Locks escalated to root', stats.unlocks],
-    ['Traced', stats.traced],
-    ['Fell to the floor', stats.falls],
-  ];
-  $('fin-rows').innerHTML = rows.map(([a, b]) => `<div class="row"><span>${a}</span><b>${b}</b></div>`).join('');
+  lastRun = { time: runTime, isBest };
   opts.onFinish?.({ time: runTime, best, isBest, ...stats });
   later(() => { if (state === 'finish') { document.exitPointerLock(); showOv('finish'); } }, 1400);
 }
@@ -568,6 +578,7 @@ const hooks = {
   advance(n, dt, bot) { for (let i = 0; i < n; i++) { if (bot) bot(hooks); update(dt); } },
   render() { renderer.render(scene, camera); },
   start() { initAudio(); beginRun(false); },
+  pause() { paused = true; showOv('pause'); }, // headless never holds the pointer lock
   press(k, v) { if (k === 'rmb') rmb = v; if (k === 'lmb') lmb = v; if (k === 'space' && v) jumpQueued = true; if (keys[k] !== undefined) keys[k] = v; },
 };
 if (opts.debug) window.__end1 = hooks;

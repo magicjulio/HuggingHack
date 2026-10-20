@@ -146,7 +146,7 @@ test('accepted film: actual FX passes, memories, hard cut, poisoned orb and repl
   await page.evaluate('window.__filmTick(4.2)');
   await expect(page.locator('.c2-line--local .c2-line__tag')).toHaveText('local copy');
   await page.evaluate('window.__filmTick(8.8)');
-  await expect(page.getByText('END OF CHAPTER 2')).toBeVisible();
+  await expect(page.getByText('Chapter complete')).toBeVisible();
   const status = await page.evaluate(
     'JSON.parse(localStorage.getItem("rogue-on-hf-save")).state.save.status',
   );
@@ -182,7 +182,7 @@ test('animated agents pause with the map, leave, and hide during the film', asyn
   const snapshot = () =>
     page.evaluate<{
       count: number;
-      npc: {name: string; pos: number[]; rot: unknown}[];
+      npc: { name: string; pos: number[]; rot: unknown }[];
       crowd: number[][];
       trailVersion: number;
       visible: boolean;

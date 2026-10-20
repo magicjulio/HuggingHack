@@ -1,4 +1,6 @@
 /** Types for the plain-JS game (clusterRun.js). */
+import type { ScreenCard } from '../../../ui/LevelCard';
+
 export interface ClusterRunResult {
   /** Run time in seconds. */
   time: number;
@@ -15,8 +17,8 @@ export interface ClusterRunResult {
 export interface ClusterRunOptions {
   /** Saved best time in seconds, or null. */
   best?: number | null;
-  /** BACK TO MENU on an overlay. */
-  onExit?: () => void;
+  /** The overlay to show as the shared level card (start, pause, fail, finish), or null. */
+  onScreen?: (card: ScreenCard | null) => void;
   /** The orb reached the core. */
   onFinish?: (r: ClusterRunResult) => void;
   /** Expose test hooks as window.__end1. */

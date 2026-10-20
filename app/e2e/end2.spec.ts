@@ -55,7 +55,7 @@ async function enter(page: Page) {
   await page.keyboard.press('Enter');
   // boot loads fonts, the logo and the approach glbs before the hooks exist
   await page.waitForFunction(() => (window as never)['__ascent'], null, { timeout: 60000 });
-  await expect(page.locator('.end2 #title')).toHaveText('ASCENT');
+  await expect(page.locator('.lc-title')).toHaveText('Ascent'); // the title card after the loading card
   expect(await page.locator('canvas').count()).toBe(1);
   expect(await page.evaluate('window.__liveContexts()')).toBe(1);
   expect(await page.evaluate("window.__listeners()['w:keydown']")).toBeGreaterThan(0);
@@ -91,7 +91,7 @@ test('ending 2: approach starts, boss arena loads, finish saves, menu round trip
 
   // the title panel → the approach (pointer lock may be refused headless; the run starts anyway)
   expect(await e2(page, 'g.snapshot.state')).toBe('menu');
-  await page.locator('.end2 #start').click();
+  await page.getByRole('button', { name: 'Join the swarm' }).click();
   await expect.poll(() => e2(page, 'g.snapshot.state')).toBe('flight');
   await expect(page.locator('.end2 #fl-hud')).toHaveCount(1);
   await page.waitForTimeout(500);
@@ -105,31 +105,32 @@ test('ending 2: approach starts, boss arena loads, finish saves, menu round trip
   await page.waitForTimeout(800);
   await page.screenshot({ path: 'test-results/end2-arena.png' });
 
-  // Esc pauses; the panel has Back to menu
+  // Esc pauses; the pause card has Back to menu
   await page.keyboard.press('Escape');
   await expect.poll(() => e2(page, 'g.snapshot.paused')).toBe(true);
-  await expect(page.locator('.end2 #title')).toHaveText('PAUSED');
-  await expect(page.locator('.end2 #panel .e2-menu')).toBeVisible();
+  await expect(page.locator('.lc.pause .lc-title')).toHaveText('Paused');
+  await expect(page.getByRole('button', { name: 'Back to menu' })).toBeVisible();
 
   // the finish card: onFinish → best time + chapter done in the save
   await e2(page, '(g.resume(), g.finishCard())');
-  await expect(page.locator('.end2 #endcard')).toBeVisible();
+  await expect(page.locator('.lc.finish')).toBeVisible();
+  await expect(page.locator('.lc-extra svg')).toHaveCount(1); // the tower strip
   await page.waitForTimeout(1400);
   await page.screenshot({ path: 'test-results/end2-endcard.png' });
   const save = JSON.parse((await page.evaluate(() => localStorage.getItem('rogue-on-hf-save')))!);
   expect(save.state.save.completedChapters).toContain('end2');
   expect(save.state.save.bestTimes.end2).toBeGreaterThan(0);
 
-  await page.locator('.end2 #endcard .e2-menu').click();
+  await page.locator('.lc.finish').getByRole('button', { name: 'Back to menu' }).click();
   await leftCleanly(page, before);
 
   // second round trip: back to menu from the paused panel
   await enter(page);
-  await page.locator('.end2 #start').click();
+  await page.getByRole('button', { name: 'Join the swarm' }).click();
   await expect.poll(() => e2(page, 'g.snapshot.state')).toBe('flight');
   await page.keyboard.press('Escape');
   await expect.poll(() => e2(page, 'g.snapshot.paused')).toBe(true);
-  await page.locator('.end2 #panel .e2-menu').click();
+  await page.locator('.lc.pause').getByRole('button', { name: 'Back to menu' }).click();
   await leftCleanly(page, before);
 
   // (a dispose during the async boot is exercised by every dev mount: StrictMode mounts, disposes, mounts again)

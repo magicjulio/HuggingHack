@@ -1,5 +1,5 @@
 /* Ending 1 "Cluster Run": the swing prototype's page styles (prototypes/end1-swing/index.html), scoped under .end1.
-   Changes from the prototype: :root/html/body → .end1, every rule prefixed, keyframes renamed e1-*, + .e1-btns (app buttons). */
+   Changes from the prototype: :root/html/body → .end1, every rule prefixed, keyframes renamed e1-*; overlays removed (the app's shared level card). */
 .end1 { --g:#5dff9a; --a:#ffa31a; --r:#ff2f4a; --ink:#d8f3ff; --dim:#7f98ad;
   position:fixed; inset:0; overflow:hidden; background:#070b14; color:var(--ink); font-family: ui-monospace, "JetBrains Mono", Menlo, Consolas, monospace; }
 .end1 * { box-sizing: border-box; }
@@ -44,21 +44,3 @@
 .end1 #hint.show { opacity:1; }
 .end1 #hint kbd { color:var(--g); font-family:inherit; font-weight:700; }
 .end1 #count { position:absolute; left:50%; top:38%; transform:translate(-50%,-50%); font-size:96px; font-weight:800; text-shadow:0 0 30px var(--g); }
-.end1 .ov { position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(4,7,13,.78); }
-.end1 .ov.show { display:flex; }
-.end1 .panel { width:min(620px, calc(100vw - 32px)); padding:26px 30px; border:1px solid rgba(93,255,154,.35); background:rgba(8,14,24,.92); box-shadow:0 0 40px rgba(93,255,154,.08); }
-.end1 .panel h1 { margin:0 0 4px; font-size:28px; letter-spacing:2px; }
-.end1 .panel .sub { color:var(--dim); font-size:12px; margin-bottom:16px; }
-.end1 .panel p { font-size:14px; line-height:1.5; margin:8px 0; }
-.end1 .ctrl { display:grid; grid-template-columns: 150px 1fr; gap:6px 14px; font-size:13px; margin:14px 0; }
-.end1 .ctrl b { color:var(--g); }
-.end1 .legend { display:flex; gap:16px; font-size:12px; margin:8px 0 14px; flex-wrap:wrap; }
-.end1 .legend span::before { content:""; display:inline-block; width:10px; height:10px; margin-right:6px; vertical-align:-1px; background:currentColor; box-shadow:0 0 6px currentColor; }
-.end1 .go { margin-top:10px; font-size:15px; color:var(--g); animation: e1-blink 1.2s infinite; }
-@keyframes e1-blink { 50% { opacity:.45 } }
-.end1 .big { font-size:46px; font-weight:800; margin:6px 0; }
-.end1 .row { display:flex; justify-content:space-between; font-size:13px; padding:3px 0; border-bottom:1px dashed rgba(127,152,173,.2); }
-/* app: way back to the menu from the overlays (not in the prototype) */
-.end1 .e1-btns { display:flex; gap:14px; margin-top:16px; }
-.end1 .e1-btns button { font:inherit; font-size:12px; letter-spacing:1px; padding:6px 12px; color:var(--dim); background:transparent; border:1px solid rgba(127,152,173,.35); cursor:pointer; }
-.end1 .e1-btns button:hover { color:var(--ink); border-color:var(--g); }

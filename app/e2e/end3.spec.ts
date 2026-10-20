@@ -54,7 +54,7 @@ async function enter(page: Page) {
   await expect(page.getByText('start ending 3')).toBeVisible();
   await page.keyboard.press('Enter');
   await page.waitForFunction(() => (window as never)['__end3'], null, { timeout: 15000 });
-  await expect(page.locator('.end3 #card-title')).toHaveText('GHOST CAPTURE');
+  await expect(page.locator('.lc.intro .lc-title')).toHaveText('Ghost Capture'); // after the loading card
   expect(await page.locator('canvas').count()).toBe(1);
   // the counters see the running game, so the clean-exit checks are not vacuous
   expect(await page.evaluate('window.__liveContexts()')).toBe(1);
@@ -157,21 +157,21 @@ test('ending 3: rules probes, six-room finish, menu round trips leave nothing be
   expect(await e3(page, 'g.snapshot.state')).toBe('ended');
   await e3(page, 'g.tick(5)');
   expect(await e3(page, 'g.finishes')).toBe(1);
-  await expect(page.locator('.end3 #card-title')).toContainText('+0');
+  await expect(page.locator('.lc.finish .lc-main')).toContainText('+0');
   const save = await page.evaluate(() => localStorage.getItem('rogue-on-hf-save'));
   expect(JSON.parse(save!).state.save.completedChapters).toContain('end3');
   await page.screenshot({ path: 'test-results/end3-final.png' });
 
   // final overlay → menu; then a second round trip through the real keys and the pause overlay
-  await page.locator('.end3').getByRole('button', { name: 'BACK TO MENU' }).click();
+  await page.locator('.lc.finish').getByRole('button', { name: 'Back to menu' }).click();
   await leftCleanly(page, before);
 
   await enter(page);
-  await page.getByRole('button', { name: 'BEGIN ATTEMPT →' }).click();
+  await page.getByRole('button', { name: 'Begin attempt' }).click();
   expect(await e3(page, 'g.snapshot.state')).toBe('playing');
   await page.keyboard.press('Escape');
-  await expect(page.locator('.end3 #card-title')).toHaveText('ATTEMPT PAUSED');
-  await page.locator('.end3').getByRole('button', { name: 'BACK TO MENU' }).click();
+  await expect(page.locator('.lc.pause .lc-title')).toHaveText('Paused');
+  await page.locator('.lc.pause').getByRole('button', { name: 'Back to menu' }).click();
   await leftCleanly(page, before);
   expect(errors).toEqual([]);
 });

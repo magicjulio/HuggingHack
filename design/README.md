@@ -6,6 +6,7 @@ Source files for the game's art, sound and film directors (Blender scripts, revi
 - `start-screen/`: start screen prototype (vanilla HTML/CSS/JS, open index.html; `?skipboot` skips the intro) and `tokens.css`, which holds every colour and type token.
 - `ch1/`: Ch1 2D UI kit (`ch1-ui.css`, prefix `c1-`), gallery, sprites, `sfx.js` sketches.
 - `ch2-ui/`: the Ch2 screen layer (HUD, map, Step 7 cutscene, Step 0 intro, sound, bridge scene). Own `CLAUDE.md`.
+- `cards/`: review page for the shared level card (intro, pause, fail, finish, loading). The approved look; the app's copy is `app/src/ui/card.css`.
 - `3d/`: everything 3D. `3d/index.html` is the review hub for Ch1 props. `3d/HOWTO.md` explains how an asset is made.
   - `lib/kit.py`: the shared Blender build kit (materials, texture synth, `surface()`, primitives, `station_header`, preview `stage`, `export`). New prop scripts import it.
   - Ch1 props: `scorer/`, `depot/`, `plinth/`, `desk/`, `room/`, `stations/s1…s5`. The `.py` script is the source of truth: `blender -b --factory-startup -P <script>.py` rebuilds the `.glb` + previews.
