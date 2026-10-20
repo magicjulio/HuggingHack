@@ -45,4 +45,4 @@ Each role has its own memory folder (`memory: project` in its agent file → `.c
 `docs/DECISIONS.md` has a consolidated canon (Part 1) and an append-only log (Part 2): `- YYYY-MM-DD · role · decision — why`. Log anything other roles must respect, such as the stack, formats, naming or story canon. Never edit past log entries. To reverse a decision, append a new entry and name the canon item it replaces. Playtest notes and round briefs are not decisions: they go in handoffs. The history before 2026-10-18 is in `docs/decisions-archive-2026-10.md`, so read it only when you need the why.
 
 ## Current phase
-Phase 2: story and build. Ch1 and Ch2 are built and accepted, the bridge scene runs as a stand-in, and Endings 1 and 3 are integrated. Ending 2 (ASCENT) is in prototype team rounds, and Ending 4 is waiting for Julius. Update this line when Julius moves the project on.
+Phase 2: story and build. Ch1 and Ch2 are built and accepted, the bridge scene runs as a stand-in, and all four endings are in the app (E2 "Ascent" integrated 2026-10-19, E4 "The Letter" built by Codex). Update this line when Julius moves the project on.

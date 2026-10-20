@@ -12,5 +12,8 @@ src/levels/end1/DESIGN.md
 # Ending 3 game: plain three.js ported from prototypes/end3-ghost/ (prototype's own formatting, diffable)
 src/levels/end3/game/*.js
 src/levels/end3/*.md
+# Ending 2 game: plain three.js ported from prototypes/end2-ascent/ (prototype's own formatting, diffable)
+src/levels/end2/game/*.js
+src/levels/end2/*.md
 src/levels/bridge/*.js
 src/levels/ch2/ui/hud.js

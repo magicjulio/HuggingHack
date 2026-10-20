@@ -71,6 +71,12 @@ src/
                          (its HUD/overlay DOM); player.js (all movement tuning in `T`), world.js, enemies.js, fx.js,
                          audio.js (+ setAudioPaused), textures.js — otherwise unchanged
       end1.css           the prototype's styles scoped under .end1 · how it plays: prototypes/end1-swing/DESIGN.md
+    end2/                Ending 2 "Ascent" (the HF tower, boss GLM-5.2; the ASCENT prototype, plain three.js, not R3F)
+      End2.tsx           mounts the game in a div, passes best time + callbacks, disposes on unmount
+      game/*.js          ported from prototypes/end2-ascent/ @ 5336107 (prototype's formatting, not linted/formatted): main.js =
+                         createAscent(root, opts) → {dispose} (async boot); markup.js (its DOM); host.js (root + on() lent to
+                         flight/flight-hud/audio); assets.js (bundled URL table for assets/: 13 glbs, HF logo svgs, fonts)
+      end2.css, *.md     prototype styles scoped under .end2 · DESIGN/FLOOR2/FLOOR3/BOSS.md (how it plays, every knob)
     end3/                Ending 3 "Ghost Capture" (fool the scorer; the ghost-switch prototype, plain three.js, not R3F)
       End3.tsx           mounts the game in a div, passes callbacks (completion only, no best time), disposes on unmount
       game/*.js          ported from prototypes/end3-ghost/ (prototype's formatting, not linted/formatted): ghostCapture.js =
@@ -83,6 +89,8 @@ scripts/make-typeface.py woff2 → three.js typeface JSON (3D letters)
 e2e/smoke.spec.ts        Playwright: menu → chapter 1 → end card → menu; Esc pauses over a machine, step back leaves; in-world S1/S3/S4, S5 → board;
                          chapter 2: intro, real keys move/jump, forge, cutscene, `poisoned` in the save
 e2e/end1.spec.ts         Playwright: pick E1 → countdown → aim at a port and swing → BACK TO MENU disposes the game
+e2e/end2.spec.ts         Playwright: pick E2 → title panel → approach → toArena(1) (boss up) → Esc pauses → finish card saves
+                         best time + done → menu → again, menu from pause; no listeners, WebGL contexts or game rAF survive
 e2e/end3.spec.ts         Playwright: pick E3 → rule probes (switch, sight, cover, ledges, lock, catch, reset) → finish (+0, onFinish once)
                          → menu → again via keys + pause; no listeners, WebGL contexts or game rAF survive
 e2e/bridge.spec.ts       Playwright: bridge → seek to the choice → OpenAI lane → Ending 1 loads
@@ -111,6 +119,9 @@ Same store + steps + views shape, plus a mutable `store.sim` (platform world, bo
 ## Ending 1 in one paragraph
 Julius picked the swing prototype as is ("plays very good"), so it stays the prototype's own imperative three.js loop rather than a rewrite into the store + steps + R3F shape: `createClusterRun(root, opts)` builds its DOM (markup.js) and renderer inside `root`, registers every window/document listener through `on()` and every timeout through `later()`, and `dispose()` removes them, cancels the rAF, frees GPU resources (`forceContextLoss`), silences the audio and empties `root`. App contract: `opts.best` (save `bestTimes.end1`), `opts.onFinish(result)` (→ `recordBestTime` + `finishChapter`), `opts.onExit` (BACK TO MENU buttons on the overlays), `opts.debug` (`window.__end1` test hooks: `start()`, `advance(n, dt, bot)`, `setAim`, `press`, `render`). The Esc → pointer-unlock → pause flow is the prototype's. Tuning: `T` in player.js; the seeded course in world.js; zones/hints in clusterRun.js. Endings are catalogue entries with `ending: true`: selectable on the start screen, never a `nextChapter` (the bridge scene picks them).
 
+## Ending 2 in one paragraph
+Same pattern as E1/E3 (promoted: `handoff/design-to-app/2026-10-19-ascent-promoted.md`, report `handoff/app-to-design/2026-10-19-ascent-integrated.md`). Differences: the boot is async (fonts, HF logo, approach glbs; models.js/enemies-extra.js load their kits with top-level await at import), so `createAscent` returns `{dispose}` at once and `boot()` stops after any await once disposed; GPU cleanup is registered as soon as the renderer exists. Modules that used to touch `document.body`/`window` (flight.js letterbox + mousemove, flight-hud.js HUD + its `<style>`, audio.js mute flag + M key + visibilitychange) use `host.el`/`host.on` (host.js); `audio.close()` stops the music scheduler and closes the AudioContext. `body[data-aim|data-vent]` and `--vent-*` are set on the root. App contract: `opts.onExit` ("Back to menu" on the panel and the end card), `opts.onFinish(result)` (from `showOverlay('finish')` → `recordBestTime('end2', time)` + `finishChapter`), `opts.best` (passed, not shown yet), `opts.debug` (`window.__ascent`, was `?test`: `start`, `beginFloor`, `toArena(phase)`, `startLift`, `finishCard`, `snapshot`, `balance`, `setPose`…). URL knobs (`?floor=`, `?at=arena`, `?phase=`, `?msaa=`, `?res=`, `?post=classic`, `?f2=`, `?f3=`, `?light=`, `?perfmat=`, boss look knobs) still read `location.search`; every default is the shipping value. Tuning: `T` in main.js. Keep three pinned (post.js reads bloom-pass internals). Re-port on a new prototype version: copy the files over, then redo the marked "app port" edits (assets.js/host.js call sites, main.js header lists the rest).
+
 ## Ending 3 in one paragraph
 Same pattern as Ending 1 (approved as is: `handoff/design-to-app/2026-10-18-end3-ghost-approved.md`): `createGhostCapture(root, opts)` builds markup.js inside `root`, loads the art (async; the first room and the loop start after it), routes window listeners through `on()`, and `dispose()` cancels the rAF, removes listeners, frees room meshes, textures and the renderer (`forceContextLoss`) and empties `root`. One overlay serves intro, pause and the final `+0` card; BACK TO MENU sits next to its main button. App contract: `opts.onExit`, `opts.onFinish(result)` (→ `finishChapter('end3')`; the +0 is the outcome, nothing is recorded), `opts.debug` (`window.__end3`: the prototype's `__ghost` hooks + `manual` (stop the real-time loop), `room(n)`, `scanner(i)` (live), `sees(i, name)`, `finishes`). Gameplay numbers: `T` in ghostCapture.js; rooms in levels.js / level4–6.js. Route notes (`prototypes/end3-ghost/level*-notes.md`) are private design material and never shown in the game. The 32 × 18 field renders at 960 × 540 and scales with CSS (pixelated, 16:9).
 
@@ -126,11 +137,12 @@ Same pattern as Ending 1 (approved as is: `handoff/design-to-app/2026-10-18-end3
 - **drei `<Html>`** (DOM pinned in 3D): keep it mounted and toggle its children, with an explicit `portal` (ch2 `Anchor`, ch1 `ScreenHtml`); mounting/unmounting it during a render races in React 19.
 - **Status below is a whiteboard:** replace it, don't add dated sections. Old ones go to `HISTORY.md` if worth keeping.
 
-## Status (2026-10-18)
-- **Playable:** start screen, Ch1, Ch2, the bridge (stand-in), E1 "Cluster Run", E3 "Ghost Capture". E2 and E4 show the host placeholder. E2 ASCENT is still a prototype in `prototypes/end2-ascent/` (designer team rounds), not ported.
-- **E3 just integrated** (report `handoff/app-to-design/2026-10-18-end3-ghost-integrated.md`). Not proven: the full routes of rooms 4–6 (e2e probes the rules and the finish). Julius plays them by hand. The start screen's chapter panel now scrolls (six rows overflowed 720 px).
-- **Bridge, proper version (todo, Julius):** run it inside Chapter 2 (no reload, no second renderer): store phases (film / choice / ride) driven by `bridge.js direct(t)`, the real Ch2 controller + `sim.world` colliders, ThirdPerson with `camPose` override, the React HUD (Bubble `phaseone` + anchor, letterbox, quest "Pick your work"), `phaseOne` as a `WorldModule`, crowd hidden, quality tiers, sound cues, pause menu (today: none, mouse drag to look).
+## Status (2026-10-19)
+- **Playable:** start screen, Ch1, Ch2, the bridge (stand-in), all four endings: E1 "Cluster Run", E2 "Ascent", E3 "Ghost Capture", E4 "The Letter".
+- **E2 just integrated** (report `handoff/app-to-design/2026-10-19-ascent-integrated.md`). e2e proves the approach start, the arena entry, pause, finish + save and clean exits; the full run (landing, floors 1–2, lift, boss kill) is not driven by a test. Julius plays it by hand. End text and room names are placeholders for the storyteller.
+- **E4 integrated (Codex, Julius's request):** `src/levels/end4/`, handoff `handoff/app-to-design/2026-10-18-end4-letter-built.md`.
+- **Bridge, proper version (todo, Julius):** run it inside Chapter 2 (no reload, no second renderer): store phases (film / choice / ride) driven by `bridge.js direct(t)`, the real Ch2 controller + `sim.world` colliders, ThirdPerson with `camPose` override, the React HUD, `phaseOne` as a `WorldModule`, crowd hidden, quality tiers, sound cues, pause menu (today: none, mouse drag to look).
 - **E1:** moving enemies and the sandbox-door question wait on Julius (`handoff/build-to-story/2026-10-16-end1-integrated.md`).
-- **Ch1/Ch2 done for now**; refinements after all chapters. Still to come from the designer: whole-game map regions (then cross-chapter travel). Intro, sound, forge ending and decor are drafts: re-copy on a new export.
+- **Ch1/Ch2 done for now**; refinements after all chapters. Still to come from the designer: whole-game map regions (then cross-chapter travel).
 - **Known limits:** after leaving a machine the browser may need a click to re-lock the mouse; e2e renders on the GPU (Vulkan), `E2E_SWIFTSHADER=1` falls back to CPU WebGL (~1 FPS); DOM screens are never hidden by 3D objects.
-- Tests: 53 unit + 12 browser.
+- Tests: 53 unit + 15 browser.

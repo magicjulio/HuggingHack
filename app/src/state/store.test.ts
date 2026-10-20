@@ -67,9 +67,11 @@ describe('game store', () => {
     });
   });
 
-  it('ending 1 is selectable and keeps the best run time', () => {
+  it('endings are selectable and ending 1 keeps the best run time', () => {
     expect(useGame.getState().selectChapter('end1')).toBe(true);
-    expect(useGame.getState().selectChapter('end2')).toBe(false);
+    // all four endings are built now; an unknown id is still locked
+    expect(useGame.getState().selectChapter('end2')).toBe(true);
+    expect(useGame.getState().selectChapter('end5')).toBe(false);
     const rec = useGame.getState().recordBestTime;
     rec('end1', 120.5);
     rec('end1', 130);

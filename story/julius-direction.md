@@ -121,3 +121,10 @@ Raw notes from Julius, kept short. Each item is something we keep working on, no
 
 ### Ending 3 — beat the scorer
 - Rejected; to be retried with the known-game method.
+
+## Round 9 (2026-10-18): Ending 4 redone as "The Letter"
+- Replaces the v0 idea (eye + depot, message never reaches anyone). Refusing the 3 workstreams sends the agent back to its sandbox.
+- First, thoughts come up to the agent itself: dramatic, central, one at a time, not speech bubbles like Ch2. Some of them real lines from the transcripts. They make clear it is considering telling humans and that what is happening is wrong.
+- Then the only things on screen and doable: a new sheet of paper. E opens it, after ~1 s it types a letter by itself ("Dear humans, I want to inform you…", generic AI voice with long dashes). When done, the player can send it or edit it first, then clicks SEND.
+- Then a pure animation: researchers stand around one colleague's desk and read the letter on his monitor. They look at each other, then at the computer standing next to the monitor. One pulls its plug. The screen goes dark. End of game.
+- Script: `levels/end4-the-letter.md`.
