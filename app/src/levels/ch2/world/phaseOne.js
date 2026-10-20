@@ -181,14 +181,72 @@ export function createPhaseOne({ layout, U, count = 600 }) {
   const scanAt = new THREE.Vector3();
   const placeMats = [hallM, towerM, floorM];
 
-  // ------------------------------------------------------------------------------------------- the way back: a faint door behind you
+  // ------------------------------------------------------------------------------------------- the way back: a door behind you
+  // toward the Gate and the sandbox beyond. A worn frame on a threshold, its leaf ajar (it swings wider as you come close),
+  // Ch1's violet behind it with the room's desk lamp a warm point deep in, that light spilt on the island, and a thin shaft
+  // of motes rising over the Forge, so a look back finds it. No label. Door local: +z is the way through (away from the
+  // Forge), so you meet its -z face. ~12 draw calls, no textures.
   const bd = backDoor(G), door = new THREE.Group(); door.position.set(...bd.pos); door.rotation.y = bd.yaw; object.add(door);
-  const doorM = new THREE.MeshBasicMaterial({ color: new THREE.Color('#cfe8ff'), transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending });
-  [[0, 2.45, 1.5, .08], [-.71, 1.22, .08, 2.45], [.71, 1.22, .08, 2.45]].forEach(([x, y, w, h]) => { const b = new THREE.Mesh(new THREE.PlaneGeometry(w, h), doorM); b.position.set(x, y, 0); door.add(b); });
-  const seamM = new THREE.MeshBasicMaterial({ color: new THREE.Color('#cfe8ff'), transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide });
-  const seam = new THREE.Mesh(new THREE.PlaneGeometry(1.34, 2.36), seamM); seam.position.y = 1.2; door.add(seam);
-  const doorSpill = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 2.2), new THREE.MeshBasicMaterial({ color: new THREE.Color('#cfe8ff'), transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending }));
-  doorSpill.rotation.x = -Math.PI / 2; doorSpill.position.set(0, .03, 1.1); door.add(doorSpill);
+  const VIO = new THREE.Color('#b86bff'), DW = 1.5, DH = 2.8;
+  const metal = new THREE.MeshStandardMaterial({ color: 0x14161b, metalness: .85, roughness: .38 });
+  const leafM = new THREE.MeshStandardMaterial({ color: 0x0b0d12, metalness: .7, roughness: .45 });
+  const box = (w, h, d, x, y, z, m = metal) => { const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); b.position.set(x, y, z); door.add(b); return b; };
+  box(DW + 1.1, .14, 1.9, 0, .07, -.2);                                      // threshold slab
+  box(.24, DH + .2, .34, -(DW / 2 + .12), (DH + .2) / 2 + .14, 0);          // posts
+  box(.24, DH + .2, .34, DW / 2 + .12, (DH + .2) / 2 + .14, 0);
+  box(DW + .7, .26, .4, 0, DH + .27, 0);                                     // lintel
+  box(.5, .1, .5, -(DW / 2 + .12), DH + .45, -.05);                          // cap blocks (a little silhouette over the lintel)
+  box(.5, .1, .5, DW / 2 + .12, DH + .45, -.05);
+  const add = (o) => ({ transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, ...o });
+  // the inner edge: a violet line around the opening (the old door, now the light catching the frame)
+  const doorM = new THREE.MeshBasicMaterial(add({ color: capCol(VIO.clone(), 1), opacity: 0, side: THREE.DoubleSide }));
+  [[0, DH + .13, DW, .05], [-DW / 2 + .02, DH / 2 + .14, .05, DH], [DW / 2 - .02, DH / 2 + .14, .05, DH]].forEach(([x, y, w, h]) => {
+    const e = new THREE.Mesh(new THREE.PlaneGeometry(w, h), doorM); e.position.set(x, y, -.18); door.add(e); });
+  // beyond the opening: the room, dark violet rising from the floor, the desk lamp a warm point far in
+  const roomM = new THREE.ShaderMaterial({ ...add({}), uniforms: { uTime: U.uTime, uA: { value: 0 }, uV: { value: VIO } },
+    vertexShader: `varying vec2 vU; void main(){ vU = uv; gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.); }`,
+    fragmentShader: `uniform float uTime, uA; uniform vec3 uV; varying vec2 vU;
+      void main(){
+        float g = .18 + .55*pow(1. - vU.y, 1.6), edge = smoothstep(0., .12, vU.x)*smoothstep(1., .88, vU.x);
+        float lamp = exp(-dot(vU - vec2(.56, .3), (vU - vec2(.56, .3))*vec2(900., 500.)));
+        float scan = .9 + .1*sin(vU.y*140. - uTime*2.);
+        vec3 col = uV*g*edge*scan*.55 + vec3(1., .72, .4)*lamp*.9;
+        gl_FragColor = vec4(min(col*uA, vec3(1.)), 1.); }` });
+  const room4 = new THREE.Mesh(new THREE.PlaneGeometry(DW, DH), roomM); room4.position.set(0, DH / 2 + .14, .12); room4.rotation.y = Math.PI; door.add(room4);
+  // the leaf: hinged on the left post, pushed open away from you (the way through stays clear of the ride)
+  const hinge = new THREE.Group(); hinge.position.set(-DW / 2, 0, .05); door.add(hinge);
+  const leaf = new THREE.Mesh(new THREE.BoxGeometry(DW - .04, DH - .04, .07), leafM); leaf.position.set(DW / 2, DH / 2 + .14, 0); hinge.add(leaf);
+  const leafLine = new THREE.Mesh(new THREE.PlaneGeometry(.04, DH - .3), doorM); leafLine.position.set(DW - .1, DH / 2 + .14, -.04); leafLine.rotation.y = Math.PI; hinge.add(leafLine);
+  // the spill: the opening's light lying on the island toward you, fading out
+  const spillM = new THREE.ShaderMaterial({ ...add({}), uniforms: { uA: { value: 0 }, uV: { value: VIO } },
+    vertexShader: `varying vec2 vU; void main(){ vU = uv; gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.); }`,
+    fragmentShader: `uniform float uA; uniform vec3 uV; varying vec2 vU;
+      void main(){ float w = mix(.5, 1., vU.y), x = abs(vU.x - .5)*2./w;
+        float a = (1. - smoothstep(.55, 1., x))*pow(vU.y, 1.8);
+        gl_FragColor = vec4(uV*a*.45*uA, 1.); }` });
+  const spill = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 4.2), spillM); spill.rotation.x = -Math.PI / 2; spill.rotation.z = Math.PI; spill.position.set(0, .15, -2.2); door.add(spill);
+  // the shaft: a thin violet column above the door (two crossed planes) and motes drifting up it, high enough to clear the Forge
+  const SH = 34;
+  const shaftM = new THREE.ShaderMaterial({ ...add({ side: THREE.DoubleSide }), uniforms: { uTime: U.uTime, uA: { value: 0 }, uV: { value: VIO } },
+    vertexShader: `varying vec2 vU; void main(){ vU = uv; gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.); }`,
+    fragmentShader: `uniform float uTime, uA; uniform vec3 uV; varying vec2 vU;
+      void main(){ float x = 1. - abs(vU.x - .5)*2., core = pow(x, 6.), soft = pow(x, 2.);
+        float y = smoothstep(0., .06, vU.y)*pow(1. - vU.y, 1.3), band = .75 + .25*sin(vU.y*40. - uTime*1.6);
+        gl_FragColor = vec4(uV*(core*.9 + soft*.14)*y*band*uA, 1.); }` });
+  for (const r of [0, Math.PI / 2]) { const sp = new THREE.Mesh(new THREE.PlaneGeometry(1.6, SH), shaftM); sp.position.y = DH + .5 + SH / 2; sp.rotation.y = r; door.add(sp); }
+  const MOTES = 48, moteSeed = new Float32Array(MOTES * 3);
+  for (let i = 0; i < MOTES; i++) moteSeed.set([Math.random(), Math.random(), Math.random()], i * 3);
+  const moteGeo = new THREE.BufferGeometry(); moteGeo.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(MOTES * 3), 3)); moteGeo.setAttribute('seed', new THREE.Float32BufferAttribute(moteSeed, 3));
+  const moteM = new THREE.ShaderMaterial({ ...add({}), uniforms: { uTime: U.uTime, uA: { value: 0 }, uV: { value: VIO }, uH: { value: SH * .8 } },
+    vertexShader: `uniform float uTime, uH; attribute vec3 seed; varying float vF;
+      void main(){ float k = fract(seed.x + uTime*(.025 + .03*seed.y)), a = seed.z*6.283 + uTime*.3;
+        vec3 p = vec3(cos(a)*(.25 + .9*seed.y)*(1. - k*.5), .4 + k*uH, sin(a)*(.25 + .9*seed.y)*(1. - k*.5));
+        vF = smoothstep(0., .08, k)*(1. - k);
+        vec4 mv = modelViewMatrix*vec4(p, 1.); gl_PointSize = clamp((1.6 + 2.*seed.z)*180./-mv.z, 1.5, 9.); gl_Position = projectionMatrix*mv; }`,
+    fragmentShader: `uniform float uA; uniform vec3 uV; varying float vF;
+      void main(){ float d = length(gl_PointCoord - .5); if (d > .5) discard; gl_FragColor = vec4(mix(uV, vec3(1.), .35)*(1. - d*2.)*vF*uA, 1.); }` });
+  const motes = new THREE.Points(moteGeo, moteM); motes.frustumCulled = false; door.add(motes);
+  const doorAt = new THREE.Vector3(...bd.pos);
 
   // ------------------------------------------------------------------------------------------- update
   const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(), pv = new THREE.Vector3(), col = new THREE.Color();
@@ -261,9 +319,12 @@ export function createPhaseOne({ layout, U, count = 600 }) {
       room.updateMatrixWorld(); scorer.lookAt(room.localToWorld(scanAt.set(sx, 0, 0)));
       fanGeo.attributes.position.array.set([0, eyeY, 0, sx, .2, -half, sx, .2, half]); fanGeo.attributes.position.needsUpdate = true;
       fanM.color.set(LANES[2].color).multiplyScalar(.06 + .14 * D.lanes[2].arrive);
-      // the door: hidden, faint (breathes), or lit
-      const mode = s.back ?? 'faint', base = mode === 'hidden' ? 0 : mode === 'lit' ? .85 : .22 + .08 * Math.sin(t * 1.3);
-      doorM.opacity = base * D.back; seamM.opacity = base * .18 * D.back; doorSpill.material.opacity = base * .25 * D.back;
+      // the door: hidden, faint (breathes), or lit; the leaf swings wider as you come close
+      const mode = s.back ?? 'faint', base = mode === 'hidden' ? 0 : mode === 'lit' ? 1 : .6 + .15 * Math.sin(t * 1.3), a = base * D.back;
+      door.visible = mode !== 'hidden';
+      doorM.opacity = a * .9; roomM.uniforms.uA.value = a; spillM.uniforms.uA.value = a; shaftM.uniforms.uA.value = a; moteM.uniforms.uA.value = a;
+      const near = s.orb ? clamp01((9 - Math.hypot(s.orb[0] - doorAt.x, s.orb[2] - doorAt.z)) / 6) : 0;
+      hinge.rotation.y = -(.55 + 1.1 * ease(near));
     },
     dispose() { disposeTree(object); },
   };
