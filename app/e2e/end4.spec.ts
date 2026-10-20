@@ -77,7 +77,7 @@ test('letter: reduced motion, return to choice, and replay', async ({ page }) =>
   await enter(page);
   await expect(page.locator('.end4')).toHaveClass(/e4-reduced/);
   await page.getByRole('button', { name: 'Skip thoughts' }).click();
-  await page.getByRole('button', { name: 'Open the paper' }).click();
+  await page.getByRole('button', { name: 'Open mail' }).click();
   const editor = page.getByRole('textbox', { name: 'Your letter to the humans' });
   await expect(editor).not.toHaveAttribute('readonly');
   await editor.fill('Please read this.');

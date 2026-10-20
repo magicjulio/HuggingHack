@@ -322,7 +322,7 @@ export default function End4(props: LevelProps) {
           </div>
           <button className="e4-open" ref={openButton} onClick={openPaper}>
             <kbd>E</kbd>
-            <span>{clock.phase === 'desk' ? 'Open the paper' : 'Return to the letter'}</span>
+            <span>{clock.phase === 'desk' ? 'Open mail' : 'Return to the mail'}</span>
             <small>on the desk, where it began</small>
           </button>
         </>
