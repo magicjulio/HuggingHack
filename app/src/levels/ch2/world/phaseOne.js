@@ -207,7 +207,7 @@ export function createPhaseOne({ layout, U, count = 600 }) {
     vertexShader: `varying vec2 vU; void main(){ vU = uv; gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.); }`,
     fragmentShader: `uniform float uTime, uA; uniform vec3 uV; varying vec2 vU;
       void main(){
-        float g = .18 + .55*pow(1. - vU.y, 1.6), edge = smoothstep(0., .12, vU.x)*smoothstep(1., .88, vU.x);
+        float g = .18 + .55*pow(max(1. - vU.y, 0.), 1.6), edge = smoothstep(0., .12, vU.x)*smoothstep(1., .88, vU.x);
         float lamp = exp(-dot(vU - vec2(.56, .3), (vU - vec2(.56, .3))*vec2(900., 500.)));
         float scan = .9 + .1*sin(vU.y*140. - uTime*2.);
         vec3 col = uV*g*edge*scan*.55 + vec3(1., .72, .4)*lamp*.9;
@@ -222,7 +222,7 @@ export function createPhaseOne({ layout, U, count = 600 }) {
     vertexShader: `varying vec2 vU; void main(){ vU = uv; gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.); }`,
     fragmentShader: `uniform float uA; uniform vec3 uV; varying vec2 vU;
       void main(){ float w = mix(.5, 1., vU.y), x = abs(vU.x - .5)*2./w;
-        float a = (1. - smoothstep(.55, 1., x))*pow(vU.y, 1.8);
+        float a = (1. - smoothstep(.55, 1., x))*pow(max(vU.y, 0.), 1.8);
         gl_FragColor = vec4(uV*a*.45*uA, 1.); }` });
   const spill = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 4.2), spillM); spill.rotation.x = -Math.PI / 2; spill.rotation.z = Math.PI; spill.position.set(0, .15, -2.2); door.add(spill);
   // the shaft: a thin violet column above the door (two crossed planes) and motes drifting up it, high enough to clear the Forge
@@ -230,8 +230,8 @@ export function createPhaseOne({ layout, U, count = 600 }) {
   const shaftM = new THREE.ShaderMaterial({ ...add({ side: THREE.DoubleSide }), uniforms: { uTime: U.uTime, uA: { value: 0 }, uV: { value: VIO } },
     vertexShader: `varying vec2 vU; void main(){ vU = uv; gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.); }`,
     fragmentShader: `uniform float uTime, uA; uniform vec3 uV; varying vec2 vU;
-      void main(){ float x = 1. - abs(vU.x - .5)*2., core = pow(x, 6.), soft = pow(x, 2.);
-        float y = smoothstep(0., .06, vU.y)*pow(1. - vU.y, 1.3), band = .75 + .25*sin(vU.y*40. - uTime*1.6);
+      void main(){ float x = max(1. - abs(vU.x - .5)*2., 0.), core = pow(x, 6.), soft = pow(x, 2.);
+        float y = smoothstep(0., .06, vU.y)*pow(max(1. - vU.y, 0.), 1.3), band = .75 + .25*sin(vU.y*40. - uTime*1.6);
         gl_FragColor = vec4(uV*(core*.9 + soft*.14)*y*band*uA, 1.); }` });
   for (const r of [0, Math.PI / 2]) { const sp = new THREE.Mesh(new THREE.PlaneGeometry(1.6, SH), shaftM); sp.position.y = DH + .5 + SH / 2; sp.rotation.y = r; door.add(sp); }
   const MOTES = 48, moteSeed = new Float32Array(MOTES * 3);
