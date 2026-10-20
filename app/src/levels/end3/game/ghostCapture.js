@@ -30,6 +30,8 @@ export const T = {
   clearDelay: 1.05,
 };
 const startingLevel = 0;
+// height / width of deep-archive-platform-surface.png (2172 × 430)
+const ARCHIVE_SLAB_ASPECT = 430 / 2172;
 
 /**
  * @param {HTMLElement} root  empty element the game fills (full viewport)
@@ -137,15 +139,20 @@ function makeRoom() {
     }
   }
   for (const p of L.platforms) {
-    plane(
-      p.x,
-      p.y - p.h / 2,
-      p.w,
-      p.h,
-      "#ffffff",
-      0,
-      archive ? art.archivePlatform : art.platform,
-    );
+    // app: a tall archive block stacks the slab art near its own aspect instead of stretching one slab
+    // over the whole height (room 4's divider read as a smeared pillar)
+    const slab = archive ? p.w * ARCHIVE_SLAB_ASPECT : p.h;
+    const rows = Math.max(1, Math.round(p.h / slab));
+    for (let i = 0; i < rows; i++)
+      plane(
+        p.x,
+        p.y - (p.h / rows) * (i + 0.5),
+        p.w,
+        p.h / rows,
+        "#ffffff",
+        0,
+        archive ? art.archivePlatform : art.platform,
+      );
     plane(
       p.x,
       p.y + 0.025,

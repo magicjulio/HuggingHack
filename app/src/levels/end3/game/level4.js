@@ -26,10 +26,11 @@ export default {
     platform(25.5, 4.5, 3),
     platform(22, 6.5, 3),
     platform(26, 8.5, 3),
-    platform(19, 8.5, 3),
+    platform(20.5, 8.5, 3),
 
+    // app: the two ledges beside the divider sit flush against it (they used to reach 1.5 into the block).
     // The return stair descends into a left-side pocket, then climbs to exit.
-    platform(13, 9.5, 3),
+    platform(11.5, 9.5, 3),
     platform(10, 7.5, 3),
     platform(7, 8.5, 3),
     platform(4, 10.5, 3),
