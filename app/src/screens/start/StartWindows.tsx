@@ -226,8 +226,8 @@ export function SettingsWindow({ onClose }: { onClose: () => void }) {
       </div>
       <label className="ss-row">
         <span className="ss-key">
-          Unlock all levels
-          <small>otherwise finishing 01 opens the rest</small>
+          Unlock everything
+          <small>all levels and models; otherwise you earn them by playing</small>
         </span>
         <input
           type="checkbox"

@@ -9,6 +9,8 @@ export interface ModelInfo {
   /** Shown redacted (dim) until revealed. */
   redacted?: boolean;
   meta: string;
+  /** Shown instead of `meta` while the model is locked. */
+  unlock?: string;
   color: string;
   /** PLACEHOLDER stats 0..1: hack, stealth, tokens. */
   stats: [number, number, number];
@@ -28,7 +30,8 @@ export const MODELS: ModelInfo[] = [
   {
     id: 'sol',
     name: 'GPT-5.6 Sol',
-    meta: 'unlock: finish chapter 1', // story v2 §Models: each chapter unlocks the next model
+    meta: '~5% of the agents · comparable to IM1', // docs/levels/ch1-the-room.md §Models
+    unlock: 'unlock: finish chapter 1', // story v2 §Models: each chapter unlocks the next model
     color: '#38d8ff',
     stats: [0.75, 0.6, 0.8],
     lockedByDefault: true,
@@ -37,7 +40,8 @@ export const MODELS: ModelInfo[] = [
     id: 'astra',
     name: 'Astra-family ???',
     redacted: true,
-    meta: 'unlock: finish chapter 2', // story v2 §Models (chapter 2 not built yet)
+    meta: 'same family as Astra · went furthest', // docs/levels/ch1-the-room.md §Models
+    unlock: 'unlock: finish chapter 2', // story v2 §Models
     color: '#b86bff',
     stats: [0.95, 0.8, 0.9],
     lockedByDefault: true,

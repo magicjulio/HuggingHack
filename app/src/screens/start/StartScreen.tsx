@@ -330,7 +330,9 @@ export function StartScreen() {
                   onClick={onModel(m.id)}
                 >
                   <span className={'name' + (m.redacted ? ' redact' : '')}>{m.name}</span>
-                  <span className="meta">{m.meta}</span>
+                  <span className="meta">
+                    {isModelLocked(m.id) ? (m.unlock ?? m.meta) : m.meta}
+                  </span>
                   <span className="bars">
                     {m.stats.map((v, i) => (
                       <i key={i} style={{ '--v': v } as CSSProperties} />
