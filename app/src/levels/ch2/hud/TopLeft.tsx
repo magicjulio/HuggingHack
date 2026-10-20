@@ -10,10 +10,9 @@ import { TOKENS } from '../config';
 import { PIECES } from '../layout';
 import { FLOOR_STEPS } from '../store';
 import { ICONS } from './kit';
+import '../../../ui/gamehud.css';
 
 // ------------------------------------------------------------------ tokens
-const SEGMENTS = 20;
-
 export function Tokens({ poisoned }: { poisoned: boolean }) {
   const tokens = useCh2((s) => Math.round(s.tokens));
   const floor = useCh2((s) => FLOOR_STEPS.has(s.stepId));
@@ -30,41 +29,32 @@ export function Tokens({ poisoned }: { poisoned: boolean }) {
     if (d < 0) setHit(id);
   }, [tokens]);
   const shown = Math.max(0, Math.min(TOKENS.start, tokens));
-  const on = Math.ceil((shown / TOKENS.start) * SEGMENTS);
   return (
     <div
-      // re-keyed on a hit so the kit's hit shake plays again
+      // re-keyed on a hit so the hit shake plays again
       key={hit}
       className={
-        'c1-tokens' +
-        (shown < 30 ? ' is-low' : '') +
-        (hit ? ' is-hit' : '') +
-        (poisoned ? ' is-poisoned' : '')
+        'gh-tokens' + (shown < 30 ? ' is-low' : '') + (hit ? ' is-hit' : '') + (poisoned ? ' is-poisoned' : '')
       }
     >
-      <div className="c1-tokens__row">
-        <span>
-          TOKENS{' '}
-          <span className={'c2-poisoned' + (poisoned ? ' is-on' : '')}>
-            <span dangerouslySetInnerHTML={{ __html: ICONS.poisoned }} />
-            <span>POISONED</span>
+      <div className="gh-row">
+        <span>Tokens</span>
+        <span className="gh-barbox">
+          <span className="gh-bar">
+            <i className={shown < 30 ? 'warn' : ''} style={{ width: `${(shown / TOKENS.start) * 100}%` }} />
           </span>
+          {floor && (
+            <span className="gh-floor" style={{ left: `${(TOKENS.earlyFloor / TOKENS.start) * 100}%` }} />
+          )}
         </span>
-        <span className="c1-tokens__n">{tokens}</span>
+        <span className="gh-n">{tokens}</span>
       </div>
-      <div className="c1-tokens__bar">
-        {Array.from({ length: SEGMENTS }, (_, i) => (
-          <i key={i} className={i < on ? 'on' : ''} />
-        ))}
-        {floor && (
-          <span
-            className="c1-tokens__floor"
-            style={{ left: `${(TOKENS.earlyFloor / TOKENS.start) * 100}%` }}
-          />
-        )}
-      </div>
+      <span className={'c2-poisoned' + (poisoned ? ' is-on' : '')} style={{ alignSelf: 'flex-start', margin: 0 }}>
+        <span dangerouslySetInnerHTML={{ __html: ICONS.poisoned }} />
+        <span>POISONED</span>
+      </span>
       {deltas.map((x) => (
-        <span key={x.id} className={'c1-delta ' + (x.d > 0 ? 'c1-delta--gain' : 'c1-delta--cost')}>
+        <span key={x.id} className={'c1-delta gh-delta ' + (x.d > 0 ? 'c1-delta--gain' : 'c1-delta--cost')}>
           {x.d > 0 ? '+' : ''}
           {x.d}
         </span>

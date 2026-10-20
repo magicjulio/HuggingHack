@@ -59,7 +59,7 @@
 }
 .gh-row {
   display: grid;
-  grid-template-columns: 4.6em 1fr 3ch;
+  grid-template-columns: 4.6em 1fr 4ch;
   align-items: center;
   gap: 0.7rem;
   font-size: var(--fs-xs);
@@ -120,3 +120,27 @@
 @media (max-width: 800px) {
   .gh-goal { max-width: 60vw; }
 }
+
+/* The tokens bar of Chapters 1 and 2: the same row as the endings' vitals, in the top-left stack above the quests
+   (their bottom corners are taken by the transcript and the inventory). */
+.gh-tokens {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  width: clamp(170px, 16vw, 280px);
+  font-family: var(--font-mono);
+  color: var(--color-text);
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.85);
+}
+.gh-tokens.is-hit { animation: c1-hit 0.35s; }
+.gh-tokens .gh-floor {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  width: 2px;
+  background: var(--color-warn-amber);
+  opacity: 0.8;
+}
+.gh-tokens .gh-barbox { position: relative; display: block; }
+.gh-tokens .gh-delta { position: absolute; right: 0; top: -1.4em; }

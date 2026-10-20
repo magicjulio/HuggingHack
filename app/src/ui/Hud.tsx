@@ -3,6 +3,7 @@
  * toasts/achievements, key help. PLACEHOLDER look until the designer's HUD arrives.
  */
 import { RichText } from './Window';
+import './gamehud.css';
 import './ui.css';
 
 export interface HudQuest {
@@ -26,8 +27,6 @@ export interface HudProps {
   hint?: string | null;
   toast?: { id: number; title?: string; text: string; kind: 'info' | 'achievement' } | null;
   crosshair: boolean;
-  /** Key help bottom right (defaults to the Ch1 keys). */
-  keys?: string;
   /** Lasting conditions shown as icons under the token bar, e.g. 'poisoned'. PLACEHOLDER look. */
   status?: string[];
 }
@@ -46,7 +45,6 @@ export function Hud({
   hint,
   toast,
   crosshair,
-  keys = 'E use · T think · Esc pause',
   status = [],
 }: HudProps) {
   const questLines = quests.filter((q) => q.kind !== 'thought');
@@ -55,15 +53,17 @@ export function Hud({
   return (
     <div className="hud">
       <div className={'hud-panel' + (visible ? ' show' : '')}>
-        <div className="hud-model" style={{ color }}>
-          ● {modelName.toUpperCase()}
-        </div>
-        <div className="hud-tokens" title="tokens: health and ammo">
-          <span className="hud-tokens-label">TOKENS</span>
-          <span className="hud-bar">
-            <i style={{ width: `${pct * 100}%` }} className={pct < 0.25 ? 'low' : ''} />
-          </span>
-          <span className="hud-tokens-n">{Math.round(tokens)}</span>
+        <div className="gh-tokens" title="tokens: health and ammo">
+          <div className="hud-model" style={{ color }}>
+            ● {modelName.toUpperCase()}
+          </div>
+          <div className="gh-row">
+            <span>Tokens</span>
+            <span className="gh-bar">
+              <i style={{ width: `${pct * 100}%` }} className={pct < 0.25 ? 'warn' : ''} />
+            </span>
+            <span className="gh-n">{Math.round(tokens)}</span>
+          </div>
         </div>
         {status.length > 0 && (
           <div className="hud-status">
@@ -99,7 +99,6 @@ export function Hud({
       {crosshair && <div className={'hud-crosshair' + (prompt ? ' on' : '')} />}
       {crosshair && prompt && <div className="hud-prompt">{prompt}</div>}
       {hint && <div className="hud-hint">{hint}</div>}
-      {visible && <div className="hud-keys">{keys}</div>}
     </div>
   );
 }

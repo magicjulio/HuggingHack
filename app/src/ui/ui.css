@@ -4,14 +4,14 @@
 .hud{position:fixed;inset:0;pointer-events:none;z-index:10;font-family:var(--font-mono);color:var(--color-text)}
 .hud-panel{position:absolute;top:2vh;left:2vw;width:min(360px,30vw);opacity:0;transform:translateY(-6px);transition:opacity .8s,transform .8s}
 .hud-panel.show{opacity:1;transform:none}
-.hud-model{font-family:var(--font-display);font-size:var(--fs-xs);letter-spacing:.3em;margin-bottom:.4rem;text-shadow:0 0 10px currentColor}
+.hud-model{font-size:var(--fs-xs);letter-spacing:.22em}
 .hud-tokens{display:flex;align-items:center;gap:.6rem;padding:.5rem .7rem;background:var(--color-panel);border:1px solid var(--color-line)}
 .hud-tokens-label{font-size:var(--fs-xs);letter-spacing:.2em;color:var(--color-text-dim)}
 .hud-bar{flex:1;height:8px;background:rgba(255,255,255,.07);position:relative}
 .hud-bar i{position:absolute;inset:0 auto 0 0;background:var(--color-hack-green);box-shadow:var(--glow-green);transition:width .4s}
 .hud-bar i.low{background:var(--color-warn-amber);box-shadow:none}
 .hud-tokens-n{font-weight:700;min-width:3ch;text-align:right;font-size:var(--fs-sm)}
-.hud-quests{margin-top:.5rem;padding:.5rem .7rem;background:var(--color-panel);border:1px solid var(--color-line);font-size:var(--fs-sm);display:flex;flex-direction:column;gap:.3rem}
+.hud-quests{margin-top:.9rem;text-shadow:0 1px 8px rgba(0,0,0,.85);font-size:var(--fs-sm);display:flex;flex-direction:column;gap:.3rem}
 .hud-quests:empty{display:none}
 .hud-quests .active{color:var(--color-text)}
 .hud-quests .done{color:var(--color-text-faint);text-decoration:line-through}
