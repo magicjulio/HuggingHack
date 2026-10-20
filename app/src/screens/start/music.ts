@@ -39,10 +39,11 @@ export function useStartMusic() {
         .play()
         .then(() => {
           if (!useGame.getState().spotifyPlaying) fade(1, FADE_IN_S * 1000);
-          removeInputs();
         })
         .catch(() => {}); // not allowed yet: the next input tries again
     };
+    // Inputs stay armed while mounted: Firefox lets a silent (volume 0) start through, then pauses it
+    // once the fade-in makes it audible; the next click or key then starts it for real.
     const inputs = ['pointerdown', 'keydown', 'click', 'touchend'] as const;
     const removeInputs = () => inputs.forEach((e) => removeEventListener(e, play));
     inputs.forEach((e) => addEventListener(e, play));
