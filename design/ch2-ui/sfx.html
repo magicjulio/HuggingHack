@@ -38,7 +38,7 @@ import { createSfx } from './sfx.js';
 const sfx = createSfx(), $ = (s) => document.querySelector(s);
 const GROUPS = [
   ['Moving (body events)', [['jump'], ['land', { speed: 12 }, 'hard'], ['land', { speed: 4 }, 'soft'], ['dash'], ['glide'], ['fell']]],
-  ['Playing (game events)', [['respawned'], ['respawned', { why: 'reset' }, 'after reset'], ['item_taken'], ['crumble', null, 'decoy'], ['token'], ['pad', null, 'new respawn pad'], ['talk', null, 'bubble line'], ['shoot', null, 'click'], ['muted', null, 'bit muted'], ['hit', null, 'spit'], ['cloud_tick', null, 'drain tick'], ['laser_sweep', null, 'near a laser'], ['reset', null, 'laser hit']]],
+  ['Playing (game events)', [['respawned'], ['respawned', { why: 'reset' }, 'after reset'], ['item_taken'], ['token'], ['pad', null, 'new respawn pad'], ['talk', null, 'bubble line'], ['shoot', null, 'click'], ['muted', null, 'bit muted'], ['hit', null, 'spit'], ['cloud_tick', null, 'drain tick'], ['laser_sweep', null, 'near a laser'], ['reset', null, 'laser hit']]],
   ['The forge', [['proof_tick', null, 'pair lights'], ['proof_done', null, 'SAME SAME'], ['slot_in', null, 'E'], ['forge_started'], ['forge_rewind', null, 'bit hit forge'], ['round_done', { n: 1 }, 'round 1'], ['round_done', { n: 2 }, 'round 2'], ['round_done', { n: 3 }, 'round 3'], ['flag_fly', null, '2.5 s'], ['flag_in_orb'], ['poison']]],
   ['Step 0 · intro', [['flash_in'], ['reply'], ['type_tick'], ['open'], ['stream'], ['tornado_land']]],
   ['Step 7 · cutscene', [['line_lands'], ['power_down'], ['echo_voice'], ['key_bell', null, 'MAY FAIL'], ['paper'], ['rule_bell'], ['rising', null, 'montage'], ['cut_tick'], ['hard_cut'], ['flinch'], ['stamp', null, 'POISONED'], ['struck'], ['gone'], ['local_copy'], ['thought'], ['hud_back']]],

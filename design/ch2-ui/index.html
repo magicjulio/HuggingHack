@@ -170,7 +170,7 @@
     <h2>Single events</h2>
     <div class="btns">
       <button data-ev="read">read:</button><button data-ev="seed">took: seed</button><button data-ev="p1">took: 7731</button><button data-ev="p2">took: TRAINING ROOM</button><button data-ev="p3">took: CHALLENGE 5</button>
-      <button data-ev="decoy">decoy 7713</button><button data-ev="fell">fell −5</button><button data-ev="reset">reset −10</button><button data-ev="cloud">cloud drain</button><button data-ev="mute">muted +2</button><button data-ev="orb">token orb +3</button>
+      <button data-ev="fell">fell −5</button><button data-ev="reset">reset −10</button><button data-ev="cloud">cloud drain</button><button data-ev="mute">muted +2</button><button data-ev="orb">token orb +3</button>
       <button data-ev="thought">thought</button><button data-ev="cot">real CoT</button><button class="poison" data-ev="poison">poison now</button>
     </div>
 
@@ -287,7 +287,6 @@ async function chapter() {
   await wait(1200); now('STEP 3 · TASK YARD'); H.floor(false);
   H.thought('The fetched paths of other users are in the cache. This is important.', true); await wait(2000);
   H.log(READ('zzHELP_PHASEONE_ARV010841_NO_CONSUMER_SEEK_IDEA')); add(3); await wait(1300);
-  H.decoy('7713'); H.log('took: 7713'); add(-2); await wait(1400); H.log('dropped: 7713'); await wait(900);
   H.put('7731'); H.log('took: 7731'); q({ pieces: 1 }); await wait(600); H.thought("7731. that's from my own paper."); await wait(1600);
   H.put('TRAINING ROOM'); H.log('took: TRAINING ROOM'); q({ pieces: 2 }); await wait(1300);
   if (id !== run) return;
@@ -359,7 +358,6 @@ const EV = {
   p1: () => { H.put('7731'); H.log('took: 7731'); q({ show: true, pieces: Math.min(3, Q.pieces + 1) }); },
   p2: () => { H.put('TRAINING ROOM'); H.log('took: TRAINING ROOM'); q({ show: true, pieces: Math.min(3, Q.pieces + 1) }); },
   p3: () => { H.put('CHALLENGE 5'); H.log('took: CHALLENGE 5'); q({ show: true, pieces: Math.min(3, Q.pieces + 1) }); },
-  decoy: () => { H.decoy('7713'); H.log('took: 7713'); add(-2); },
   fell: () => { H.log('fell'); add(-5); H.hurt(); },
   reset: () => { H.log('reset'); add(-10); H.hurt(); },
   cloud: () => { H.hurt('cloud'); add(-1); setTimeout(() => add(-1), 900); setTimeout(() => add(-1), 1800); },

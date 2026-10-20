@@ -61,7 +61,7 @@
 </div>
 <div id="note" class="panel">
   <b>What this is.</b> The whole Ch2 route from the storyteller's map, at the script's heights: <span class="k">Gate → Old Board → Task Yard → Flood → Reset Run → Forge</span>. The Forge floats highest, in the centre, with a beacon so you see it from everywhere. Walk it yourself: click <b>play</b>.<br><br>
-  <b>In:</b> islands, bridges, pads, the 3 NPCs, seed, task pieces + decoys, your Ch1 crates, clouds, flood bits, reset waves, the message counter, the forge machine (idle).<br>
+  <b>In:</b> islands, bridges, pads, the 3 NPCs, seed, task pieces, your Ch1 crates, clouds, flood bits, reset waves, the message counter, the forge machine (idle).<br>
   <b>Not yet:</b> picking things up, the forge rounds, the flag moment, poison, HUD/log/map (design2).
 </div>
 <div id="keys"><b>WASD</b> move · <b>Space</b> jump, hold to glide · <b>Shift</b> dash<br><b>mouse</b> look (click) · <b>H</b> hide panels · <b>R</b> respawn</div>
@@ -245,11 +245,11 @@ let lastPad = pads[0];
 function setPad(pd) { lastPad = pd; }
 
 // ------------------------------------------------------------------------------------------- pickups: world module (./world/pickups.js); plinth + crate colliders are this page's
-// &taken=seed,piece-7731 &crumbled=decoy-1 preview the states
+// &taken=seed,piece-7731 previews the taken state
 const pickupsW = createPickups({ layout: L, U }); scene.add(pickupsW.object);
 const tokenOrbs = pickupsW.tokens;
 const itemState = {};
-for (const k of ['taken', 'crumbled']) for (const id of (Q.get(k) ?? '').split(',').filter(Boolean)) itemState[id] = k;
+for (const k of ['taken']) for (const id of (Q.get(k) ?? '').split(',').filter(Boolean)) itemState[id] = k;
 for (const p of L.pickups) if (p.plinth) discSurface(V(p.plinth.pos[0], p.plinth.top, p.plinth.pos[2]), 1.15, { id: 'plinth' });
 pickupsW.object.children.filter((m) => m.name.startsWith('crate:')).forEach((m) => boxSurface(V(m.position.x, m.position.y + .55, m.position.z), .55, .55, -m.rotation.y, { id: 'crate' }));
 

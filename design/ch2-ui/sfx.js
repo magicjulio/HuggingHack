@@ -11,7 +11,7 @@ export const ONE_SHOTS = [
   // body (engine/platformer events)
   'jump', 'land', 'dash', 'glide', 'fell',
   // game (ch2 store events + state changes)
-  'respawned', 'item_taken', 'crumble', 'token', 'pad', 'talk', 'shoot', 'muted', 'hit', 'cloud_tick', 'reset', 'laser_sweep',
+  'respawned', 'item_taken', 'token', 'pad', 'talk', 'shoot', 'muted', 'hit', 'cloud_tick', 'reset', 'laser_sweep',
   'slot_in', 'proof_tick', 'proof_done', 'forge_started', 'forge_rewind', 'round_done', 'flag_fly', 'flag_in_orb', 'poison',
   // films (cued by step0.js / step7.js)
   'flash_in', 'reply', 'type_tick', 'open', 'stream', 'tornado_land',
@@ -69,7 +69,6 @@ export function createSfx({ context = null } = {}) {
     // game
     respawned: ({ why = 'fell' } = {}) => { [0, 1, 2, 3].forEach((i) => tone(330 * Math.pow(1.26, i), i * .06, .12, { type: 'square', g: .04 })); tone(660, .26, .5, { g: .1 }); noise(.2, .4, { g: .03, f: 6000, q: .5 }); if (why === 'reset') tone(110, 0, .2, { type: 'sawtooth', g: .05 }); },
     item_taken: () => { tone(880, 0, .35, { g: .14 }); tone(1320, .07, .45, { g: .12 }); [0, 1, 2, 3, 4].forEach((i) => tone(R(2400, 4200), .1 + i * .045, .06, { g: .025 })); },
-    crumble: () => { [0, 1, 2, 3, 4, 5].forEach((i) => noise(i * .05, .07, { g: .08 - i * .01, f: 1800 - i * 220, q: 3 })); tone(90, .05, .3, { f2: 45, g: .12 }); },
     token: () => { tone(1500, 0, .06, { type: 'square', g: .035 }); tone(2000, .05, .1, { type: 'square', g: .03 }); },
     pad: () => { chord([220, 330, 440], 0, .7, { g: .06, a: .08, strum: .04 }); },
     talk: () => { [0, 1, 2].forEach((i) => tone(R(500, 1100), i * .07, .05, { type: 'square', g: .025 })); },

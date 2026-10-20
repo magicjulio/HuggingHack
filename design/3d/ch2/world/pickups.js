@@ -1,10 +1,10 @@
-// Ch2 world: the pickups. The seed (a ring of 8 glyphs broadcast on a loop above the Old Board), the task tags and decoys
-// (paper tags lettered like the Ch1 prompt; real and fake look the same, the skill is reading), the CHALLENGE 5 plinth,
+// Ch2 world: the pickups. The seed (a ring of 8 glyphs broadcast on a loop above the Old Board), the task tags
+// (paper tags lettered like the Ch1 prompt), the CHALLENGE 5 plinth,
 // the player's Ch1 installs as crates, and the token orbs. Colliders (plinth, crates) are the caller's.
 // createPickups({ layout, U, crates? }) -> { object, byId, tokens, update(t, dt, state), dispose() }
 //   crates   [{label, pos}] the player's installs (app cratesFor(installed)); default: layout's crate spots with their labels
-//   state    { items: { [layout pickup id]: 'there' | 'taken' | 'crumbled' }, tokens: taken token indices (array or Set) }
-//            taken: the tag/seed snaps up and vanishes (0.35 s); crumbled: a decoy tears into falling scraps (1.2 s)
+//   state    { items: { [layout pickup id]: 'there' | 'taken' }, tokens: taken token indices (array or Set) }
+//            taken: the tag/seed snaps up and vanishes (0.35 s)
 import * as THREE from 'three';
 import { C, TAU, rand, V, VA, canvasTex, haloTex, disposeTree } from './util.js';
 
@@ -48,21 +48,11 @@ export function createPickups({ layout, U, crates = null }) {
         ring.scale.setScalar(1 - k); beam.material.opacity = .35 * (1 - k);
       } };
   }
-  // task tags + decoys (+ the CHALLENGE 5 plinth)
+  // task tags (+ the CHALLENGE 5 plinth)
   const metal = new THREE.MeshStandardMaterial({ color: 0x0c1118, metalness: .8, roughness: .3 });
-  for (const p of layout.pickups.filter((x) => x.kind === 'piece' || x.kind === 'decoy')) {
+  for (const p of layout.pickups.filter((x) => x.kind === 'piece')) {
     const tg = paperTag(p.label); tg.position.copy(VA(p.pos)); object.add(tg);
-    // scraps for the crumble: the card cut into 12 pieces (shares the texture)
-    const scraps = new THREE.Group(); scraps.visible = false; tg.add(scraps);
-    const { w } = tg.userData, cols = 4, rows = 3;
-    for (let i = 0; i < cols * rows; i++) {
-      const cx = i % cols, cy = Math.floor(i / cols), gw = w / cols, gh = .62 / rows;
-      const geo = new THREE.PlaneGeometry(gw, gh), uv = geo.attributes.uv;
-      for (let k = 0; k < uv.count; k++) uv.setXY(k, (cx + uv.getX(k)) / cols, (rows - 1 - cy + uv.getY(k)) / rows);
-      const m = new THREE.Mesh(geo, tg.userData.card.material); m.position.set(-w / 2 + gw * (cx + .5), .31 - gh * (cy + .5), 0);
-      m.userData = { base: m.position.clone(), v: V(rand(-.8, .8), rand(.2, 1.4), rand(-.8, .8)), spin: V(rand(-6, 6), rand(-6, 6), rand(-6, 6)) }; scraps.add(m);
-    }
-    byId[p.id] = { kind: p.kind, grp: tg, base: VA(p.pos), ph: rand(0, TAU), scraps, state: 'there', since: 0 };
+    byId[p.id] = { kind: p.kind, grp: tg, base: VA(p.pos), ph: rand(0, TAU), state: 'there', since: 0 };
     if (p.plinth) {
       const pl = VA(p.plinth.pos);
       const m = new THREE.Mesh(new THREE.CylinderGeometry(1.2, .8, 1.6, 6), metal); m.position.set(pl.x, p.plinth.top - .8, pl.z); object.add(m);
@@ -101,14 +91,9 @@ export function createPickups({ layout, U, crates = null }) {
         const age = clock - it.since;
         if (it.kind === 'seed') { const k = st === 'there' ? 0 : Math.min(1, age / .35); it.grp.visible = k < 1; it.anim(t, k); continue; }
         // tags: float and turn while there
-        const g = it.grp, card = g.userData.card;
-        if (st === 'there') { g.visible = true; card.visible = true; card.material.opacity = 1; g.children.forEach((ch) => ch.visible = ch !== it.scraps); it.scraps.visible = false; g.scale.setScalar(1); g.position.set(it.base.x, it.base.y + Math.sin(t * 1.3 + it.ph) * .12, it.base.z); g.rotation.y = Math.sin(t * .6 + it.ph) * .9; }
-        else if (st === 'taken') { const k = Math.min(1, age / .35); g.visible = k < 1; g.scale.setScalar(1 - .8 * k); g.position.y = it.base.y + k * 1.5; }
-        else {   // crumbled: the card tears into scraps that tumble down and fade
-          const k = Math.min(1, age / 1.2); g.visible = k < 1; card.visible = false; g.children.forEach((ch) => { if (ch !== it.scraps && ch !== card) ch.visible = age < .15; }); it.scraps.visible = true;
-          it.scraps.children.forEach((m) => { const u = m.userData; m.position.copy(u.base).addScaledVector(u.v, age).add(V(0, -2.4 * age * age, 0)); m.rotation.set(u.spin.x * age, u.spin.y * age, u.spin.z * age); m.scale.setScalar(1 - .6 * k); });
-          card.material.opacity = 1 - k;
-        }
+        const g = it.grp;
+        if (st === 'there') { g.visible = true; g.scale.setScalar(1); g.position.set(it.base.x, it.base.y + Math.sin(t * 1.3 + it.ph) * .12, it.base.z); g.rotation.y = Math.sin(t * .6 + it.ph) * .9; }
+        else { const k = Math.min(1, age / .35); g.visible = k < 1; g.scale.setScalar(1 - .8 * k); g.position.y = it.base.y + k * 1.5; }
       }
       tokens.children.forEach((m, i) => { m.visible = !(takenTok && takenTok.has(i)); m.rotation.y = t * 2 + i; m.position.y = m.userData.y + Math.sin(t * 2 + i) * .1; });
     },
