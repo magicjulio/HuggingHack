@@ -54,7 +54,7 @@ async function enter(page: Page) {
   await expect(page.getByText('start ending 3')).toBeVisible();
   await page.keyboard.press('Enter');
   await page.waitForFunction(() => (window as never)['__end3'], null, { timeout: 15000 });
-  await expect(page.locator('.lc.intro .lc-title')).toHaveText('Ghost Capture'); // after the loading card
+  await expect(page.locator('.lc.intro .lc-title')).toHaveText('Fool the Scorer'); // after the loading card
   expect(await page.locator('canvas').count()).toBe(1);
   // the counters see the running game, so the clean-exit checks are not vacuous
   expect(await page.evaluate('window.__liveContexts()')).toBe(1);

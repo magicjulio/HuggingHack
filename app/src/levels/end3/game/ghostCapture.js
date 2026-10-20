@@ -1,12 +1,15 @@
 // Ending 3 "Ghost Capture": loop, physics, scanner sight/occlusion, renderer, room transitions.
 // From prototypes/end3-ghost/main.js (approved: handoff/design-to-app/2026-10-18-end3-ghost-approved.md).
 // App changes, nothing else: the page became a factory that builds its own DOM in `root` and cleans up
-// in dispose() (listeners, rAF, GPU); the overlay (intro, pause, final card) is the app's shared level card
+// in dispose() (listeners, rAF, GPU, audio); three sound cues (switch, caught, room accepted) reuse Chapter 2's
+// synth (ch2/ui/sfx.js, no files); the overlay (intro, pause, final card) is the app's shared level card
 // (opts.onScreen, see showCard; a loading card shows while the art loads); finishing calls opts.onFinish; art loads before the first room; `?test` + `window.__ghost` → opts.debug + `window.__end3`.
 import * as THREE from "three";
 import { levels } from "./levels.js";
 import { loadArt } from "./art.js";
 import { MARKUP } from "./markup.js";
+import { createSfx } from "../../ch2/ui/sfx.js"; // app: sound
+import { sfxVolume } from "../../../state/settings"; // app: settings
 
 export const T = {
   width: 32,
@@ -38,6 +41,12 @@ const offs = [];
 function on(target, type, fn, o) {
   target.addEventListener(type, fn, o);
   offs.push(() => target.removeEventListener(type, fn, o));
+}
+// app: sound — the browser starts audio suspended, so the first key unlocks it
+const sfx = createSfx();
+function sound(name) {
+  sfx.volume(0.8 * sfxVolume());
+  sfx.play(name);
 }
 // test hooks drive time themselves (the prototype's ?test mode)
 let manual = false,
@@ -248,6 +257,7 @@ function toggleActor() {
   active = active === "player" ? "ghost" : "player";
   stats.switches++;
   jumpQueued = false;
+  sound("open");
   updateHud();
 }
 function setInput(input = {}) {
@@ -396,6 +406,7 @@ function caught(message) {
   state = "caught";
   phaseTime = T.catchDelay;
   toast(message, T.catchDelay);
+  sound("reset");
 }
 function finish() {
   state = "ended";
@@ -477,6 +488,7 @@ function simulate(dt) {
     state = "cleared";
     phaseTime = T.clearDelay;
     toast("CAPTURE ACCEPTED", T.clearDelay);
+    sound("proof_done");
   }
 }
 function tick(dt, draw = true) {
@@ -576,6 +588,7 @@ function showCard(card) {
   opts.onScreen?.(card);
 }
 function begin() {
+  sfx.unlock();
   if (art) start();
 }
 const INTRO = {
@@ -585,6 +598,7 @@ const INTRO = {
 };
 showCard({ kind: "loading" });
 on(window, "keydown", (e) => {
+  sfx.unlock();
   if (!art) return;
   if (
     [
@@ -710,6 +724,7 @@ function dispose() {
   if (art) disposeArt(art);
   renderer.dispose();
   renderer.forceContextLoss();
+  sfx.context?.close().catch(() => {});
   if (window.__end3 === hooks) delete window.__end3;
   root.innerHTML = "";
 }
