@@ -10,6 +10,7 @@ import type { LevelProps } from '..';
 import { isDebug } from '../../ui/DebugPanel';
 import { LevelCard, type ScreenCard } from '../../ui/LevelCard';
 import { createGhostCapture } from './game/ghostCapture.js';
+import '../../ui/gamehud.css';
 import './end3.css';
 
 export default function End3(props: LevelProps) {

@@ -4,15 +4,9 @@ export const MARKUP = `
 <main id="game">
   <canvas id="view" aria-label="Ghost Capture side-view platform game"></canvas>
   <div id="hud">
-    <div>
-      <span class="eyebrow">ENDING 3 / BEAT THE SCORER</span>
-      <h1 id="level-title">GHOST CAPTURE</h1>
-    </div>
-    <div id="actor-label">KAM1196A <small>Q → GHOST</small></div>
+    <div id="level-title" class="gh-goal is-room"></div>
+    <div id="actor-label" class="gh-vitals"></div>
   </div>
   <div id="toast" role="status"></div>
-  <div id="footer">
-    <span>A D / ← → MOVE · W / SPACE JUMP · S DROP · Q SWITCH</span><span>R RESET · ESC PAUSE</span>
-  </div>
 </main>
 `;

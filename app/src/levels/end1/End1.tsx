@@ -11,6 +11,7 @@ import { useGame } from '../../state/store';
 import { isDebug } from '../../ui/DebugPanel';
 import { LevelCard, type ScreenCard } from '../../ui/LevelCard';
 import { createClusterRun } from './game/clusterRun.js';
+import '../../ui/gamehud.css';
 import './end1.css';
 
 const ID = 'end1';

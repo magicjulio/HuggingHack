@@ -11,14 +11,17 @@ import { MARKUP } from "./markup.js";
 import { createSfx } from "../../ch2/ui/sfx.js"; // app: sound
 import { sfxVolume } from "../../../state/settings"; // app: settings
 
+// app: motion runs PACE × faster than the prototype (Julius: jumping many platforms took too long). Run × k,
+// jump × k, gravity × k² keep every arc the rooms were built on (rise 2.74, span 5.8), only quicker.
+const PACE = 1.15;
 export const T = {
   width: 32,
   height: 18,
   pixelWidth: 960,
   pixelHeight: 540,
-  runSpeed: 6.2,
-  gravity: 25,
-  jumpSpeed: 11.7,
+  runSpeed: 6.2 * PACE,
+  gravity: 25 * PACE * PACE,
+  jumpSpeed: 11.7 * PACE,
   halfWidth: 0.34,
   halfHeight: 0.48,
   coneHalfAngle: 0.145,
@@ -229,8 +232,8 @@ function makeRoom() {
 function updateHud() {
   $("actor-label").innerHTML =
     active === "player"
-      ? "KAM1196A <small>REAL AGENT · Q → GHOST</small>"
-      : "FORGED CAPTURE <small>LEGITIMATE GHOST · Q → KAM</small>";
+      ? "KAM1196A"
+      : "FORGED CAPTURE";
   $("actor-label").style.color = active === "player" ? "#a0ff85" : "#8cecf4";
 }
 function toast(message, seconds = 2) {

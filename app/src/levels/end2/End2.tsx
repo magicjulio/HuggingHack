@@ -11,6 +11,7 @@ import { useGame } from '../../state/store';
 import { isDebug } from '../../ui/DebugPanel';
 import { LevelCard, type ScreenCard } from '../../ui/LevelCard';
 import { createAscent } from './game/main.js';
+import '../../ui/gamehud.css';
 import './end2.css';
 
 const ID = 'end2';
