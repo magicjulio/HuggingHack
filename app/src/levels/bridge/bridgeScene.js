@@ -17,12 +17,16 @@ import islandS from '../../assets/models/ch2-island-s.glb?url';
 import islandM from '../../assets/models/ch2-island-m.glb?url';
 import islandL from '../../assets/models/ch2-island-l.glb?url';
 import { MARKUP } from './markup.js';
+import { CAMERA } from '../ch2/config';
+
+const LOOK = .0022;   // ThirdPerson.tsx SENSITIVITY
 
 /**
  * The bridge scene, ported from the designer's reference page design/ch2-ui/bridge.html (its whole script, same order).
  * App changes only: a factory that builds its DOM in `root` and cleans up in dispose(); the review transport bar, beat name
  * and the stand-in end card are gone; a lane / the door calls opts.onPick('end1'…'end4') after the ride; Enter skips the
- * film when opts.canSkip; island models load from app assets; window.BRIDGE → opts.debug (window.__bridge).
+ * film when opts.canSkip; island models load from app assets; window.BRIDGE → opts.debug (window.__bridge);
+ * Ch2's look (pointer lock, mouse yaw + pitch, camera-relative WASD) instead of drag, Esc → opts.onScreen pause card.
  */
 export async function createBridge(root, opts = {}) {
 root.innerHTML = MARKUP;
@@ -88,17 +92,31 @@ const ground = [];   // circles you can stand on around the Forge: [x, z, r, y]
 }
 const groundAt = (x, y, z) => { let best = null; for (const [gx, gz, r, gy] of ground) if (Math.hypot(x - gx, z - gz) < r && gy <= y + PH.stepUp && (best === null || gy > best)) best = gy; return best; };
 const pl = { p: [...G.feet], v: [0, 0, 0], grounded: true, dash: 0, dashCd: 0, airDash: true, glide: false };
-let yaw = Math.atan2(-G.F[0], -G.F[2]), keys = new Set(), mode = 'film', ride = null, T = 0;
-addEventListener('keydown', (e) => keys.add(e.code)); addEventListener('keyup', (e) => keys.delete(e.code));
-let drag = null; on($('#gl'), 'pointerdown', (e) => (drag = e.clientX)); addEventListener('pointerup', () => (drag = null));
-addEventListener('pointermove', (e) => { if (drag !== null && mode === 'play') { yaw -= (e.clientX - drag) * .005; drag = e.clientX; } });
-function resetPlay() { pl.p = [...G.feet]; pl.v = [0, 0, 0]; pl.grounded = true; yaw = Math.atan2(-G.F[0], -G.F[2]); ride = null; }
+let yaw = Math.atan2(-G.F[0], -G.F[2]), pitch = CAMERA.startPitch, keys = new Set(), mode = 'film', ride = null, T = 0, paused = false;
+addEventListener('keydown', (e) => { if (e.code === 'Space') e.preventDefault(); keys.add(e.code); }); addEventListener('keyup', (e) => keys.delete(e.code));
+addEventListener('blur', () => keys.clear());
+// app: Ch2's look (ThirdPerson.tsx): pointer lock on a click, mouse orbits (yaw + pitch), Esc unlocks = pause card
+const gl = $('#gl'), locked = () => document.pointerLockElement === gl;
+const lock = () => { try { gl.requestPointerLock()?.catch?.(() => {}); } catch { /* needs a click */ } };
+on(gl, 'click', () => { if (mode === 'play' && !paused && !locked()) lock(); });
+addEventListener('mousemove', (e) => {
+  if (mode !== 'play' || !locked()) return;
+  yaw -= e.movementX * LOOK; pitch = Math.max(CAMERA.minPitch, Math.min(CAMERA.maxPitch, pitch + e.movementY * LOOK));
+});
+const PAUSE_KEYS = [['WASD', 'move · mouse look'], ['SPACE', 'jump · hold to glide'], ['SHIFT', 'dash']];
+function pause() {
+  if (paused) return; paused = true; keys.clear(); keysHeldSpace = false;
+  opts.onScreen?.({ kind: 'pause', title: 'Paused', keys: PAUSE_KEYS, action: { label: 'Resume', onClick: resume }, onBackdrop: resume, hint: 'Click anywhere to continue' });
+}
+function resume() { if (!paused) return; paused = false; opts.onScreen?.(null); if (mode === 'play') lock(); }
+on(document, 'pointerlockchange', () => { if (!locked() && mode === 'play') pause(); });
+addEventListener('keydown', (e) => { if (e.code === 'Escape' && !locked()) (paused ? resume : pause)(); });
+function resetPlay() { pl.p = [...G.feet]; pl.v = [0, 0, 0]; pl.grounded = true; yaw = Math.atan2(-G.F[0], -G.F[2]); pitch = CAMERA.startPitch; ride = null; }
 function step(dt) {
   const f = [-Math.sin(yaw), -Math.cos(yaw)], r = [Math.cos(yaw), -Math.sin(yaw)];
   let ix = 0, iz = 0;
   if (keys.has('KeyW') || keys.has('ArrowUp')) { ix += f[0]; iz += f[1]; } if (keys.has('KeyS') || keys.has('ArrowDown')) { ix -= f[0]; iz -= f[1]; }
-  if (keys.has('KeyD')) { ix += r[0]; iz += r[1]; } if (keys.has('KeyA')) { ix -= r[0]; iz -= r[1]; }
-  if (keys.has('ArrowLeft')) yaw += dt * 2; if (keys.has('ArrowRight')) yaw -= dt * 2;
+  if (keys.has('KeyD') || keys.has('ArrowRight')) { ix += r[0]; iz += r[1]; } if (keys.has('KeyA') || keys.has('ArrowLeft')) { ix -= r[0]; iz -= r[1]; }
   const n = Math.hypot(ix, iz) || 1; ix /= n; iz /= n;
   const acc = pl.grounded ? PH.groundAccel : PH.airAccel;
   pl.v[0] += (ix * PH.walk - pl.v[0]) * Math.min(1, acc * dt); pl.v[2] += (iz * PH.walk - pl.v[2]) * Math.min(1, acc * dt);
@@ -121,7 +139,7 @@ let keysHeldSpace = false; addEventListener('keydown', (e) => { if (e.code === '
 let picked = null;
 const _ENDINGS = { end1: ['ENDING 1', 'OpenAI', 'the machine hall · Cluster Run would start here'], end2: ['ENDING 2', 'Hugging Face', 'the tower · ending 2 would start here'], end3: ['ENDING 3', 'The Floor', 'the scorer\'s floor · ending 3 would start here'], end4: ['ENDING 4', 'The way back', 'you left the board · ending 4 would start here'] };
 function commit(kind, data) {
-  mode = 'ride'; ride = { kind, t0: T, ...data }; $('#help').classList.remove('on');
+  mode = 'ride'; if (locked()) document.exitPointerLock(); ride = { kind, t0: T, ...data }; $('#help').classList.remove('on');
 }
 function rideStep() {
   const k = T - ride.t0;
@@ -161,8 +179,9 @@ function frame(dt, scrub = false) {
   P1.update(T, dt, { D, orb: orbP, back });
   if (mode === 'film') { const c = camPose(G, KEYS, T); camera.position.set(...c.pos); camera.lookAt(...c.look); camera.fov = c.fov; }
   else if (mode === 'play') {
-    const tgt = new THREE.Vector3(orbP[0] + Math.sin(yaw) * 7.4, orbP[1] + 2.2, orbP[2] + Math.cos(yaw) * 7.4);
-    camera.position.lerp(tgt, scrub ? 1 : Math.min(1, dt * 6)); camera.lookAt(orbP[0] - Math.sin(yaw) * 10, orbP[1] + .9, orbP[2] - Math.cos(yaw) * 10); camera.fov = 58;
+    const cp = Math.cos(pitch), d = CAMERA.distance, h = CAMERA.height;   // app: ThirdPerson's orbit pose
+    const tgt = new THREE.Vector3(orbP[0] + Math.sin(yaw) * cp * d, orbP[1] + h + Math.sin(pitch) * d, orbP[2] + Math.cos(yaw) * cp * d);
+    camera.position.lerp(tgt, scrub ? 1 : 1 - Math.exp(-14 * dt)); camera.lookAt(orbP[0], orbP[1] + h * .45, orbP[2]); camera.fov = 58;
   } else rideStep();
   camera.updateProjectionMatrix();
   stage.classList.toggle('is-cine', mode !== 'play' && D.letterbox > .5);
@@ -180,15 +199,16 @@ addEventListener('keydown', (e) => { if (e.code === 'Enter' && opts.canSkip && m
 addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); composer.setSize(innerWidth, innerHeight); });
 renderer.setAnimationLoop(() => {
   const now = performance.now(), rdt = Math.min(.05, (now - last) / 1000); last = now;
-  const dt = mode === 'film' ? (playing ? rdt * speed : 0) : rdt;
+  const dt = paused ? 0 : mode === 'film' ? (playing ? rdt * speed : 0) : rdt;
   T += dt;
-  frame(mode === 'film' && !playing ? rdt * .0001 : dt);
+  frame((mode === 'film' && !playing) || paused ? rdt * .0001 : dt);
   if (mode !== 'film') $('#skipHint').hidden = true;
 });
-const hooks = { seek, get T() { return T; }, set T(v) { T = v; }, P1, G, camera, scene, renderer, commit, pl, play: (v) => (playing = v), frame };
+const hooks = { seek, pause, resume, get paused() { return paused; }, get T() { return T; }, set T(v) { T = v; }, P1, G, camera, scene, renderer, commit, pl, play: (v) => (playing = v), frame };
 if (opts.debug) window.__bridge = hooks;
 return { dispose() {
   renderer.setAnimationLoop(null);
+  if (locked()) document.exitPointerLock(); opts.onScreen?.(null);
   for (const off of offs) off();
   for (const m of [P1, decor, islands, bridges, forge, env, player]) m?.dispose?.();
   composer.dispose(); renderer.dispose(); renderer.forceContextLoss();

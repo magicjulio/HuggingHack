@@ -26,6 +26,6 @@ export const MARKUP = `
   </div>
 </div>
 <div class="fade" id="fade"></div>
-<div class="help" id="help"><b>WASD</b> move · <b>Space</b> jump / hold glide · <b>Shift</b> dash · <b>drag</b> look<br>jump into a stream · or find the way back</div>
+<div class="help" id="help"><b>WASD</b> move · <b>Space</b> jump / hold glide · <b>Shift</b> dash · <b>mouse</b> look · <b>click</b> to take control<br>jump into a stream · or find the way back</div>
 <div class="skip" id="skipHint" hidden>Enter · skip</div>
 `;

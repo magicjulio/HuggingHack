@@ -1,6 +1,6 @@
 /* Bridge scene: the reference page styles (design/ch2-ui/bridge.html), scoped under .bridge; review transport/card dropped. */
 .bridge{position:fixed;inset:0;margin:0;height:100%;background:#000;overflow:hidden;font-family:var(--font-mono);color:var(--color-text)}
-.bridge canvas#gl{position:fixed;inset:0;width:100%;height:100%;display:block;cursor:grab}
+.bridge canvas#gl{position:fixed;inset:0;width:100%;height:100%;display:block}
 .bridge .stage{position:fixed;inset:0;pointer-events:none}
 .bridge .c2-hud{position:absolute;inset:0;z-index:5}
 .bridge .c2-bubble__key{display:none}

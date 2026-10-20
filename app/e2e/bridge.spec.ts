@@ -25,6 +25,15 @@ test('bridge: film runs, a lane ride loads Ending 1', async ({ page }) => {
   await page.evaluate('window.__bridge.seek(32)');
   await page.waitForTimeout(500);
   await page.screenshot({ path: 'test-results/bridge-choice.png' });
+  // Esc without the pointer lock pauses (the shared level card); Resume goes on
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('button', { name: 'Resume' })).toBeVisible();
+  expect(await page.evaluate('window.__bridge.paused')).toBe(true);
+  const t = await page.evaluate('window.__bridge.T');
+  await page.waitForTimeout(300);
+  expect(await page.evaluate('window.__bridge.T')).toBe(t);
+  await page.getByRole('button', { name: 'Resume' }).click();
+  expect(await page.evaluate('window.__bridge.paused')).toBe(false);
   await page.evaluate(
     "window.__bridge.commit('lane', { lane: window.__bridge.P1.paths.find((p) => p.ending === 'end1'), u: 0.5 })",
   );

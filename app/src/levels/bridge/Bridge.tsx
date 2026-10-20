@@ -3,10 +3,11 @@
  * STAND-IN: the designer's reference page (design/ch2-ui/bridge.html) ported as is (bridgeScene.js),
  * with its own small controller. To be redone properly on the Ch2 store/controller/HUD (see app/CLAUDE.md).
  */
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { LevelProps } from '..';
 import { useGame } from '../../state/store';
 import { isDebug } from '../../ui/DebugPanel';
+import { LevelCard, type ScreenCard } from '../../ui/LevelCard';
 import { createBridge } from './bridgeScene.js';
 import '../../levels/ch1/ch1-ui.css';
 import '../ch2/ui/ch2-ui.css';
@@ -14,6 +15,7 @@ import './bridge.css';
 
 export default function Bridge(props: LevelProps) {
   const root = useRef<HTMLDivElement>(null);
+  const [card, setCard] = useState<ScreenCard | null>(null);
   const cb = useRef(props);
   useEffect(() => {
     cb.current = props;
@@ -29,6 +31,7 @@ export default function Bridge(props: LevelProps) {
       canSkip: g.save.completedChapters.includes('bridge'),
       debug: import.meta.env.DEV || isDebug(),
       cancelled: () => gone,
+      onScreen: (c: ScreenCard | null) => !gone && setCard(c),
       onPick: (ending: string) => {
         useGame.getState().finishChapter('bridge');
         useGame.getState().startChapter(ending);
@@ -43,5 +46,10 @@ export default function Bridge(props: LevelProps) {
       box.remove();
     };
   }, []);
-  return <div className="bridge" ref={root} />;
+  return (
+    <>
+      <div className="bridge" ref={root} />
+      {card && <LevelCard level="bridge" {...card} onMenu={props.onExit} />}
+    </>
+  );
 }
