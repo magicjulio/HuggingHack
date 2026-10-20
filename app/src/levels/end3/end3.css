@@ -57,4 +57,4 @@
 /* shared HUD frame: ui/gamehud.css (.gh-*). #game is the positioning box, so the HUD sits in the field's corners. */
 .end3 #hud { position:absolute; inset:0; pointer-events:none; }
 .end3 #level-title.is-room::before { content:"ROOM"; }
-.end3 #actor-label { font-size:var(--fs-sm); letter-spacing:.16em; }
+.end3 #actor-label { top:2.6vh; right:2vw; bottom:auto; left:auto; width:auto; font-size:var(--fs-md); letter-spacing:.16em; text-align:right; }

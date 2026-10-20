@@ -383,41 +383,7 @@
 
 /* ---------------------------------------------------------------- HUD (lift-ui, round 2)
    Contract with combat (main.js): body.dataset.aim = open | enemy | cover | weak | armour,
-   body.dataset.vent = window | jam | "" and the heat value in #heatfill's width. *//* Hint box: top centre under the objective row, so it never covers the player, the
-   reticle, the vitals (bottom left) or the squad read-out (bottom right). */
-.end2 #hint {
-  top: 92px;
-  bottom: auto;
-  max-width: min(520px, 34vw);
-  padding: 11px 16px 12px 18px;
-  font-size: 12px;
-  line-height: 1.6;
-  text-align: left;
-  color: #e6eef1;
-  background: linear-gradient(90deg, #0a1520ee, #0a1520b0);
-  border-left: 2px solid var(--hf-yellow);
-  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%);
-}
-.end2 #hint:before {
-  content: "FIELD NOTE";
-  display: block;
-  margin-bottom: 4px;
-  font-size: 9px;
-  letter-spacing: 3px;
-  color: var(--hf-orange);
-}
-@media (max-width: 1100px) {
-  .end2 #hint {
-    max-width: min(440px, 40vw);
-  }
-}
-@media (max-width: 800px) {
-  .end2 #hint {
-    top: 120px;
-    max-width: 86vw;
-  }
-}
-
+   body.dataset.vent = window | jam | "" and the heat value in #heatfill's width. */
 /* Reticle states ------------------------------------------------------------ */
 .end2 #crosshair:before {
   position: absolute;
@@ -511,8 +477,7 @@
   overflow: visible;
 }
 .end2 #heatfill {
-  position: relative;
-  background: linear-gradient(90deg, #ffcb60, #ff9d00 55%, #ff3b4e) 0 0 / 225px 100% no-repeat;
+  background: linear-gradient(90deg, #ffcb60, #ff9d00 55%, #ff3b4e) 0 0 / clamp(100px, 11vw, 200px) 100% no-repeat;
 }
 .end2 #heatfill:after {
   content: "";
@@ -568,9 +533,6 @@
 }
 
 /* Lower HUD: subtle plates so the read-outs stay legible over bright floors. */
-.end2 #vitals, .end2 #ability {
-  position: relative;
-}
 @media (prefers-reduced-motion: reduce) {
   .end2[data-aim="weak"] #crosshair, .end2[data-vent="window"] #heatbox .meter {
     animation: none;
@@ -686,3 +648,21 @@
 
 .end2 { position: fixed; inset: 0; overflow: hidden; }
 
+
+/* shared HUD frame: ui/gamehud.css (.gh-*). Controls and long text stay on the intro/pause cards. */
+.end2 #hud { padding: 0; }
+.end2 #bottom { display: contents; }
+.end2 #detail, .end2 #controls { display: none; }
+.end2 #ability.gh-right { left: auto; right: 2vw; }
+.end2 #ability .gh-row { grid-template-columns: 7em 1fr 6ch; white-space: nowrap; }
+.end2 #ability kbd { padding: 1px 5px; font-size: inherit; color: var(--color-signal-cyan); background: none; border: 1px solid var(--color-line-strong); }
+.end2 #heatbox { position: relative; }
+.end2 #heatbox .meter { width: auto; margin: 0; height: 6px; }
+.end2 #heatlabel:after { position: absolute; left: 0; bottom: calc(100% + 0.5rem); white-space: nowrap; letter-spacing: 0.2em; }
+.end2 #hint { bottom: 12vh; top: auto; left: 50%; max-width: min(640px, 80vw); border-left: 1px solid var(--color-line); clip-path: none; font-size: var(--fs-sm); text-align: center; }
+.end2 #hint:before { content: none; }
+.end2 #flightmeter { position: absolute; top: 0; left: 0; right: 0; width: auto; height: 3px; margin: 0; }
+.end2 #objective, .end2 #timer { font-weight: 500; letter-spacing: inherit; margin: 0; }
+.end2 #objective { font-size: var(--fs-md); }
+.end2 #timer { font: inherit; margin: 0; }
+.end2 #phase { margin: 0; font: inherit; font-size: var(--fs-xs); letter-spacing: .22em; color: var(--color-text-dim); }

@@ -1182,7 +1182,6 @@ function startRun() {
   hintTime = 0;
   showCard(null);
   $("hud").classList.remove("hidden");
-  hint("WASD steers · mouse aims · left mouse or Space fires lasers.", 10);
   lock();
   boss?.stop();
   bossRetryPhase = 0;
@@ -2373,15 +2372,15 @@ function updateHud() {
   setText("healthtext", Math.ceil(health));
   setStyle("heatfill", "width", heat + "%");
   setText("heatlabel", overheated
-    ? "OVERHEATED / COOLING"
-    : "PULSE RIFLE / HEAT");
+    ? "Cooling"
+    : "Heat");
   setStyle("callfill", "width", (actors.ready ? 100 : 100 * (1 - actors.cooldown / T.squad.cooldown)) +
     "%");
   setText("abilitydetail", actors.activeRemaining > 0
-      ? `Squad active · ${Math.ceil(actors.activeRemaining)}s / next call ${Math.ceil(actors.cooldown)}s`
+      ? `LIVE ${Math.ceil(actors.activeRemaining)}s`
       : actors.ready
-        ? "3 agents · ready for deployment"
-        : `Recharging · ${Math.ceil(actors.cooldown)}s`);
+        ? "READY"
+        : `${Math.ceil(actors.cooldown)}s`);
   setStyle("toast", "opacity", toastTime > 0 ? 1 : 0);
   $("hint").classList.toggle("hidden", hintTime <= 0);
   setStyle("damage", "opacity", damageFlash);

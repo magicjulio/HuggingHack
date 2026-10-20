@@ -18,13 +18,13 @@ const CSS = `
 #fl-ret.hit .ring { border-color: #fff; inset: -3px; }
 #fl-lock { position: absolute; left: 0; top: 0; width: 34px; height: 34px; margin: -17px 0 0 -17px; border: 2px solid #ff9d00; transform-origin: 50% 50%; opacity: 0; transition: opacity .1s; }
 #fl-lock.on { opacity: .9; }
-#fl-panel { position: absolute; left: 50%; bottom: 34px; transform: translateX(-50%); width: min(420px, 70vw); }
-#fl-panel .row { display: flex; align-items: center; gap: 10px; font-size: 11px; letter-spacing: .18em; }
-#fl-panel .lab { width: 64px; color: #9fb0c2; }
-#fl-panel .bar { display: block; flex: 1; height: 8px; background: rgba(16,27,44,.75); border: 1px solid rgba(217,223,228,.25); clip-path: polygon(0 0, 100% 0, calc(100% - 6px) 100%, 0 100%); }
+#fl-panel { position: absolute; left: 2vw; bottom: 2.8vh; width: clamp(170px, 16vw, 280px); }
+#fl-panel .row { display: grid; grid-template-columns: 4.6em 1fr 3ch; align-items: center; gap: .7rem; font-size: clamp(10px, .72vw, 13px); letter-spacing: .2em; text-transform: uppercase; }
+#fl-panel .lab { color: #7f93b5; }
+#fl-panel .bar { display: block; height: 6px; background: rgba(255,255,255,.1); clip-path: polygon(0 0, 100% 0, calc(100% - 5px) 100%, 0 100%); }
 #fl-panel .fill { display: block; height: 100%; width: 100%; background: linear-gradient(90deg, #2fd889, #39ff9c); transition: width .12s; }
-#fl-panel .num { width: 34px; text-align: right; font-size: 12px; }
-#fl-panel .row + .row { margin-top: 6px; }
+#fl-panel .num { text-align: right; letter-spacing: .04em; }
+#fl-panel .row + .row { margin-top: .55rem; }
 #fl-heat .fill { background: linear-gradient(90deg, #ffd21e, #ff9d00); }
 #fl-heat.hot .fill { background: #ff3b4e; }
 #fl-hullrow.low .fill { background: #ff3b4e; animation: fl-pulse .5s infinite alternate; }
@@ -35,13 +35,14 @@ const CSS = `
 #fl-banner::before { content: ""; position: absolute; inset: -14px -60px; z-index: -1; background: radial-gradient(ellipse at center, rgba(4,8,14,.72) 30%, rgba(4,8,14,0) 72%); }
 #fl-banner .k { font-size: 11px; letter-spacing: .38em; color: #ff9d00; }
 #fl-banner .t { font-family: "Chakra Petch", Arial, sans-serif; font-weight: 700; font-size: clamp(22px, 3.2vw, 40px); letter-spacing: .08em; color: #ffd21e; text-shadow: 0 0 18px rgba(255,157,0,.45); }
+#fl-banner .s, #fl-banner .k { display: none; }
 #fl-banner .s { font-size: 12px; letter-spacing: .14em; margin-top: 4px; color: #d9dfe4; }
 #fl-gate { position: absolute; left: 50%; top: calc(22vh + 96px); transform: translateX(-50%); display: flex; gap: 8px; opacity: 0; transition: opacity .3s; }
 #fl-gate.on { opacity: 1; }
 #fl-gate b { width: 22px; height: 22px; border: 2px solid #ff9d00; transform: rotate(45deg); background: rgba(255,157,0,.35); }
 #fl-gate b.down { border-color: #39ff9c; background: transparent; opacity: .55; }
-#fl-kills { position: absolute; right: 34px; bottom: 34px; font-size: 11px; letter-spacing: .2em; color: #9fb0c2; text-align: right; }
-#fl-kills b { display: block; font-family: "Chakra Petch", Arial, sans-serif; font-size: 26px; color: #d9dfe4; letter-spacing: .05em; }
+#fl-kills { position: absolute; right: 2vw; bottom: 2.8vh; font-size: clamp(10px, .72vw, 13px); letter-spacing: .22em; color: #7f93b5; text-align: right; }
+#fl-kills b { display: block; font-family: "Chakra Petch", Arial, sans-serif; font-size: clamp(24px, 2.4vw, 42px); line-height: 1; margin-bottom: .4em; color: #d7e6ff; letter-spacing: .05em; }
 #fl-hurt { position: absolute; inset: 0; opacity: 0; background: radial-gradient(ellipse at center, transparent 55%, rgba(255,40,30,.55) 100%); }
 #fl-breach { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(0,0,0,.0); opacity: 0; transition: opacity .25s, background .25s; }
 #fl-breach.on { opacity: 1; background: rgba(4,6,10,.72); }
@@ -64,8 +65,8 @@ export function createFlightHud() {
     <div id="fl-banner"><div class="k"></div><div class="t"></div><div class="s"></div></div>
     <div id="fl-gate"></div>
     <div id="fl-panel">
-      <div class="row" id="fl-hullrow"><span class="lab">HULL</span><span class="bar"><span class="fill"></span></span><span class="num">100</span></div>
-      <div class="row" id="fl-heat"><span class="lab">LASERS</span><span class="bar"><span class="fill"></span></span><span class="num"></span></div>
+      <div class="row" id="fl-hullrow"><span class="lab">Hull</span><span class="bar"><span class="fill"></span></span><span class="num">100</span></div>
+      <div class="row" id="fl-heat"><span class="lab">Lasers</span><span class="bar"><span class="fill"></span></span><span class="num"></span></div>
     </div>
     <div id="fl-kills">DOWNED<b>0</b></div>
     <div id="fl-breach"><div class="t">HULL BREACH</div><div class="s"></div></div>`;

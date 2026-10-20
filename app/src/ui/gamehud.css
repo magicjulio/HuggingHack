@@ -1,0 +1,122 @@
+/* The one in-game HUD frame for the endings (Julius 2026-10-20: "one coherent layout, minimal, same game").
+   Four corners, nothing else on screen all the time:
+     top-left     .gh-goal    one line: GOAL + what to do
+     top-right    .gh-time    the run time (levels with a clock)
+     bottom-left  .gh-vitals  health / detection / heat / cooldown, as .gh-row (label, bar, number)
+     bottom-right .gh-stat    the level's own counter (chain, downed, squad…)
+   Controls and long descriptions live on the intro and pause cards only. A short contextual tip may
+   show in .gh-hint (bottom centre). Colours and type only from tokens.css. */
+.gh-goal, .gh-time, .gh-vitals, .gh-stat, .gh-hint {
+  position: absolute;
+  z-index: 5;
+  pointer-events: none;
+  font-family: var(--font-mono);
+  color: var(--color-text);
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.85);
+}
+.gh-goal {
+  top: 2.6vh;
+  left: 2vw;
+  max-width: 44vw;
+  font-size: var(--fs-md);
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.gh-goal::before {
+  content: "GOAL";
+  margin-right: 0.8em;
+  font-size: var(--fs-xs);
+  letter-spacing: 0.26em;
+  color: var(--color-signal-cyan);
+}
+.gh-time {
+  top: 2.2vh;
+  right: 2vw;
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: var(--fs-lg);
+  letter-spacing: 0.08em;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.gh-time small {
+  display: block;
+  margin-top: 0.2em;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.22em;
+  color: var(--color-text-dim);
+}
+.gh-vitals {
+  left: 2vw;
+  bottom: 2.8vh;
+  width: clamp(170px, 16vw, 280px);
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+.gh-row {
+  display: grid;
+  grid-template-columns: 4.6em 1fr 3ch;
+  align-items: center;
+  gap: 0.7rem;
+  font-size: var(--fs-xs);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--color-text-dim);
+}
+.gh-row .gh-bar {
+  position: relative;
+  display: block;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  clip-path: polygon(0 0, 100% 0, calc(100% - 5px) 100%, 0 100%);
+}
+.gh-row .gh-bar > i {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 0;
+  background: var(--color-hack-green);
+  box-shadow: var(--glow-green);
+}
+.gh-row .gh-bar > i.warn { background: var(--color-warn-amber); box-shadow: none; }
+.gh-row .gh-bar > i.bad { background: var(--color-lamp-red); box-shadow: var(--glow-red); }
+.gh-row .gh-n { text-align: right; letter-spacing: 0.04em; color: var(--color-text); }
+.gh-stat {
+  right: 2vw;
+  bottom: 2.8vh;
+  text-align: right;
+}
+.gh-stat b {
+  display: block;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: clamp(24px, 2.4vw, 42px);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.gh-stat small {
+  display: block;
+  margin-top: 0.4em;
+  font-size: var(--fs-xs);
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--color-text-dim);
+}
+.gh-hint {
+  left: 50%;
+  bottom: 9vh;
+  transform: translateX(-50%);
+  max-width: min(640px, 80vw);
+  padding: 0.5rem 0.9rem;
+  text-align: center;
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+  background: var(--color-panel);
+  border: 1px solid var(--color-line);
+}
+@media (max-width: 800px) {
+  .gh-goal { max-width: 60vw; }
+}
