@@ -57,6 +57,8 @@ interface GameState {
   screen: Screen;
   /** The start screen's boot intro plays once per browser session. */
   bootShown: boolean;
+  /** The Spotify dock is playing (start screen music steps aside). */
+  spotifyPlaying: boolean;
   /** Bumped on every chapter start, so the game host remounts the level (e.g. Ch1 → Ch2 CONTINUE). */
   run: number;
 
@@ -124,6 +126,7 @@ export const useGame = create<GameState>()(
       save: defaultSave,
       screen: 'start',
       bootShown: false,
+      spotifyPlaying: false,
       run: 0,
 
       isChapterLocked: (id) => chapterLocked(id, get().save),

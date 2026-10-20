@@ -59,6 +59,10 @@ const VIDEO = 'https://www.youtube-nocookie.com/embed/ujkD4SxPKOI';
 /** Music credits (assets/music/). Cipher2 and sonican are Julius's own and need no line. */
 const MUSIC_CREDITS = [
   {
+    text: 'RECOMMENDED background music: "AI Agents Chaos" by Epic Mountain (Spotify)',
+    url: 'https://open.spotify.com/track/7Mjuj0atPD8xVnmrtCRgpp',
+  },
+  {
     text: '"Chase" by Adiutorium (CC0)',
     url: 'https://opengameart.org/content/chase-2',
   },

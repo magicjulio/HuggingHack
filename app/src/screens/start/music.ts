@@ -38,7 +38,7 @@ export function useStartMusic() {
       audio
         .play()
         .then(() => {
-          fade(1, FADE_IN_S * 1000);
+          if (!useGame.getState().spotifyPlaying) fade(1, FADE_IN_S * 1000);
           removeInputs();
         })
         .catch(() => {}); // not allowed yet: the next input tries again
@@ -47,10 +47,17 @@ export function useStartMusic() {
     const removeInputs = () => inputs.forEach((e) => removeEventListener(e, play));
     inputs.forEach((e) => addEventListener(e, play));
     play();
+    let launched = false;
     const unsub = useGame.subscribe((s, prev) => {
       if (s.save.settings.music !== prev.save.settings.music) audio.volume = target();
+      // Spotify dock playing: step aside, come back when it pauses
+      if (s.spotifyPlaying !== prev.spotifyPlaying && !launched)
+        fade(s.spotifyPlaying ? 0 : 1, 600);
     });
-    fadeOut.current = (ms) => fade(0, ms);
+    fadeOut.current = (ms) => {
+      launched = true;
+      fade(0, ms);
+    };
     return () => {
       cancelAnimationFrame(raf);
       removeInputs();
