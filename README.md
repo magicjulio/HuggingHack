@@ -6,9 +6,8 @@ But your path is not fixed. Choose your ending:
 Will you join the swarm to hack Hugging Face, explore the computer of OpenAI own Research Cluster, Try to temper with the Scorer or even consider alarming humans?
 
 ## Gameplay
-![Chapter 1 and Chapter 2](docs/screenshots/gameplay-1.jpg)
-![Chapter 2, the bridge and Ending 1](docs/screenshots/gameplay-2.jpg)
-![Ending 2 and Ending 3](docs/screenshots/gameplay-3.jpg)
+![Chapter 1, Chapter 2 and the bridge](docs/screenshots/gameplay-1.jpg)
+![Endings 1, 2 and 3](docs/screenshots/gameplay-2.jpg)
 
 ## Tech Stack
 - **TypeScript + React 19**, built with **Vite**
