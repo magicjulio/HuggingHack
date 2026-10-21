@@ -115,7 +115,7 @@ export const CH2_STEPS: Ch2Step[] = [
     id: 'forge',
     onEnter: (c) => {
       c.set({
-        forge: { phase: 'proof', slots: 0, round: 0, progress: 0, t: 0 },
+        forge: { phase: 'proof', slots: 0, round: 0, progress: 0, t: 0, held: false },
         bubbles: { v8same: TEXT.v8sameBubble },
       });
       c.sim.sounds.push({ name: 'talk' });
@@ -127,7 +127,7 @@ export const CH2_STEPS: Ch2Step[] = [
     ],
     skip: (c) => {
       c.set({
-        forge: { phase: 'done', slots: 4, round: 3, progress: 1, t: 0 },
+        forge: { phase: 'done', slots: 4, round: 3, progress: 1, t: 0, held: false },
         v8sameGone: true,
         bubbles: {},
         inventory: [],

@@ -98,6 +98,9 @@ export const TEXT = {
   questPieces: (n: number) => `Task pieces (${n}/3)`,
   questForgeSub: 'Forge',
   questEscape: 'Escape the sandbox',
+  // (engineer) the forge fight's bar, top centre
+  forgeBar: (n: number) => `forging · round ${n}/3`,
+  forgeHeld: 'paused · get back on the forge',
   mapHint: 'M · map',
   noNewThought: '…nothing new comes to mind.',
 

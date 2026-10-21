@@ -112,7 +112,8 @@ describe('chapter 2', () => {
     s().addTokens(500); // survive the fight in a headless test
     let guard = 0;
     while (s().forge.phase === 'forging' && guard++ < 4000) {
-      // stay by the forge (waves reset us to the forge pad, which is fine)
+      // waves reset us to the forge pad, off the dais: walk back on, or the fold waits
+      if (s().forge.held) goNear(FORGE_SLOTS[0]);
       wait(0.5);
       s().addTokens(20);
     }
@@ -227,6 +228,34 @@ describe('chapter 2', () => {
     const proof = heard().filter((n) => n.startsWith('proof'));
     expect(proof.filter((n) => n === 'proof_tick')).toHaveLength(15);
     expect(proof.at(-1)).toBe('proof_done');
+  });
+
+  it('the fold only runs while the player is on the dais', () => {
+    const { s, wait, goNear } = play();
+    s().jumpTo(6);
+    wait(TIMING.proofSeconds + 0.1);
+    goNear(FORGE_SLOTS[0]);
+    for (let i = 0; i < 4; i++) s().use();
+    expect(s().forge.phase).toBe('forging');
+    s().addTokens(500);
+    wait(2);
+    const on = s().forge.progress;
+    expect(on).toBeGreaterThan(0);
+    expect(s().forge.held).toBe(false);
+    // off the dais, on the bridge side: the bar stops (and so does the round's time limit)
+    s().placePlayer([FORGE_SLOTS[0][0] * 2.2, FORGE_SLOTS[0][1] - 1.2, FORGE_SLOTS[0][2] * 2.2]);
+    wait(0.2);
+    expect(s().forge.held).toBe(true);
+    const off = s().forge;
+    wait(TIMING.roundSeconds * TIMING.maxRoundFactor + 1);
+    expect(s().forge.round).toBe(off.round);
+    expect(s().forge.progress).toBeLessThanOrEqual(off.progress);
+    // back on: it runs again
+    goNear(FORGE_SLOTS[0]);
+    expect(s().forge.held).toBe(false);
+    const back = s().forge.progress;
+    wait(1);
+    expect(s().forge.progress).toBeGreaterThan(back);
   });
 
   it('the forge takes its inputs during the proof; the fight starts when the proof ends', () => {

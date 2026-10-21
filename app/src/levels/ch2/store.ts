@@ -26,6 +26,8 @@ import {
   FLOOD_CLOUDS,
   FORGE_BIT_SPAWNS,
   FORGE_CLOUDS,
+  FORGE_CORE,
+  FORGE_DAIS_RADIUS,
   FORGE_HEART,
   FORGE_INPUTS,
   FORGE_SLOTS,
@@ -100,6 +102,8 @@ export interface ForgeState {
   progress: number;
   /** Seconds in the current phase. */
   t: number;
+  /** Forging, but the player is off the dais: the fold waits for them. */
+  held: boolean;
 }
 
 export type Ch2Event =
@@ -333,7 +337,7 @@ export function createCh2Store(opts: Ch2Options = {}): Ch2Store {
       dialogue: null,
       talked: [],
       bubbles: {},
-      forge: { phase: 'idle', slots: 0, round: 0, progress: 0, t: 0 },
+      forge: { phase: 'idle', slots: 0, round: 0, progress: 0, t: 0, held: false },
       v8sameGone: false,
       target: null,
       respawn: null,
@@ -710,7 +714,7 @@ export function createCh2Store(opts: Ch2Options = {}): Ch2Store {
     function startForging() {
       if (get().forge.slots === FORGE_INPUTS.length) {
         set({
-          forge: { phase: 'forging', slots: 4, round: 1, progress: 0, t: 0 },
+          forge: { phase: 'forging', slots: 4, round: 1, progress: 0, t: 0, held: false },
           v8sameGone: true,
           bubbles: {},
         });
@@ -719,6 +723,15 @@ export function createCh2Store(opts: Ch2Options = {}): Ch2Store {
         sound('forge_started');
         runner.dispatch({ type: 'forge_started' });
       }
+    }
+
+    /** On the dais or in the air above it (a jump does not pause the fold). */
+    function onForge() {
+      const p = sim.body.pos;
+      return (
+        Math.hypot(p.x - FORGE_CORE[0], p.z - FORGE_CORE[2]) <= FORGE_DAIS_RADIUS &&
+        p.y > FORGE_CORE[1] - 1
+      );
     }
 
     function tickForge(dt: number) {
@@ -739,13 +752,15 @@ export function createCh2Store(opts: Ch2Options = {}): Ch2Store {
         return;
       }
       if (f.phase === 'forging') {
+        // the fold only runs with the player on the dais: no waiting it out on a bridge
+        if (!onForge()) return void (f.held || set({ forge: { ...f, held: true } }));
         const progress = f.progress + dt / TIMING.roundSeconds;
-        if (progress < 1) return set({ forge: { ...f, t, progress } });
+        if (progress < 1) return set({ forge: { ...f, t, progress, held: false } });
         sound('round_done', { n: f.round });
         runner.dispatch({ type: 'round_done', n: f.round });
         if (f.round < 3) {
           const round = f.round + 1;
-          set({ forge: { ...f, round, progress: 0, t: 0 } });
+          set({ forge: { ...f, round, progress: 0, t: 0, held: false } });
           get().addLog(LOG.round(round));
           if (round === 3) for (const id of TILT_FROM_ROUND_3) sim.world.byId(id)!.tiltOn = true;
           return;
@@ -754,7 +769,7 @@ export function createCh2Store(opts: Ch2Options = {}): Ch2Store {
         for (const b of sim.bits) if (b.state !== 'gone') b.state = 'gone';
         sim.spits.length = 0;
         for (const id of TILT_FROM_ROUND_3) sim.world.byId(id)!.tiltOn = false;
-        set({ forge: { ...f, phase: 'absorb', progress: 1, t: 0 } });
+        set({ forge: { ...f, phase: 'absorb', progress: 1, t: 0, held: false } });
         sound('flag_fly');
         return;
       }

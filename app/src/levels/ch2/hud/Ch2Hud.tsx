@@ -2,13 +2,14 @@
  * Chapter 2 HUD = the designer's kit (handoff design-to-app/2026-10-14-ch2-hud-and-map.md), laid
  * out like their review page (design/ch2-ui/index.html): top left tokens + quests, top right
  * minimap + key hint, centre crosshair + use prompt, the agents' bubble, the log ribbon bottom left,
- * the inventory bottom right, the full map on M, and the poisoned layers (stamp, spread, vignette).
+ * the inventory bottom right, the forge fight's bar top centre, the full map on M, and the poisoned layers (stamp, spread, vignette).
  * During the Step 7 cutscene everything but the log fades (`is-cinematic`).
  */
 import { memo, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useCh2 } from '../context';
 import { TEXT } from '../config';
 import { Bubble } from './Bubble';
+import { ForgeBar } from './ForgeBar';
 import { Inventory } from './Inventory';
 import { Log } from './Log';
 import { FullMap, Minimap } from './Map';
@@ -23,6 +24,7 @@ const KitBubble = memo(Bubble);
 const KitLog = memo(Log);
 const KitInventory = memo(Inventory);
 const KitHurt = memo(Hurt);
+const KitForgeBar = memo(ForgeBar);
 
 const LETTERBOX = '10vh';
 
@@ -174,6 +176,7 @@ export function Ch2Hud({
         <span className="c2-use__t">{prompt}</span>
       </div>
 
+      <KitForgeBar />
       <KitBubble />
       <KitLog />
       <KitInventory />

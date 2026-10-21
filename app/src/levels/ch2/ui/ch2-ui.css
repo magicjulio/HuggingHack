@@ -227,6 +227,17 @@
 .c2-cross::after{top:8px;left:0;height:2px;width:6px;box-shadow:12px 0 0 rgba(215,230,255,.75)}
 .c2-use{position:absolute;left:calc(50% + 22px);top:calc(50% + 14px);font-size:var(--fs-sm);color:var(--color-text);display:flex;gap:.5em;align-items:center;pointer-events:none;z-index:14;text-shadow:0 1px 4px #000}
 
+/* forge fight bar, top centre (ForgeBar.tsx): three rounds; amber and pulsing while the player is off the dais */
+.c2-forgebar{position:absolute;left:50%;top:var(--space-3);transform:translateX(-50%);width:clamp(260px,32vw,460px);pointer-events:none;z-index:14;
+  font-family:var(--font-mono);font-size:var(--fs-sm);color:var(--color-flag-green);text-shadow:0 1px 4px #000;--bar:var(--color-flag-green)}
+.c2-forgebar__t{text-align:center;margin-bottom:6px;letter-spacing:.06em;text-transform:uppercase}
+.c2-forgebar__track{display:flex;gap:4px;padding:3px;background:var(--color-panel);border:1px solid var(--color-line-strong)}
+.c2-forgebar__seg{flex:1;height:8px;background:rgba(255,255,255,.06);overflow:hidden}
+.c2-forgebar__fill{display:block;height:100%;background:var(--bar);box-shadow:0 0 10px var(--bar)}
+.c2-forgebar.is-held{color:var(--color-warn-amber);--bar:var(--color-warn-amber)}
+.c2-forgebar.is-held .c2-forgebar__t{animation:c2-forgeheld 1s ease-in-out infinite}
+@keyframes c2-forgeheld{50%{opacity:.35}}
+
 @media (prefers-reduced-motion:reduce){
   .c2-hud *{animation-duration:.01ms!important;animation-iteration-count:1!important}
 }
