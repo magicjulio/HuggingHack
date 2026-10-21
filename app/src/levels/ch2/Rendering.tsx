@@ -1,7 +1,7 @@
 /** External engineer (Codex): designer film effect, early GPU warm-up and adaptive quality. */
 import { useEffect, useMemo, useRef, useContext } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
-import { PerformanceMonitor, useTexture } from '@react-three/drei';
+import { useTexture } from '@react-three/drei';
 import {
   Bloom,
   EffectComposer,
@@ -12,7 +12,8 @@ import {
 import { ToneMappingMode } from 'postprocessing';
 import { SRGBColorSpace, Vector2, Vector3, type Texture } from 'three';
 import { useCh2Store } from './context';
-import { fixedTier, MEMORY_URLS, QUALITY, type QualityTier } from './presentation';
+import { MEMORY_URLS, QUALITY, type QualityTier } from './presentation';
+import { QualityMonitor } from '../../engine/quality';
 import { FlashbackEffect } from './world/fxFlashback.js';
 import { direct } from './world/step7.js';
 import { isDebug } from '../../ui/DebugPanel';
@@ -125,17 +126,7 @@ export function Rendering({
   }, [gl, tier]);
   return (
     <>
-      {!fixedTier() && (
-        <PerformanceMonitor
-          ms={500}
-          iterations={4}
-          threshold={0.5}
-          // Do not re-enable a tier that already missed the budget during this chapter.
-          // Otherwise mid → high → mid repeatedly reallocates buffers in the middle of the film.
-          bounds={() => [tier === 'low' ? 0 : 59, Infinity]}
-          onDecline={() => onTier((t) => (t === 'high' ? 'mid' : 'low'))}
-        />
-      )}
+      <QualityMonitor tier={tier} onTier={onTier} />
       {bloom && (
         <EffectComposer multisampling={q.msaa}>
           <EffectGroup>
