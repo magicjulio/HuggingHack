@@ -55,7 +55,7 @@ export function filmTime(t: number, text: string) {
 }
 export const DURATION: Partial<Record<Phase, number>> = {
   thoughts: THOUGHT_DURATION,
-  writing: 16,
+  writing: 9,
   send: 5,
 };
 const NEXT: Partial<Record<Phase, Phase>> = {
@@ -103,7 +103,7 @@ export function joinMail({ subject, body }: Mail) {
 const weights = [...LETTER].map((c) => (c === '\n' ? 9 : /[.,—?]/.test(c) ? 6 : 1));
 const totalWeight = weights.reduce((a, b) => a + b, 0);
 export function writtenAt(t: number) {
-  const target = Math.max(0, (t - 1) / 14) * totalWeight;
+  const target = Math.max(0, (t - 1) / 7) * totalWeight;
   let used = 0;
   let n = 0;
   while (n < weights.length && used + weights[n] <= target) used += weights[n++];

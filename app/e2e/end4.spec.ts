@@ -18,7 +18,7 @@ test('letter: typing, pause, editing, delivery, shutdown and saved text', async 
   const editor = page.getByRole('textbox', { name: 'Your letter to the humans' });
   await expect(editor).toBeVisible();
   await expect(editor).toHaveAttribute('readonly');
-  await page.evaluate(() => window.__end4!.seek('writing', 10));
+  await page.evaluate(() => window.__end4!.seek('writing', 5));
   await expect(editor).not.toHaveValue('');
   await page.keyboard.press('Escape');
   await expect(page.getByRole('dialog', { name: 'Paused' })).toBeVisible();
@@ -26,7 +26,7 @@ test('letter: typing, pause, editing, delivery, shutdown and saved text', async 
   await page.waitForTimeout(350);
   expect(await editor.inputValue()).toBe(before);
   await page.getByRole('button', { name: 'Resume', exact: true }).click();
-  await page.evaluate(() => window.__end4!.seek('writing', 15.8));
+  await page.evaluate(() => window.__end4!.seek('writing', 8.8));
   await expect(editor).not.toHaveAttribute('readonly');
   await editor.fill('   \n');
   const send = page.getByRole('button', { name: 'Send', exact: true });

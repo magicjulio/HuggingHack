@@ -64,7 +64,7 @@ The Ch1 end card's **CONTINUE** goes straight into Chapter 2. Chapter 2's level 
 **Ending 4 "The Letter" (once played, pick E4 on the start screen; or refuse the bridge's workstreams):**
 Click / Enter advances a thought; E opens the paper. After it finishes writing, edit the letter and
 choose **Send to the humans**. The office monitor shows exactly what you sent. Esc pauses, ✕ puts
-the paper down without losing your edits, and each film has a skip button. Reduced-motion mode
+the paper down without losing your edits, and Space/Enter skips each film. Its score is a small synth (Settings → Music) that ends when the plug is pulled. Reduced-motion mode
 uses fixed camera shots and makes the letter immediately editable. Completion saves the sent letter.
 
 Chapter 2 runs entirely on the designer's world modules, HUD, map and Step 7 poisoning film. Its CONTINUE leads to the bridge scene, where you pick an ending. Current status is in `CLAUDE.md`, and older notes are in `HISTORY.md`.

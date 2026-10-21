@@ -12,7 +12,7 @@ const params = new URLSearchParams(location.search);
 export const lookScale = () => settings().sensitivity;
 /** Sound-effects volume, 0–1, multiplied onto each level's own mix. */
 export const sfxVolume = () => settings().sfx;
-/** Music volume, 0–1 (only Ending 2 has a music bed so far). */
+/** Music volume, 0–1 (the start screen, Ending 2's music bed, Ending 4's score). */
 export const musicVolume = () => settings().music;
 /** A fixed render tier, or null = adapt to the frame rate. */
 export const fixedQuality = (): Exclude<Quality, 'auto'> | null => {
