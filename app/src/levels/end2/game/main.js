@@ -8,6 +8,8 @@
 // HTML panel and end card are gone; a loading card shows during the boot); the finish calls opts.onFinish(result);
 // window.__ascent (was ?test) comes with opts.debug; body[data-aim|data-vent] and --vent-* live on `root`.
 // updateCamera keeps the camera above the floor when looking up (T.camera.floorGap).
+// Playtest tuning: floors 2 and 3 hit harder, heal slower and drop fewer patches (T.floors; the boss fight keeps
+// its own entry), and the Warden beam does 36/s (was 22).
 import { lookScale } from "../../../state/settings"; // app: settings
 import * as THREE from "three";
 import { createWorld } from "./world.js";
@@ -39,8 +41,6 @@ export const T = {
     aimSpeed: 3.2,
     radius: 0.42,
     health: 100,
-    regenDelay: 4,
-    regen: 12,
     height: 1.8,
     crouchHeight: 0.95,
     dodgeSpeed: 14,
@@ -91,11 +91,14 @@ export const T = {
     floorGap: 0.3, // app: looking up, the camera slides in along its arm to stay this far above the floor
   },
   // ---- Combat redesign v1 (DESIGN.md → "Combat loop"). Per-floor scaling:
+  // regen / regenDelay replace T.player's; patchWeight scales how often a drop is a patch.
+  // (app, playtest: floors 2 and 3 were too easy; the boss fight keeps its own numbers.)
   floors: {
-    1: { damage: 0.6, attackers: 3, lunges: 1, fireScale: 1 },
-    2: { damage: 1, attackers: 5, lunges: 2, fireScale: 0.85 },
-    // floor 3 (the finale): the boss is the main threat, so the adds fire a little less often
-    3: { damage: 1, attackers: 4, lunges: 2, fireScale: 0.95 },
+    1: { damage: 0.6, attackers: 3, lunges: 1, fireScale: 1, regen: 12, regenDelay: 4, patchWeight: 1 },
+    2: { damage: 1.3, attackers: 6, lunges: 2, fireScale: 0.75, regen: 5, regenDelay: 6, patchWeight: 0.4 },
+    3: { damage: 1.3, attackers: 5, lunges: 2, fireScale: 0.8, regen: 5, regenDelay: 6, patchWeight: 0.4 },
+    // the boss fight (floor 3's arena): the boss is the main threat, so the adds fire a little less often
+    boss: { damage: 1, attackers: 4, lunges: 2, fireScale: 0.95, regen: 12, regenDelay: 4, patchWeight: 1 },
   },
   // Per enemy kind; enemies.js reads e.cfg = T.enemies[kind]. height = hit-sphere
   // centre above the feet, hit = hit-sphere radius, radius = body (movement).
@@ -123,7 +126,7 @@ export const T = {
     },
     warden: {
       hp: 420, radius: 1.0, hit: 1.0, height: 1.6, beamHeight: 0.91, turn: 0.9, beamTurn: 0.25,
-      range: 40, telegraph: 1.4, beamTime: 2.6, beamDps: 22, beamWidth: 0.6,
+      range: 40, telegraph: 1.4, beamTime: 2.6, beamDps: 36, // app: was 22, the beam looked scarier than it hit beamWidth: 0.6,
       vent: 3.2, cooldown: 2.8, armour: 0.15, core: 2.5,
     },
     maintainer: {
@@ -894,6 +897,8 @@ function move(p, delta, radius = T.player.radius, ignoreLow = false, canDrop = f
   }
   return p;
 }
+// The current floor's T.floors entry; the boss fight has its own.
+const floorTuning = () => (boss && boss.active && !boss.dead ? T.floors.boss : T.floors[floor] || T.floors[1]);
 // ---- Loot: defenders drop pickups; walk over one to collect it.
 const pickups = [];
 let coolantUntil = -1,
@@ -907,7 +912,7 @@ function dropLoot(kind, at) {
     if (Math.random() > (L.chance[kind] ?? 0.4)) return;
     // Weighted by need: low health favours patches, a hot rifle favours coolant.
     const weights = {
-      patch: health < 70 ? 4 : 1,
+      patch: (health < 70 ? 4 : 1) * floorTuning().patchWeight,
       coolant: heat > 50 ? 3 : 1,
       compute: actors.ready ? 0.6 : 2.5,
       overclock: kind === "shield" ? 3 : 1,
@@ -1532,8 +1537,8 @@ function updatePlayer(dt) {
     time: runTime,
     hurt: Math.max(0, 1 - (runTime - lastDamage) * 3),
   });
-  if (runTime - lastDamage > T.player.regenDelay)
-    health = Math.min(T.player.health, health + dt * T.player.regen);
+  const F = floorTuning();
+  if (runTime - lastDamage > F.regenDelay) health = Math.min(T.player.health, health + dt * F.regen);
 }
 // ---- Heat and the active vent (T.weapon.vent*). R (or an overheat) starts a
 // vent: heat drains over ventTime. Tap R inside the window = instant vent and a

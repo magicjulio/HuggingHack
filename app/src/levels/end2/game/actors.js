@@ -28,7 +28,7 @@ export function createActors(scene, T, hooks, brand) {
     tmp2 = new THREE.Vector3(),
     seg = new THREE.Line3(),
     closest = new THREE.Vector3();
-  const floorCfg = () => T.floors[floorN] || T.floors[1];
+  const floorCfg = () => (hooks.bossTarget?.() ? T.floors.boss : T.floors[floorN]) || T.floors[1];
   // Floor 2 is a building (main.js hooks.building() → building.js adapter):
   // ground height, sections, nav routes. null on floor 1 (flat floor at floorY).
   const bld = () => hooks.building?.() || null;
