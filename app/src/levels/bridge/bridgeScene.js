@@ -10,7 +10,7 @@ import { createForge } from '../ch2/world/forge.js';
 import { createDecor } from '../ch2/world/decor.js';
 import { createPlayerOrb, ORB } from '../ch2/world/playerOrb.js';
 import { createPhaseOne } from '../ch2/world/phaseOne.js';
-import { BR, TEXT, LANES, direct, camKeys, camPose, laneAt, backAt, backDoor, along } from '../ch2/world/bridge.js';
+import { BR, TEXT, LANES, direct, camKeys, camPose, laneAt, backAt, backDoor, along, geometry } from '../ch2/world/bridge.js';
 import '../ch2/ui/icons.js';
 import '../ch2/ui/hud.js';
 import LAYOUT from '../ch2/layout.json';
@@ -38,7 +38,10 @@ const on = (t, ty, fn, o) => { t.addEventListener(ty, fn, o); offs.push(() => t.
 const addEventListener = (ty, fn, o) => on(window, ty, fn, o);
 
 
-const L = LAYOUT, H = window.c2hud, Q = new URLSearchParams(location.search), $ = (s) => root.querySelector(s);
+// app: a stepping island before The Floor's lane (forge-edge-n mirrored: the OpenAI lane has that one, HF forge-edge-ne),
+// so that lane is not a jump off the Forge's bare edge into nothing. Bridge only: layout.json (Ch2) stays as it is.
+const FLOOR_STEP = { id: 'forge-edge-floor', model: 's', pos: geometry(LAYOUT).at(9.8, 14.6, 33.6), scale: .7, rotY: -.4, zone: 'forge' };
+const L = { ...LAYOUT, islands: [...LAYOUT.islands, FLOOR_STEP] }, H = window.c2hud, Q = new URLSearchParams(location.search), $ = (s) => root.querySelector(s);
 const _BEATS = [['rise', BR.rise, 'RISE'], ['speech', BR.speech, 'IT SPEAKS'], ['split', BR.split, 'THE SPLIT'], ['assign', BR.assign, 'YOUR ASSIGNMENT'], ['control', BR.control, 'PICK YOUR WORK']];
 
 // ------------------------------------------------------------------------------------------- renderer + world (the game's modules)
@@ -188,8 +191,12 @@ function frame(dt, scrub = false) {
   P1.update(T, dt, { D, orb: orbP, back });
   if (mode === 'film') { const c = camPose(G, KEYS, T); camera.position.set(...c.pos); camera.lookAt(...c.look); camera.fov = c.fov; }
   else if (mode === 'play') {
-    const cp = Math.cos(pitch), d = CAMERA.distance, h = CAMERA.height;   // app: ThirdPerson's orbit pose
-    const tgt = new THREE.Vector3(orbP[0] + Math.sin(yaw) * cp * d, orbP[1] + h + Math.sin(pitch) * d, orbP[2] + Math.cos(yaw) * cp * d);
+    const cp = Math.cos(pitch), sp = Math.sin(pitch), h = CAMERA.height;   // app: ThirdPerson's orbit pose
+    let d = CAMERA.distance;
+    // app: looking up, slide in along the arm to stay above the island (ThirdPerson's `floor`), never inside it
+    const fy = sp < 0 ? groundAt(orbP[0] + Math.sin(yaw) * cp * d, pl.p[1], orbP[2] + Math.cos(yaw) * cp * d) : null;
+    if (fy !== null && orbP[1] + h + sp * d < fy + .3) d = Math.max(1, (fy + .3 - orbP[1] - h) / sp);
+    const tgt = new THREE.Vector3(orbP[0] + Math.sin(yaw) * cp * d, orbP[1] + h + sp * d, orbP[2] + Math.cos(yaw) * cp * d);
     camera.position.lerp(tgt, scrub ? 1 : 1 - Math.exp(-14 * dt)); camera.lookAt(orbP[0], orbP[1] + h * .45, orbP[2]); camera.fov = 58;
   } else rideStep();
   camera.updateProjectionMatrix();

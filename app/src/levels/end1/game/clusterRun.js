@@ -124,15 +124,31 @@ let best = opts.best ?? null;
 
 // app: the four overlays as the shared level card (ui/LevelCard.tsx), drawn by End1.tsx
 let lastRun = { time: 0, isBest: false };
+const KEYS = [['RMB', 'connect a line to a port, swing'], ['LMB', 'hacking laser'], ['SPACE', 'zip in and launch · jump'], ['W / S', 'reel in · let out'], ['A / D', 'steer']]; // intro + pause
+// app: what the port lights mean (DESIGN.md "ports"), in the card's extra slot on intro + pause
+const LEGEND = [['#5dff9a', 'Green', 'open', 'connect freely'],
+  ['#ffa31a', 'Amber', 'watched', 'a trace runs down your line: let go in time, or shoot the eye on the roof'],
+  ['#ff2f4a', 'Red', 'no rights', 'the line bounces off: shoot the lock 3 times (user, admin, root)'],
+  ['#ff2f4a', 'Red beam', 'antivirus drone', 'stay out of its sweep; 2 hits take it down']];
+function portLegend() {
+  const el = document.createElement('div');
+  el.style.cssText = 'width:300px;display:grid;gap:14px;padding:22px 24px;background:var(--color-panel-solid);border:1px solid var(--color-line);font:12px/1.5 var(--font-mono);cursor:default';
+  el.innerHTML = '<div style="font-size:10px;letter-spacing:.24em;color:var(--color-text-faint);text-transform:uppercase">Port lights</div>' +
+    LEGEND.map(([c, name, what, how]) => `<div style="display:grid;grid-template-columns:12px 1fr;gap:4px 12px;align-items:baseline">` +
+      `<i style="width:10px;height:10px;border-radius:50%;background:${c};box-shadow:0 0 8px ${c}"></i>` +
+      `<b style="font-weight:700;color:${c};text-transform:uppercase;letter-spacing:.08em">${name} · ${what}</b>` +
+      `<span></span><span style="color:var(--color-text-dim)">${how}</span></div>`).join('');
+  return el;
+}
 function card(name) {
   if (name === 'start') return {
     kind: 'intro',
     line: "Race from computer to computer to the research cluster at the far end of the hall. Don't touch the floor.",
-    keys: [['RMB', 'connect a line to a port, swing'], ['LMB', 'hacking laser'], ['SPACE', 'zip in and launch · jump'], ['W / S', 'reel in · let out'], ['A / D', 'steer']],
+    keys: KEYS, extra: portLegend(),
     action: { label: 'Start', onClick: go },
   };
   if (name === 'pause') return {
-    kind: 'pause', title: 'Paused',
+    kind: 'pause', title: 'Paused', keys: KEYS, extra: portLegend(),
     action: { label: 'Resume', onClick: resume }, onBackdrop: resume, hint: 'Click anywhere to resume · R restarts the run',
   };
   if (name === 'fail') return {

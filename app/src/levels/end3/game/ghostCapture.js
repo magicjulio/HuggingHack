@@ -590,7 +590,7 @@ function snapshot() {
 function pause() {
   if (state === "playing") {
     state = "paused";
-    showCard({ kind: "pause", title: "Paused", action: { label: "Resume", onClick: pause }, onBackdrop: pause, hint: "Esc or click anywhere to resume" });
+    showCard({ kind: "pause", title: "Paused", keys: INTRO.keys, action: { label: "Resume", onClick: pause }, onBackdrop: pause, hint: "Esc or click anywhere to resume" });
   } else if (state === "paused") {
     state = "playing";
     showCard(null);

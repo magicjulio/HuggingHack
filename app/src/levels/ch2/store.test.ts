@@ -229,6 +229,22 @@ describe('chapter 2', () => {
     expect(proof.at(-1)).toBe('proof_done');
   });
 
+  it('the forge takes its inputs during the proof; the fight starts when the proof ends', () => {
+    const { s, wait, goNear } = play();
+    s().jumpTo(6);
+    expect(s().forge.phase).toBe('proof');
+    goNear(FORGE_SLOTS[2]);
+    for (let i = 0; i < 4; i++) {
+      expect(s().target).toEqual({ kind: 'forge' });
+      s().use();
+    }
+    expect(s().forge).toMatchObject({ phase: 'proof', slots: 4 });
+    wait(0.1);
+    expect(s().target).toBeNull();
+    wait(TIMING.proofSeconds);
+    expect(s().forge.phase).toBe('forging');
+  });
+
   it('jumpTo reaches every step', () => {
     const n = createCh2Store().getState().steps().length;
     for (let i = 0; i < n; i++) {

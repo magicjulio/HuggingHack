@@ -39,9 +39,16 @@ export interface ThirdPersonProps {
   view: OrbitView;
   /** Read every frame: while it returns a pose, the camera eases there instead of following. */
   override?: () => CameraOverride | null;
+  /**
+   * Floor height under (x, z), or null over the void. Looking up, the camera then slides in
+   * along its arm to stay `FLOOR_GAP` above it instead of sinking into the ground.
+   */
+  floor?: (x: number, z: number) => number | null;
 }
 
 const SENSITIVITY = 0.0022;
+const FLOOR_GAP = 0.3;
+const MIN_DISTANCE = 1;
 const MOVE: Record<string, [number, number]> = {
   KeyW: [0, -1],
   ArrowUp: [0, -1],
@@ -63,6 +70,7 @@ export function ThirdPerson({
   maxPitch,
   view,
   override,
+  floor,
 }: ThirdPersonProps) {
   const { camera, gl } = useThree();
   const keys = useRef(new Set<string>());
@@ -133,6 +141,16 @@ export function ThirdPerson({
         t.z + Math.cos(view.yaw) * cp * distance,
       );
       goalLook = new Vector3(t.x, t.y + height * 0.45, t.z);
+      const rise = Math.sin(view.pitch);
+      const ground = rise < 0 ? floor?.(goalPos.x, goalPos.z) : null;
+      if (ground != null && goalPos.y < ground + FLOOR_GAP) {
+        const d = Math.max(MIN_DISTANCE, (ground + FLOOR_GAP - t.y - height) / rise);
+        goalPos.set(
+          t.x + Math.sin(view.yaw) * cp * d,
+          t.y + height + rise * d,
+          t.z + Math.cos(view.yaw) * cp * d,
+        );
+      }
     }
     if (first.current || over?.immediate) {
       camera.position.copy(goalPos);

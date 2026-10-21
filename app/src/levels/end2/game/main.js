@@ -7,6 +7,7 @@
 // The menu, pause, regroup and end overlays are the app's shared level card (opts.onScreen, see showOverlay; the
 // HTML panel and end card are gone; a loading card shows during the boot); the finish calls opts.onFinish(result);
 // window.__ascent (was ?test) comes with opts.debug; body[data-aim|data-vent] and --vent-* live on `root`.
+// updateCamera keeps the camera above the floor when looking up (T.camera.floorGap).
 import { lookScale } from "../../../state/settings"; // app: settings
 import * as THREE from "three";
 import { createWorld } from "./world.js";
@@ -87,6 +88,7 @@ export const T = {
     follow: 17,
     minPitch: -1.1,
     maxPitch: 0.85,
+    floorGap: 0.3, // app: looking up, the camera slides in along its arm to stay this far above the floor
   },
   // ---- Combat redesign v1 (DESIGN.md → "Combat loop"). Per-floor scaling:
   floors: {
@@ -1094,17 +1096,18 @@ function release() {
   clearInput();
   if (document.pointerLockElement) document.exitPointerLock();
 }
-// app: the overlays as the shared level card (ui/LevelCard.tsx), drawn by End2.tsx
+// app: the overlays as the shared level card (ui/LevelCard.tsx), drawn by End2.tsx; KEYS on intro + pause
+const KEYS = [["WASD", "steer the approach · move"], ["MOUSE", "look · left click fire · hold right aim"], ["C / SHIFT / SPACE", "cover · sprint · dodge"], ["Q / E", "spawn subagents · use the lift"]];
 function showOverlay(type) {
   root.classList.toggle("finished", type === "finish");
   const card = {
     menu: {
       kind: "intro",
       line: "The scorer’s files are believed to be at the top. Fly into the fleet, take the atrium, and call in your own squad to push upward.",
-      keys: [["WASD", "steer the approach · move"], ["MOUSE", "look · left click fire · hold right aim"], ["C / SHIFT / SPACE", "cover · sprint · dodge"], ["Q / E", "spawn subagents · use the lift"]],
+      keys: KEYS,
       action: { label: "Join the swarm", onClick: startRun },
     },
-    pause: { kind: "pause", title: "Paused", action: { label: "Resume", onClick: resume }, onBackdrop: resume, hint: "Click anywhere to resume" },
+    pause: { kind: "pause", title: "Paused", keys: KEYS, action: { label: "Resume", onClick: resume }, onBackdrop: resume, hint: "Click anywhere to resume" },
     dead: {
       kind: "fail",
       title: "Core interrupted",
@@ -1645,6 +1648,10 @@ function updateCamera(dt, snap = false) {
     if (desired.y > ceil) desired.y = Math.max(eye.y - 0.25, ceil);
   } else if (hit < distance)
     desired.copy(eye).addScaledVector(d, Math.max(0.1, hit - 0.16));
+  // app: looking up swung the camera under the floor (inside the arena); pull it in along its arm instead
+  const floor = groundAt(desired.x, desired.z, pos.y + T.building.stepUp);
+  if (floor != null && d.y < -1e-3 && desired.y < floor + T.camera.floorGap)
+    desired.copy(eye).addScaledVector(d, Math.max(0.1, (floor + T.camera.floorGap - eye.y) / d.y));
   // Snap (no lag) when the lagging camera would sit behind a wall.
   const k = snap || (bld && blocked(eye, camera.position)) ? 1 : 1 - Math.exp(-dt * T.camera.follow);
   camera.position.lerp(desired, k);

@@ -690,9 +690,11 @@ export function createCh2Store(opts: Ch2Options = {}): Ch2Store {
     }
 
     // ------------------------------------------------------------ forge
+    /** Inputs go in during V8SAME's proof too (E works on arrival); the fight waits for the proof. */
     function putIntoForge() {
       const s = get();
-      if (s.forge.phase !== 'ready') return;
+      if (s.forge.phase !== 'proof' && s.forge.phase !== 'ready') return;
+      if (s.forge.slots >= FORGE_INPUTS.length) return;
       const next = FORGE_INPUTS[s.forge.slots];
       if (!s.inventory.includes(next)) return;
       const label = ITEMS.find((i) => i.id === next)!.label;
@@ -702,6 +704,10 @@ export function createCh2Store(opts: Ch2Options = {}): Ch2Store {
       }));
       get().addLog(LOG.forgeIn(label));
       sound('slot_in');
+      if (get().forge.phase === 'ready') startForging();
+    }
+
+    function startForging() {
       if (get().forge.slots === FORGE_INPUTS.length) {
         set({
           forge: { phase: 'forging', slots: 4, round: 1, progress: 0, t: 0 },
@@ -728,6 +734,7 @@ export function createCh2Store(opts: Ch2Options = {}): Ch2Store {
           set({ forge: { ...f, phase: 'ready', t: 0 } });
           get().addThought(TEXT.proofThought);
           runner.dispatch({ type: 'proof_done' });
+          startForging(); // all four already in
         } else set({ forge: { ...f, t } });
         return;
       }
@@ -841,7 +848,11 @@ export function createCh2Store(opts: Ch2Options = {}): Ch2Store {
       for (const it of ITEMS)
         if (s.items[it.id] === 'there') consider({ kind: 'item', id: it.id }, it.position);
       // the forge: any of its four slot frames (the next input goes in, in order)
-      if (s.forge.phase === 'ready') for (const p of FORGE_SLOTS) consider({ kind: 'forge' }, p);
+      if (
+        (s.forge.phase === 'proof' || s.forge.phase === 'ready') &&
+        s.forge.slots < FORGE_INPUTS.length
+      )
+        for (const p of FORGE_SLOTS) consider({ kind: 'forge' }, p);
       return best;
     }
   });

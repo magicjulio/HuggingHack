@@ -12,7 +12,7 @@ import { LevelCard } from '../../ui/LevelCard';
 import { useGame } from '../../state/store';
 import type { LevelProps } from '../index';
 import { Ch2Context, useCh2, useCh2Store } from './context';
-import { CAMERA, RENDER, TEXT } from './config';
+import { BODY, CAMERA, RENDER, TEXT } from './config';
 import { ITEMS, LAYOUT, NPCS, SPAWN, SPAWN_YAW } from './layout';
 import { createCh2Store, type Target } from './store';
 import { ORB_LIFT, WORLD_RENDER, World, preloadCh2 } from './World';
@@ -162,6 +162,9 @@ function Camera({
       maxPitch={CAMERA.maxPitch}
       view={view}
       override={override}
+      floor={(x, z) =>
+        store.sim.world.groundBelow(x, z, store.sim.body.pos.y + BODY.stepUp)?.y ?? null
+      }
     />
   );
 }
@@ -231,9 +234,9 @@ function Ch2View({
     };
   }, [store]);
 
-  // the full map needs the mouse
+  // the full map and the end card need the mouse
   useEffect(() => {
-    if (s.fullMap) document.exitPointerLock?.();
+    if (s.fullMap || s.phase === 'ended') document.exitPointerLock?.();
     else if (s.phase === 'play') requestLock();
   }, [s.fullMap, s.phase]);
 
