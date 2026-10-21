@@ -16,7 +16,7 @@ test('ending 1: picked on the start screen, runs, swings, back to the menu clean
   await expect(page.getByText('start ending 1')).toBeVisible();
   await page.keyboard.press('Enter');
   await page.waitForFunction(() => (window as never)['__end1'], null, { timeout: 15000 });
-  await expect(page.getByRole('heading', { name: 'CLUSTER RUN' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'OpenAI Infra' })).toBeVisible();
 
   // the 3-2-1 countdown, then the run (headless: no pointer lock, so start through the hook)
   await e1(page, '(g.start(), g.advance(240, 1 / 60))');
