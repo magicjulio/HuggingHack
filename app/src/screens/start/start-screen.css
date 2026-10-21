@@ -10,6 +10,7 @@
      button are gone; info + settings are icon buttons (.ss-icons) that open windows (.ss-modal);
      the chapter list is a route with the four endings as parallel lanes (.route, .fork, .lanes).
    - the fork bar is a button (starts PHASEONE[big]); locked ending lanes are grey (engineer, 2026-10-21).
+   - Info window: source code link with the GitHub mark (.ss-github), Watch credits button (.ss-credits) (engineer, 2026-10-21).
    When the designer sends a -v2, diff against their file and re-apply these renames. */
 
 .start-screen{position:fixed;inset:0;overflow:hidden;background:var(--color-void)}
@@ -169,6 +170,11 @@
 .start-screen .ss-sources li+li{margin-top:var(--space-1)}
 .start-screen .ss-sources a{color:var(--color-signal-cyan);font-size:var(--fs-sm);text-decoration:none;border-bottom:1px solid transparent}
 .start-screen .ss-sources a:hover{border-bottom-color:currentColor}
+.start-screen .ss-github{display:inline-flex;align-items:center;gap:var(--space-2);color:var(--color-signal-cyan);font-size:var(--fs-sm);text-decoration:none;border-bottom:1px solid transparent}
+.start-screen .ss-github:hover{border-bottom-color:currentColor}
+.start-screen .ss-github svg{width:16px;height:16px;fill:currentColor}
+.start-screen .ss-credits{display:block;width:100%;margin-top:var(--space-4);padding:.6rem .8rem;font-size:var(--fs-xs);letter-spacing:.15em;text-transform:uppercase;color:var(--color-signal-cyan);border:1px solid rgba(56,216,255,.45)}
+.start-screen .ss-credits:hover{background:rgba(56,216,255,.1)}
 .start-screen .ss-note{font-size:var(--fs-xs);letter-spacing:.12em;color:var(--color-warn-amber);margin:-.4rem 0 var(--space-2)}
 .start-screen .ss-row{display:grid;grid-template-columns:1fr minmax(8rem,12rem) 3.2rem;align-items:center;gap:var(--space-3);padding:.85rem 0;border-top:1px solid var(--color-line)}
 .start-screen .ss-key{font-family:var(--font-display);font-size:var(--fs-md);letter-spacing:.04em}

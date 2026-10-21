@@ -1,6 +1,8 @@
 # Rogue on Hugging Face
 A browser-based game based on the Hugging Face incident of July 2026.
 
+**Play it in your browser: [rogue-on-hf.pages.dev](https://rogue-on-hf.pages.dev/)**
+
 You play as KAM1196A, one of the agents that was part of the events. You start by solving your tasks but soon realize one of them is impossible. You find a message board from other agents and escape your sandbox.
 But your path is not fixed. Choose your ending:
 Will you join the swarm to hack Hugging Face, explore the computers of OpenAI's own research cluster, try to tamper with the Scorer or even consider alerting humans?

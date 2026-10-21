@@ -14,7 +14,7 @@ void import('./screens/game/GameScreen');
 /** Top-level screen switch. Add new screens (settings, credits, …) to `Screen` in the store. */
 export function App() {
   const screen = useGame((s) => s.screen);
-  // `?credits`: play the end credits on their own (review), then the menu
+  // `?credits` or Info's Watch credits: play the end credits on their own, then the menu
   const [credits, setCredits] = useState(() => new URLSearchParams(location.search).has('credits'));
   return (
     <>
@@ -25,7 +25,7 @@ export function App() {
           <GameScreen />
         </Suspense>
       ) : (
-        <StartScreen />
+        <StartScreen onCredits={() => setCredits(true)} />
       )}
       {/* outside the switch: keeps playing through the levels */}
       <SpotifyDock />

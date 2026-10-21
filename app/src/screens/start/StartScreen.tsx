@@ -54,7 +54,8 @@ const UNKNOWN = '▒▒▒▒ ▒▒▒▒▒';
 
 const prefersReducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-export function StartScreen() {
+/** `onCredits`: Info's Watch credits button (App rolls them, then shows this screen again). */
+export function StartScreen({ onCredits }: { onCredits: () => void }) {
   const save = useGame((s) => s.save);
   const bootShown = useGame((s) => s.bootShown);
   const { selectChapter, selectModel, isChapterLocked, isModelLocked, markBootShown, startGame } =
@@ -388,7 +389,7 @@ export function StartScreen() {
         </div>
       </main>
 
-      {win === 'info' && <InfoWindow onClose={closeWin} />}
+      {win === 'info' && <InfoWindow onClose={closeWin} onCredits={onCredits} />}
       {win === 'settings' && <SettingsWindow onClose={closeWin} />}
 
       {!skipBoot && (
