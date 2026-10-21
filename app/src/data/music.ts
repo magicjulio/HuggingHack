@@ -1,11 +1,9 @@
 /**
  * The start screen tracks (assets/music/), picked in Settings → Track; the first is the default.
  * Info and the end credits list their credits from here.
- * PLACEHOLDER: sonican.mp3's title and page are not recorded yet (Sonican publishes on Pixabay).
  */
 import cipherUrl from '../assets/music/cipher2.mp3?url';
 import chaseUrl from '../assets/music/chase.mp3?url';
-import sonicanUrl from '../assets/music/sonican.mp3?url';
 
 export interface Track {
   id: string;
@@ -33,13 +31,6 @@ export const TRACKS: Track[] = [
     license: 'CC0',
     src: chaseUrl,
     url: 'https://opengameart.org/content/chase-2',
-  },
-  {
-    id: 'sonican',
-    title: 'Sonican',
-    artist: 'Sonican',
-    license: 'Pixabay Content License',
-    src: sonicanUrl,
   },
 ];
 
