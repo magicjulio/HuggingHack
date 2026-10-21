@@ -12,6 +12,7 @@ describe('game store', () => {
         selectedModel: 'im1',
         unlockedModels: [],
         completedChapters: [],
+        played: [],
         settings: { ...s.save.settings, unlockAll: false },
       },
     }));
@@ -87,11 +88,28 @@ describe('game store', () => {
     expect(s().save.selectedModel).toBe('im1');
     s().finishChapter('ch1');
     expect(s().selectChapter('ch2')).toBe(true);
-    expect(s().selectChapter('end3')).toBe(true);
+    expect(s().selectChapter('bridge')).toBe(true);
+    expect(s().selectChapter('end3')).toBe(false); // endings open once picked in PHASEONE[big]
+  });
+
+  it('an ending opens once it has been played, and Unlock all still opens every one', () => {
+    const s = () => useGame.getState();
+    s().finishChapter('ch1');
+    expect(s().selectChapter('end2')).toBe(false);
+    s().startChapter('end2'); // the bridge's pick
+    s().quitToMenu();
+    expect(s().save.played).toContain('end2');
+    expect(s().selectChapter('end2')).toBe(true);
+    expect(s().selectChapter('end4')).toBe(false);
+    s().setSetting('unlockAll', true);
+    expect(s().selectChapter('end4')).toBe(true);
+    s().setSetting('unlockAll', false);
+    expect(s().save.selectedChapter).toBe('ch1'); // the locked pick falls back
+    expect(s().selectChapter('end2')).toBe(true); // played ones stay open
   });
 
   it('endings are selectable and ending 1 keeps the best run time', () => {
-    useGame.getState().finishChapter('ch1');
+    useGame.getState().setSetting('unlockAll', true);
     expect(useGame.getState().selectChapter('end1')).toBe(true);
     // all four endings are built now; an unknown id is still locked
     expect(useGame.getState().selectChapter('end2')).toBe(true);

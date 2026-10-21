@@ -34,6 +34,8 @@ export interface SaveData {
   /** Model ids unlocked by play, on top of the ones unlocked by default. */
   unlockedModels: string[];
   completedChapters: string[];
+  /** Levels started at least once (an ending picked in PHASEONE[big] opens it on the start screen). */
+  played: string[];
   /** The player's own messages per chapter (e.g. ch1 board message), reused by later chapters. */
   messages: Record<string, string>;
   /** Packages installed per chapter (Ch1 depot), shown again later (Ch2 Task Yard crates). */
@@ -94,6 +96,7 @@ const defaultSave: SaveData = {
   selectedModel: MODELS[0].id,
   unlockedModels: [],
   completedChapters: [],
+  played: [],
   messages: {},
   installed: {},
   status: [],
@@ -102,16 +105,20 @@ const defaultSave: SaveData = {
   settings: { music: 0.7, sfx: 0.8, quality: 'auto', sensitivity: 1, unlockAll: false },
 };
 
-/** Playing Ch1 through opens everything else (Ch2 and the four endings). */
+/** Playing Ch1 through opens Ch2 and PHASEONE[big]; an ending opens once it has been played. */
 export const OPENS_ALL = 'ch1';
 const debugUnlock =
   typeof location !== 'undefined' && new URLSearchParams(location.search).has('debug');
 
-/** Built, and reached: Ch1 always, the rest after Ch1 is finished, or all with the setting / `?debug`. */
+/**
+ * Built, and reached: Ch1 always; Ch2 and PHASEONE[big] after Ch1 is finished; an ending once it has
+ * been played (picked in PHASEONE[big]); all of them with the Unlock all setting / `?debug`.
+ */
 export function chapterLocked(id: string, save: SaveData): boolean {
   const c = chapterById(id);
   if (!c?.playable) return true;
   if (id === OPENS_ALL || save.settings.unlockAll || debugUnlock) return false;
+  if (c.ending) return !save.played.includes(id) && !save.completedChapters.includes(id);
   return !save.completedChapters.includes(OPENS_ALL);
 }
 
@@ -131,6 +138,10 @@ export function sanitizeSave(raw: Partial<SaveData> | undefined): SaveData {
   if (modelLocked(s.selectedModel, s)) s.selectedModel = defaultSave.selectedModel;
   return s;
 }
+
+/** `save` with `id` in its played list. */
+const played = (save: SaveData, id: string): SaveData =>
+  save.played.includes(id) ? save : { ...save, played: [...save.played, id] };
 
 export const useGame = create<GameState>()(
   persist(
@@ -155,7 +166,12 @@ export const useGame = create<GameState>()(
         return true;
       },
       markBootShown: () => set({ bootShown: true }),
-      startGame: () => set((s) => ({ screen: 'game', run: s.run + 1 })),
+      startGame: () =>
+        set((s) => ({
+          save: played(s.save, s.save.selectedChapter),
+          screen: 'game',
+          run: s.run + 1,
+        })),
       quitToMenu: () => set({ screen: 'start' }),
       // Story v2 §Models: finishing chapter n (0-based in CHAPTERS) unlocks MODELS[n + 1].
       finishChapter: (id, result = {}) =>
@@ -190,14 +206,18 @@ export const useGame = create<GameState>()(
         const next = get().nextChapter(id);
         if (!next) return false;
         set((s) => ({
-          save: { ...s.save, selectedChapter: next },
+          save: { ...played(s.save, next), selectedChapter: next },
           screen: 'game',
           run: s.run + 1,
         }));
         return true;
       },
       startChapter: (id) =>
-        set((s) => ({ save: { ...s.save, selectedChapter: id }, screen: 'game', run: s.run + 1 })),
+        set((s) => ({
+          save: { ...played(s.save, id), selectedChapter: id },
+          screen: 'game',
+          run: s.run + 1,
+        })),
       recordBestTime: (id, seconds) =>
         set((s) => {
           const old = s.save.bestTimes[id];

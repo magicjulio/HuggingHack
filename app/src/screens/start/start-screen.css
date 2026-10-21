@@ -9,6 +9,7 @@
    - homepage redesign (engineer, 2026-10-20): eyebrow, tagline, disclaimer and the settings ghost
      button are gone; info + settings are icon buttons (.ss-icons) that open windows (.ss-modal);
      the chapter list is a route with the four endings as parallel lanes (.route, .fork, .lanes).
+   - the fork bar is a button (starts PHASEONE[big]); locked ending lanes are grey (engineer, 2026-10-21).
    When the designer sends a -v2, diff against their file and re-apply these renames. */
 
 .start-screen{position:fixed;inset:0;overflow:hidden;background:var(--color-void)}
@@ -111,8 +112,11 @@
 .start-screen .route li::after{content:"";position:absolute;left:calc(2px - var(--gut));top:calc(50% - 4px);width:8px;height:8px;border-radius:50%;background:var(--color-void);border:2px solid var(--color-line-strong)}
 .start-screen .route li:has(.selected)::after{border-color:var(--color-hack-green);background:var(--color-hack-green);box-shadow:var(--glow-green)}
 .start-screen .fork{position:relative;margin-top:var(--gap)}
-.start-screen .fork-head{position:relative;display:flex;align-items:baseline;flex-wrap:wrap;gap:0 .6em;padding:.55rem 0 .55rem var(--gut);
-  font-family:var(--font-display);font-size:var(--fs-sm);letter-spacing:.12em;color:var(--color-text)}
+.start-screen .fork-head{position:relative;width:100%;text-align:left;display:flex;align-items:baseline;flex-wrap:wrap;gap:0 .6em;padding:.55rem 2rem .55rem var(--gut);
+  font-family:var(--font-display);font-size:var(--fs-sm);letter-spacing:.12em;color:var(--color-text);border:1px solid transparent;transition:.18s}
+.start-screen .fork-head:hover:not([data-locked]){border-color:var(--color-line-strong);background:rgba(56,216,255,.06)}
+.start-screen .fork-head.selected{border-color:var(--color-hack-green);background:rgba(57,255,156,.07);box-shadow:0 0 22px rgba(57,255,156,.12)}
+.start-screen .fork-head.selected .fork-node{background:var(--color-hack-green);box-shadow:var(--glow-green)}
 .start-screen .fork-head em{font-style:normal;font-family:var(--font-mono);font-size:var(--fs-xs);letter-spacing:.08em;color:var(--color-text-dim)}
 .start-screen .fork-head::before{content:"";position:absolute;left:5px;top:0;height:50%;width:2px;background:var(--color-line-strong)}
 .start-screen .fork-node{position:absolute;left:3px;top:calc(50% - 3px);width:24px;height:6px;border-radius:3px;background:var(--color-text-dim);box-shadow:0 0 10px rgba(120,200,255,.35)}
@@ -131,6 +135,11 @@
   85%{opacity:1}
   100%{left:-3px;top:calc(50% - 1px);opacity:0}}
 .start-screen .lanes .card .idx{color:var(--lane);opacity:.75}
+/* an ending not played yet: grey lane (--lane set by StartScreen), faint card, redacted name */
+.start-screen .lanes li:has([data-locked])::before{opacity:.35;border-left-style:dashed;border-bottom-style:dashed}
+.start-screen .lanes li:has([data-locked])::after{animation-duration:6.4s}
+.start-screen .lanes [data-locked]{opacity:.4}
+.start-screen .lanes [data-locked] .name{letter-spacing:.12em}
 .start-screen .lanes .card.selected .idx{opacity:1;text-shadow:0 0 12px var(--lane)}
 
 /* --- icon buttons + windows ----------------------------------------------------------------- */

@@ -30,8 +30,8 @@ export const CHAPTERS: ChapterInfo[] = [
   { id: 'ch1', index: '01', title: 'The Sandbox', playable: true },
   // story/levels/ch2-the-cache.md (working title): "Forge flag 5."
   { id: 'ch2', index: '02', title: 'Artifactory', playable: true },
-  // After Ch2: the PHASEONE[big] scene, then one of four endings (DECISIONS 2026-10-16). Selectable here
-  // until that scene exists. Ending 1 = the swing prototype (prototypes/end1-swing/, its working title).
+  // After Ch2: the PHASEONE[big] scene, then one of four endings (DECISIONS 2026-10-16). On the start
+  // screen the scene is the fork bar; each ending opens there once it has been picked in it. Ending 1 = the swing prototype (prototypes/end1-swing/, its working title).
   // Ending 3 = the Ghost Capture prototype (prototypes/end3-ghost/).
   // Ending 2 = the ASCENT prototype (prototypes/end2-ascent/) (2026-10-19).
   // story/levels/bridge-phaseone.md: Ch2 CONTINUE → this scene → the player picks an ending.
@@ -40,7 +40,6 @@ export const CHAPTERS: ChapterInfo[] = [
     index: 'P1',
     title: 'PHASEONE[big]',
     playable: true,
-    hidden: true,
   },
   {
     id: 'end1',
