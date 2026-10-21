@@ -1426,14 +1426,17 @@ export function createFloor2(opts = {}) {
       if (d.progress !== before) {
         moved = true;
         d._slide?.(d.progress * d.progress * (3 - 2 * d.progress));
-        if (d.target === 1 && !d.isOpen && d.progress > 0.55) {
-          d.isOpen = true;
-          const k = colliders.indexOf(d.collider);
-          if (k >= 0) colliders.splice(k, 1);
-          version++;
-        }
         if (d.progress === 1 && before < 1) emit(d, "open");
         if (d.progress === 0 && before > 0) emit(d, "closed");
+      }
+      // passable once more than half open; checked even when the door did not move, since a
+      // retry closes and reopens the doors in one frame (close() put the collider back)
+      if (d.target === 1 && !d.isOpen && d.progress > 0.55) {
+        d.isOpen = true;
+        const k = colliders.indexOf(d.collider);
+        if (k >= 0) colliders.splice(k, 1);
+        version++;
+        moved = true;
       }
       // light: orange locked, green open, a fast red/orange flash on alert (an ambush tell)
       if (d.alert) tmp.copy(COLOR.alert).lerp(COLOR.locked, 0.5 + 0.5 * Math.sin(time * 14));
