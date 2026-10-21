@@ -15,6 +15,8 @@ export interface LevelProps {
   onFinish: (result?: ChapterResult) => void;
   /** Start the next chapter (end card CONTINUE); undefined when there is no playable next chapter. */
   onContinue?: () => void;
+  /** Endings: play the end credits again (finish card); undefined until they have played once. */
+  onCredits?: () => void;
 }
 
 export const LEVELS: Record<string, LazyExoticComponent<ComponentType<LevelProps>>> = {

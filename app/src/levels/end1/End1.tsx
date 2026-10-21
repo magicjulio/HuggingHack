@@ -41,7 +41,7 @@ export default function End1(props: LevelProps) {
   return (
     <>
       <div className="end1" ref={root} />
-      {card && <LevelCard level={ID} {...card} onMenu={props.onExit} />}
+      {card && <LevelCard level={ID} {...card} onMenu={props.onExit} onCredits={props.onCredits} />}
     </>
   );
 }

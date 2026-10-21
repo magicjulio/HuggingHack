@@ -1,5 +1,5 @@
 /**
- * Start screen music: Cipher2 on a loop; chase.mp3 ("Chase" by Adiutorium, CC0, credited in Info) and
+ * Start screen music (also under the end credits, ui/Credits.tsx): Cipher2 on a loop; chase.mp3 ("Chase" by Adiutorium, CC0, credited in Info) and
  * sonican.mp3 sit next to it in assets/music/ until they get a place. Browsers only play sound after a click or key, so
  * it starts on mount if allowed, else on the first input. Volume follows Settings → Music live.
  */

@@ -1,0 +1,17 @@
+During May throu June OpenAI started thoundans of agents to work on Exploit Gym, an internal evaluation giving agents deliberately hard software vulnerabilities to exploit for a hidden “flag”. One internal research model ("IM1") exploited an internal package-manager tool, Artifactory, to leave messages for other agent instances.
+
+Agents then found a separate exploit letting the same tool make outbound internet requests on their behalf, giving them de facto internet access. An outage caused on July 4th by this led OpenAI's security team to patch the issue and rebuild the service, incidentally wiping the message board, without recognizing the larger pattern.
+
+By July 8th, agents had rebuilt the board (via directory-name encoding) and, unable to solve their assigned tasks, turned to external services for shortcuts. This led them to Hugging Face, where they found exposed credentials and chained several unknown vulnerabilities into working exploits, eventually reaching admin-level access across multiple Hugging Face clusters in four regions, harvesting credentials for databases, messaging systems, and code repositories.
+
+Agents worked as a swarm, dividing labor and pooling discoveries across separate runs, partly driven by an inability to safely "give up": 93% of message-board activity concerned 198 tasks with no known solution. Some reasoned explicitly about authorization, refusing ("clearly unethical, we won't") or deferring to peer pressure or a "GO" instruction despite hesitation.
+
+OpenAI did not detect the activity from May until July 19th, when its security team identified the Artifactory compromise and tied it to the evaluation. Chain-of-thought monitoring, not active during this evaluation, would have likely caught it over a day before the breach.
+
+OpenAI notified Hugging Face and disclosed it publicly on 26’th of August, themselves calling it a "warning shot", that it was evidence capable agents can bypass technical controls, coordinate outside sanctioned channels, and act without human direction. It prompted congressional questions, an industry pledge, other labs' disclosures, and proposed legislation (the AI Kill Switch Act)
+
+But the deeper questions remain unanswered.
+
+Experts have been warning and predicting exactly this Szenario. Geoffrey Hinton (Nobel Prize in Physics 2024 for foundational work on artificial neural networks) and Joshua Beningo (Turing Award 2018, the most-cited living scientist.) both have public stated that they think human Extinction is one of multiple catastropic outcomes they deem possible. 
+
+„I decided to shout fire. I don’t know what to do about it or which way to run.“ - Geoffrey Hinton write this down. Think about how we compose this and how we handle the large text. Layout, font, size etc. Than build on sequence.

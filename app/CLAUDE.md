@@ -11,7 +11,7 @@ Audio: the designer's `levels/ch2/ui/sfx.js` (WebAudio synth, no files, no libra
 ```
 src/
   main.tsx, App.tsx      entry; screen switch (start | game), game lazy-loaded
-  data/                  catalogues: chapters.ts, models.ts (story text only from story/)
+  data/                  catalogues: chapters.ts, models.ts (story text only from story/); credits.ts (end credits text, sourced)
   state/                 global store (zustand, persisted `save`), menu helpers
   engine/                generic, chapter-independent:
     steps.ts             StepRunner — linear step chain, hint ladders, skipTo (tested)
@@ -23,6 +23,8 @@ src/
     Label3D.tsx, Orb3D.tsx   3D text label (canvas texture, local fonts) · PLACEHOLDER orb
   ui/                    generic DOM UI: Hud.tsx, Window.tsx, DebugPanel.tsx, ui.css; LevelCard.tsx + card.css = the one
                          card for intro, pause, fail, finish and loading in every level (see Conventions)
+                         Credits.tsx + credits.css: end credits (one roll: story + credits side by side, start music; Space pauses, arrows set the speed); GameScreen plays them when a
+                         finished ending is left, `?credits` plays them alone
   levels/
     index.ts             registry: chapter id → lazy component, LevelProps
     ch1/                 Chapter 1 "The Room"

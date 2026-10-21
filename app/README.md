@@ -16,6 +16,7 @@ Handy URL flags (combine with `&`):
 |---|---|
 | `/?skipboot` | skip the start screen's boot intro |
 | `/?debug` | debug panel in game: jump to any step, change tokens; no pause without mouse lock; every level unlocked |
+| `/?credits` | play the end credits on their own (they also roll when leaving a finished ending), then the menu |
 | `/?nofx` | no bloom / post-processing (weak GPUs, headless tests) |
 | `/?quality=high` / `mid` / `low` | Chapter 2 + bridge: fix render quality (wins over Settings → Quality); otherwise it adapts to frame rate. Low uses 75% resolution without MSAA. |
 

@@ -46,6 +46,7 @@ export default function End2(props: LevelProps) {
           level={ID}
           {...card}
           onMenu={card.kind === 'loading' ? undefined : props.onExit}
+          onCredits={props.onCredits}
         />
       )}
     </>

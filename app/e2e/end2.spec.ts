@@ -55,7 +55,7 @@ async function enter(page: Page) {
   await page.keyboard.press('Enter');
   // boot loads fonts, the logo and the approach glbs before the hooks exist
   await page.waitForFunction(() => (window as never)['__ascent'], null, { timeout: 60000 });
-  await expect(page.locator('.lc-title')).toHaveText('Ascent'); // the title card after the loading card
+  await expect(page.locator('.lc-title')).toHaveText('Hugging Face'); // the title card after the loading card
   expect(await page.locator('canvas').count()).toBe(1);
   expect(await page.evaluate('window.__liveContexts()')).toBe(1);
   expect(await page.evaluate("window.__listeners()['w:keydown']")).toBeGreaterThan(0);
@@ -122,6 +122,9 @@ test('ending 2: approach starts, boss arena loads, finish saves, menu round trip
   expect(save.state.save.bestTimes.end2).toBeGreaterThan(0);
 
   await page.locator('.lc.finish').getByRole('button', { name: 'Back to menu' }).click();
+  // leaving a finished ending rolls the credits; Esc skips them
+  await expect(page.getByRole('dialog', { name: 'Credits' })).toBeVisible();
+  await page.keyboard.press('Escape');
   await leftCleanly(page, before);
 
   // second round trip: back to menu from the paused panel

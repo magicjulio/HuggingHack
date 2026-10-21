@@ -42,6 +42,8 @@ export interface SaveData {
   status: string[];
   /** Best run time in seconds per level, for timed levels (Ending 1 race). */
   bestTimes: Record<string, number>;
+  /** Endings whose end credits have played once; after that they only play on request. */
+  creditsSeen: string[];
   settings: Settings;
 }
 
@@ -80,6 +82,8 @@ interface GameState {
   startChapter: (id: string) => void;
   /** Keep `seconds` as the level's best time if it beats the saved one. */
   recordBestTime: (id: string, seconds: number) => void;
+  /** The end credits have played after ending `id`. */
+  markCreditsSeen: (id: string) => void;
   setSetting: <K extends keyof Settings>(key: K, value: Settings[K]) => void;
   /** Delete the save, every setting and all other browser data of this site, then reload. */
   resetAll: () => void;
@@ -94,6 +98,7 @@ const defaultSave: SaveData = {
   installed: {},
   status: [],
   bestTimes: {},
+  creditsSeen: [],
   settings: { music: 0.7, sfx: 0.8, quality: 'auto', sensitivity: 1, unlockAll: false },
 };
 
@@ -199,6 +204,12 @@ export const useGame = create<GameState>()(
           if (old !== undefined && old <= seconds) return {};
           return { save: { ...s.save, bestTimes: { ...s.save.bestTimes, [id]: seconds } } };
         }),
+      markCreditsSeen: (id) =>
+        set((s) =>
+          s.save.creditsSeen.includes(id)
+            ? {}
+            : { save: { ...s.save, creditsSeen: [...s.save.creditsSeen, id] } },
+        ),
       setSetting: (key, value) =>
         set((s) => {
           const save = { ...s.save, settings: { ...s.save.settings, [key]: value } };

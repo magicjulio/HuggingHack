@@ -164,6 +164,9 @@ test('ending 3: rules probes, six-room finish, menu round trips leave nothing be
 
   // final overlay → menu; then a second round trip through the real keys and the pause overlay
   await page.locator('.lc.finish').getByRole('button', { name: 'Back to menu' }).click();
+  // leaving a finished ending rolls the credits; Esc skips them
+  await expect(page.getByRole('dialog', { name: 'Credits' })).toBeVisible();
+  await page.keyboard.press('Escape');
   await leftCleanly(page, before);
 
   await enter(page);

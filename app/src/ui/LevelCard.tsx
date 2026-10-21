@@ -55,6 +55,8 @@ export interface LevelCardProps extends ScreenCard {
   level: string;
   /** BACK TO MENU; omitted = no link (e.g. while loading). */
   onMenu?: () => void;
+  /** REWATCH CREDITS beside it, on finish cards only (an ending whose credits already played). */
+  onCredits?: () => void;
 }
 
 /** "Chapter 01" / "Ending 02" from the catalogue index ("01", "E2"). */
@@ -78,6 +80,7 @@ export function LevelCard({
   progress,
   solid,
   onMenu,
+  onCredits,
   onBackdrop,
   extra,
 }: LevelCardProps) {
@@ -143,6 +146,11 @@ export function LevelCard({
             {action && (
               <button className="lc-btn" onClick={action.onClick} autoFocus>
                 {action.label}
+              </button>
+            )}
+            {onCredits && kind === 'finish' && (
+              <button className="lc-link" onClick={onCredits}>
+                Rewatch credits
               </button>
             )}
             {onMenu && (

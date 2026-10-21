@@ -1,0 +1,56 @@
+/* Credits after the endings (ui/Credits.tsx). Black and white only (Julius 2026-10-21), so plain
+   white and greys instead of the colour tokens. Prefix cr-. */
+.credits{position:fixed;inset:0;z-index:60;background:#000;color:#fff;overflow:hidden;cursor:default;user-select:none}
+/* the screen edges fade the roll in and out */
+.credits::before,.credits::after{content:"";position:absolute;left:0;right:0;height:14vh;z-index:1;pointer-events:none}
+.credits::before{top:0;background:linear-gradient(#000,transparent)}
+.credits::after{bottom:0;background:linear-gradient(transparent,#000)}
+
+.cr-roll{position:absolute;left:0;right:0;top:0;padding:0 7vw;will-change:transform}
+
+.cr-opening{margin:0 auto 34vh;text-align:center}
+.cr-opening p{margin:0;font-family:var(--font-display);font-weight:500;font-size:clamp(16px,1.4vw,24px);letter-spacing:.06em;color:rgba(255,255,255,.6)}
+.cr-opening p:first-child{margin-bottom:30vh}
+.cr-opening h1{margin:0 0 .45em;font-family:var(--font-display);font-weight:700;font-size:var(--fs-xl);line-height:1.05;letter-spacing:.03em;color:#fff}
+
+/* a story section with its credit block beside it, the block a little lower so the two overlap */
+.cr-pair{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:8vw;align-items:start;max-width:84em;margin:0 auto 22vh}
+.cr-story{margin:0;font-family:var(--font-display);font-weight:500;font-size:clamp(18px,1.6vw,28px);line-height:1.55;color:#fff}
+.cr-story p{margin:0 0 1em}
+.cr-story p:last-child{margin-bottom:0}
+/* a person on their own line: the name, then who they are, smaller and grey */
+.cr-person{padding-left:1em;border-left:1px solid rgba(255,255,255,.35);font-size:.78em;line-height:1.45;color:rgba(255,255,255,.65)}
+.cr-person b{display:block;font-size:1.28em;font-weight:700;color:#fff}
+.cr-block{margin-top:16vh}
+.cr-block h2{margin:0 0 1.2em;font-family:var(--font-mono);font-weight:400;font-size:var(--fs-sm);letter-spacing:.3em;text-transform:uppercase;color:rgba(255,255,255,.5)}
+.cr-row{display:grid;grid-template-columns:minmax(0,.8fr) minmax(0,1.2fr);gap:1.2em;margin:0 0 .75em;font-size:clamp(14px,1.15vw,20px);line-height:1.35}
+.cr-row span{font-family:var(--font-mono);font-size:.82em;color:rgba(255,255,255,.5);padding-top:.12em}
+.cr-row b{font-family:var(--font-display);font-weight:500;color:#fff}
+.cr-solo{font-family:var(--font-display);font-weight:700;font-size:clamp(20px,2vw,34px);letter-spacing:.05em;text-transform:uppercase}
+
+.cr-quote{margin:12vh auto 40vh;text-align:center}
+.cr-quote blockquote{margin:0;white-space:pre-line;text-wrap:balance;font-family:var(--font-display);font-weight:500;font-size:clamp(22px,2.3vw,40px);line-height:1.4}
+.cr-quote figcaption{margin-top:1.4em;font-family:var(--font-mono);font-size:var(--fs-md);letter-spacing:.24em;text-transform:uppercase;color:rgba(255,255,255,.6)}
+
+.cr-last{display:flex;flex-direction:column;gap:.7em;align-items:center;padding-bottom:10vh}
+.cr-last>span{font-family:var(--font-mono);font-size:var(--fs-sm);letter-spacing:.3em;text-transform:uppercase;color:rgba(255,255,255,.6)}
+.cr-last>b{font-family:var(--font-display);font-weight:700;font-size:clamp(24px,2.6vw,44px);letter-spacing:.04em}
+
+.cr-hint{position:absolute;z-index:2;right:2.2vw;bottom:2.4vh;font-family:var(--font-mono);font-size:var(--fs-xs);letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.3);opacity:0;animation:cr-hint 8s 2s ease-in-out forwards}
+.cr-hint kbd{font-family:inherit;color:rgba(255,255,255,.55)}
+/* the article the text is based on, under the last line */
+.cr-based{display:flex;flex-direction:column;gap:.45em;align-items:center;margin-top:9vh;text-align:center}
+.cr-based span{font-family:var(--font-mono);font-size:var(--fs-sm);letter-spacing:.3em;text-transform:uppercase;color:rgba(255,255,255,.6)}
+.cr-based b{font-family:var(--font-display);font-weight:700;font-size:clamp(18px,1.7vw,30px)}
+.cr-based i{font-style:normal;font-family:var(--font-display);font-size:clamp(14px,1.15vw,20px);color:rgba(255,255,255,.75)}
+.cr-based small{font-family:var(--font-mono);font-size:var(--fs-sm);color:rgba(255,255,255,.5);overflow-wrap:anywhere}
+/* shows for a few seconds, then gets out of the text's way */
+@keyframes cr-hint{12%,80%{opacity:1}to{opacity:0}}
+.cr-hint.is-paused{opacity:1;animation:none;color:rgba(255,255,255,.6)}
+.cr-black{position:absolute;z-index:3;inset:0;background:#000;opacity:0;pointer-events:none;transition:opacity 1.6s ease-in}
+.cr-black.is-on{opacity:1}
+
+@media (max-width:720px){
+  .cr-pair{grid-template-columns:1fr;gap:0;margin-bottom:16vh}
+  .cr-block{margin-top:10vh}
+}

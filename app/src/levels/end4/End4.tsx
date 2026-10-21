@@ -428,6 +428,7 @@ export default function End4(props: LevelProps) {
             onClick: () => useGame.getState().startChapter('bridge'),
           }}
           onMenu={props.onExit}
+          onCredits={props.onCredits}
         />
       )}
       <span className="e4-sr-only" aria-live="polite">
