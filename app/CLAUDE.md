@@ -23,8 +23,8 @@ src/
     Label3D.tsx, Orb3D.tsx   3D text label (canvas texture, local fonts) · PLACEHOLDER orb
   ui/                    generic DOM UI: Hud.tsx, Window.tsx, DebugPanel.tsx, ui.css; LevelCard.tsx + card.css = the one
                          card for intro, pause, fail, finish and loading in every level (see Conventions)
-                         Credits.tsx + credits.css: end credits (one roll: story + credits side by side, start music; Space pauses, arrows set the speed); GameScreen plays them when a
-                         finished ending is left, `?credits` plays them alone
+                         Credits.tsx + credits.css: end credits (one roll: story + credits side by side, start music; Space pauses, arrows set the speed); GameScreen rolls them straight after an
+                         ending's first finish (no finish card; later finishes show the card with Rewatch credits), `?credits` plays them alone
   levels/
     index.ts             registry: chapter id → lazy component, LevelProps
     ch1/                 Chapter 1 "The Room"

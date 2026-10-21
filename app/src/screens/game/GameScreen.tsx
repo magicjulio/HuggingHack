@@ -1,7 +1,7 @@
 /**
  * Hosts the selected chapter. Falls back to a placeholder for chapters that are not built.
- * The first time an ending is finished, leaving it (Back to menu) rolls the credits first; after
- * that its finish card offers Rewatch credits instead.
+ * The first time an ending is finished, the credits roll straight after its last scene (no finish
+ * card), then the menu; on later finishes its finish card shows, with Rewatch credits.
  */
 import { Suspense, useCallback, useState } from 'react';
 import { useGame, type ChapterResult } from '../../state/store';
@@ -22,24 +22,20 @@ export function GameScreen() {
   const model = modelById(save.selectedModel);
   const chapter = save.selectedChapter;
   const Level = LEVELS[chapter];
-  // the ending finished in this visit (replays included); `credits` = rolling now
-  const [finished, setFinished] = useState<string | null>(null);
+  // `credits` = rolling now
   const [credits, setCredits] = useState(false);
   const ending = !!chapterById(chapter)?.ending;
+  const seen = save.creditsSeen.includes(chapter);
   const onFinish = useCallback(
     (result?: ChapterResult) => {
       finishChapter(chapter, result);
-      setFinished(chapter);
+      if (ending && !seen) {
+        markCreditsSeen(chapter);
+        setCredits(true);
+      }
     },
-    [finishChapter, chapter],
+    [finishChapter, chapter, ending, seen, markCreditsSeen],
   );
-  const seen = save.creditsSeen.includes(chapter);
-  const onExit = useCallback(() => {
-    if (ending && finished === chapter && !seen) {
-      markCreditsSeen(chapter);
-      setCredits(true);
-    } else quitToMenu();
-  }, [ending, finished, chapter, seen, markCreditsSeen, quitToMenu]);
   const onCredits = useCallback(() => setCredits(true), []);
   const onContinue = useCallback(() => continueFrom(chapter), [continueFrom, chapter]);
 
@@ -54,7 +50,7 @@ export function GameScreen() {
           <Level
             modelName={model?.name ?? save.selectedModel}
             color={model?.color ?? '#39ff9c'}
-            onExit={onExit}
+            onExit={quitToMenu}
             onCredits={ending && seen ? onCredits : undefined}
             onFinish={onFinish}
             onContinue={hasNext ? onContinue : undefined}

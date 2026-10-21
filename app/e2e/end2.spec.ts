@@ -83,6 +83,14 @@ test('ending 2: approach starts, boss arena loads, finish saves, menu round trip
   page.on('pageerror', (e) => errors.push(e.message));
   page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
   await page.addInitScript(instrument);
+  // credits already seen, so the finish card shows (a first finish rolls the credits instead: end4.spec)
+  await page.addInitScript(() => {
+    if (!localStorage.getItem('rogue-on-hf-save'))
+      localStorage.setItem(
+        'rogue-on-hf-save',
+        JSON.stringify({ state: { save: { creditsSeen: ['end2'] } }, version: 1 }),
+      );
+  });
 
   await page.goto('/?skipboot&debug');
   await expect(page.getByText('Hugging Face', { exact: true })).toBeVisible();
@@ -121,10 +129,10 @@ test('ending 2: approach starts, boss arena loads, finish saves, menu round trip
   expect(save.state.save.completedChapters).toContain('end2');
   expect(save.state.save.bestTimes.end2).toBeGreaterThan(0);
 
+  await expect(
+    page.locator('.lc.finish').getByRole('button', { name: 'Rewatch credits' }),
+  ).toBeVisible();
   await page.locator('.lc.finish').getByRole('button', { name: 'Back to menu' }).click();
-  // leaving a finished ending rolls the credits; Esc skips them
-  await expect(page.getByRole('dialog', { name: 'Credits' })).toBeVisible();
-  await page.keyboard.press('Escape');
   await leftCleanly(page, before);
 
   // second round trip: back to menu from the paused panel

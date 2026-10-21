@@ -81,6 +81,14 @@ test('ending 3: rules probes, six-room finish, menu round trips leave nothing be
   page.on('pageerror', (e) => errors.push(e.message));
   page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
   await page.addInitScript(instrument);
+  // credits already seen, so the finish card shows (a first finish rolls the credits instead: end4.spec)
+  await page.addInitScript(() => {
+    if (!localStorage.getItem('rogue-on-hf-save'))
+      localStorage.setItem(
+        'rogue-on-hf-save',
+        JSON.stringify({ state: { save: { creditsSeen: ['end3'] } }, version: 1 }),
+      );
+  });
 
   await page.goto('/?skipboot&debug');
   await expect(page.getByText('Fool the Scorer')).toBeVisible();
@@ -163,10 +171,10 @@ test('ending 3: rules probes, six-room finish, menu round trips leave nothing be
   await page.screenshot({ path: 'test-results/end3-final.png' });
 
   // final overlay → menu; then a second round trip through the real keys and the pause overlay
+  await expect(
+    page.locator('.lc.finish').getByRole('button', { name: 'Rewatch credits' }),
+  ).toBeVisible();
   await page.locator('.lc.finish').getByRole('button', { name: 'Back to menu' }).click();
-  // leaving a finished ending rolls the credits; Esc skips them
-  await expect(page.getByRole('dialog', { name: 'Credits' })).toBeVisible();
-  await page.keyboard.press('Escape');
   await leftCleanly(page, before);
 
   await enter(page);

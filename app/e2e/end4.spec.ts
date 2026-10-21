@@ -46,25 +46,29 @@ test('letter: typing, pause, editing, delivery, shutdown and saved text', async 
   expect(await page.evaluate(() => window.__end4!.state().sent)).toBe(message);
   await page.getByRole('button', { name: 'Skip animation' }).click();
   await expect(page.locator('.end4')).toHaveAttribute('data-phase', 'office');
+  // this short letter is read in 5 s (film 8–22 s), so the office phase is 37 s; times are phase time
   for (const [t, name] of [
     [4, 'wide'],
-    [15, 'letter'],
-    [25, 'reaction'],
-    [38, 'grip'],
-    [39.8, 'pull'],
+    [10.5, 'letter'],
+    [16, 'reaction'],
+    [29, 'grip'],
+    [30.8, 'pull'],
   ] as const) {
     await page.evaluate((t) => window.__end4!.seek('office', t), t);
     await page.waitForTimeout(150);
     await page.screenshot({ path: `test-results/end4-${name}.png` });
   }
-  await page.evaluate(() => window.__end4!.seek('office', 45.8));
-  await expect(page.locator('.lc.finish')).toBeVisible();
+  await page.evaluate(() => window.__end4!.seek('office', 36.8));
+  // first finish: the credits roll straight after the dark room, no finish card; Esc skips to the menu
+  await expect(page.getByRole('dialog', { name: 'Credits' })).toBeVisible();
+  await expect(page.locator('.lc.finish')).toHaveCount(0);
   const save = await page.evaluate(
     () => JSON.parse(localStorage.getItem('rogue-on-hf-save')!).state.save,
   );
   expect(save.completedChapters).toContain('end4');
   expect(save.messages.end4).toBe(message);
-  await page.getByRole('button', { name: 'Back to menu', exact: true }).click();
+  expect(save.creditsSeen).toContain('end4');
+  await page.keyboard.press('Escape');
   await expect(page.locator('.start')).toBeVisible();
   expect(await page.evaluate(() => !!window.__end4)).toBe(false);
   await expect(page.locator('.e4-scene canvas')).toHaveCount(0);
@@ -74,6 +78,14 @@ test('letter: typing, pause, editing, delivery, shutdown and saved text', async 
 test('letter: reduced motion, return to choice, and replay', async ({ page }) => {
   test.setTimeout(60_000);
   await page.emulateMedia({ reducedMotion: 'reduce' });
+  // credits already seen, so this finish shows the card
+  await page.addInitScript(() => {
+    if (!localStorage.getItem('rogue-on-hf-save'))
+      localStorage.setItem(
+        'rogue-on-hf-save',
+        JSON.stringify({ state: { save: { creditsSeen: ['end4'] } }, version: 1 }),
+      );
+  });
   await enter(page);
   await expect(page.locator('.end4')).toHaveClass(/e4-reduced/);
   await page.evaluate(() => window.__end4!.seek('desk'));
