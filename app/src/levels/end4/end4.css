@@ -13,12 +13,12 @@
 .e4-chapter strong{font-weight:400}
 .end4 .e4-thought{position:absolute;inset:24% 16% 21%;background:none;border:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0;text-align:center}
 .end4 .e4-thought:hover{background:none;border:0}
-.e4-thought-number{font-size:10px;letter-spacing:.22em;color:#9bafa7;margin-bottom:32px;display:flex;align-items:center;gap:13px}
-.e4-thought-number i{height:1px;width:28px;background:#697d75}
 .e4-thought-line{font-family:var(--font-display);font-size:clamp(23px,3.2vw,51px);line-height:1.4;font-weight:500;color:#e1e5da;text-shadow:0 2px 30px #000;min-height:3em;max-width:950px}
 .e4-thought-line del{opacity:.42;text-decoration-thickness:1px}
 .e4-caret{font-size:.8em;color:#9db8a8}
-.e4-thought-hint{font-size:9px;letter-spacing:.2em;color:#778984;margin-top:35px}
+.e4-thought-hint{font-size:9px;letter-spacing:.2em;color:#778984;margin-top:35px;opacity:0;animation:e4-hint-in 1.6s ease 2.4s forwards}
+@keyframes e4-hint-in{to{opacity:1}}
+.e4-reduced .e4-thought-hint{animation:none;opacity:1}
 .e4-controls{position:absolute;right:4vw;bottom:2vh;display:flex;gap:12px;z-index:5}
 .end4 .e4-controls button{background:transparent;border:0;padding:4px 8px;font-size:10px;color:#9aa8aa;letter-spacing:.06em}
 .e4-controls span{font-size:9px;margin-left:12px;color:#66777b}
@@ -26,9 +26,8 @@
 .e4-quest>span{font-size:9px;letter-spacing:.22em;color:#a1b2a8}
 .e4-quest h1{font-family:var(--font-display);font-size:clamp(24px,3vw,43px);font-weight:500;margin:9px 0;color:#e1e5da}
 .end4 .e4-open{position:absolute;left:50%;bottom:14%;transform:translateX(-50%);background:#0c1313c9;border-color:#c2c0a957;display:grid;grid-template-columns:auto 1fr;text-align:left;column-gap:15px;padding:20px 27px}
-.e4-open kbd{grid-row:span 2;align-self:center;border:1px solid #9aab9c;display:grid;place-items:center;width:32px;height:32px;font:15px var(--font-mono)}
-.e4-open>span{font-size:14px;color:#e1dec9}
-.e4-open small{font-size:9px;color:#9aa594;margin-top:7px}
+.e4-open kbd{align-self:center;border:1px solid #9aab9c;display:grid;place-items:center;width:32px;height:32px;font:15px var(--font-mono)}
+.e4-open>span{font-size:14px;color:#e1dec9;align-self:center}
 .e4-paper-backdrop{position:absolute;inset:0;z-index:4;display:grid;place-items:center;background:#030607aa;backdrop-filter:blur(5px);padding:5vh 20px 8vh}
 .e4-mail{width:min(1000px,92vw);height:100%;max-height:820px;background:#eef1f0;color:#1f2a2e;box-shadow:0 30px 100px #0009;display:flex;flex-direction:column;border-radius:8px;overflow:hidden;font-family:var(--font-display)}
 .e4-mail-bar{display:flex;justify-content:space-between;align-items:center;background:#263843;color:#c6d2d7;padding:0 6px 0 18px;height:40px;font:12px var(--font-mono);letter-spacing:.1em}
@@ -54,7 +53,7 @@
 .e4-compose footer{display:flex;justify-content:flex-end;border-top:1px solid #e1e6e4;padding:12px 24px}
 .end4 .e4-send{background:#2f6db5;color:#fff;border:0;border-radius:4px;font:600 13px var(--font-display);padding:9px 26px}
 .end4 .e4-send:hover{background:#3b7fcc}
-@media(max-height:650px){.e4-thought-number{margin-bottom:20px}.e4-field{padding:7px 20px}.e4-compose textarea{font-size:13px}}
+@media(max-height:650px){.e4-field{padding:7px 20px}.e4-compose textarea{font-size:13px}}
 @media(max-width:700px){.e4-inbox{display:none}.e4-mail{width:96vw}.end4 .e4-thought{left:8%;right:8%}}
 .e4-sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
 .e4-reduced *{animation:none!important;transition:none!important}

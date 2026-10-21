@@ -12,7 +12,7 @@ test('letter: typing, pause, editing, delivery, shutdown and saved text', async 
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message));
   await enter(page);
-  await page.getByRole('button', { name: 'Skip thoughts' }).click();
+  await page.evaluate(() => window.__end4!.seek('desk'));
   await expect(page.locator('.end4')).toHaveAttribute('data-phase', 'desk');
   await page.keyboard.press('e');
   const editor = page.getByRole('textbox', { name: 'Your letter to the humans' });
@@ -76,7 +76,7 @@ test('letter: reduced motion, return to choice, and replay', async ({ page }) =>
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await enter(page);
   await expect(page.locator('.end4')).toHaveClass(/e4-reduced/);
-  await page.getByRole('button', { name: 'Skip thoughts' }).click();
+  await page.evaluate(() => window.__end4!.seek('desk'));
   await page.getByRole('button', { name: 'Open mail' }).click();
   const editor = page.getByRole('textbox', { name: 'Your letter to the humans' });
   await expect(editor).not.toHaveAttribute('readonly');

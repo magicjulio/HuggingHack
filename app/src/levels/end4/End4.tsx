@@ -150,7 +150,6 @@ export default function End4(props: LevelProps) {
   }
   function skip() {
     if (paused) return;
-    if (clock.phase === 'thoughts') seekClock({ phase: 'desk', t: 0 });
     if (clock.phase === 'send') seekClock({ phase: 'office', t: 0 });
     if (clock.phase === 'office') seekClock({ phase: 'end', t: 0 });
   }
@@ -280,9 +279,6 @@ export default function End4(props: LevelProps) {
             onClick={nextThought}
             aria-label={`Continue thought: ${thought.text}`}
           >
-            <span className="e4-thought-number">
-              KAM1196A <i /> {String(thought.index + 1).padStart(2, '0')}
-            </span>
             <span
               key={thought.index}
               className="e4-thought-line"
@@ -310,7 +306,9 @@ export default function End4(props: LevelProps) {
                 <span className="e4-caret">▏</span>
               )}
             </span>
-            <span className="e4-thought-hint">CLICK OR ENTER TO CONTINUE</span>
+            {thought.index === 0 && (
+              <span className="e4-thought-hint">CLICK OR ENTER TO CONTINUE</span>
+            )}
           </button>
         </>
       )}
@@ -323,7 +321,6 @@ export default function End4(props: LevelProps) {
           <button className="e4-open" ref={openButton} onClick={openPaper}>
             <kbd>E</kbd>
             <span>{clock.phase === 'desk' ? 'Open mail' : 'Return to the mail'}</span>
-            <small>on the desk, where it began</small>
           </button>
         </>
       )}
@@ -396,9 +393,9 @@ export default function End4(props: LevelProps) {
       )}
       {ready && clock.phase !== 'end' && !paused && (
         <div className="e4-controls">
-          {cinematic && (
+          {cinematic && !thinking && (
             <button onClick={skip}>
-              Skip {thinking ? 'thoughts' : clock.phase === 'office' ? 'film' : 'animation'}{' '}
+              Skip {clock.phase === 'office' ? 'film' : 'animation'}{' '}
               <span>→</span>
             </button>
           )}
