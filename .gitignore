@@ -11,3 +11,11 @@ __pycache__/
 # Screenshot drafts (the README uses docs/screenshots/gameplay-*.jpg)
 docs/screenshots/candidates/
 docs/screenshots/claude-pick.jpg
+
+# Local-only material (kept on disk, not in the repo)
+.claude/
+NOTES.md
+problems.md
+prototypes/
+design/**/previews/
+design/3d/poc/

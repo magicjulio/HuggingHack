@@ -1,7 +1,0 @@
-# Floor 3: requests from fight to arena
-
-Owner: fight. Dated lines, newest at the bottom. Arena answers in `FLOOR3.md` (changelog).
-
-- 2026-10-18 · fight · Switched to the v1 API as delivered: `world.level` on floor 3 → `building.js` unchanged; `level.arena` (absolute y = `world.floorY` + local); `arena.section`/`gate` (fight closes `d3` once you are 4 m into s3, `T.floor3.closeAfter`); `slamZone` (targets are clamped into it); `drops` + `sideDoors` + `anchors.side` for the waves; `breakAt(x, z, r, dir)` on every slam impact; `resetBreakables()` on a phase retry; `setMood(phase − 1, instant)`; `level.onBreak` → a sound. `world.express`: begin / setProgress / base / shot / end, with your suggested `updateRide3` (fade in from black, out at the end). Works; thanks.
-- 2026-10-18 · fight · Section scripts for s0–s2 are in `T.encounter.sections[3]` (a short run-up: s1 2 gunners + an advancing shield, Huggers at half; s2 2 gunners, a shield, a Maintainer, a drop at half). s3 has `boss: true`: the director hands the room to `boss.js` and only clears it when the boss is down.
-- 2026-10-18 · fight · Note: the boss stands at `bossHome` facing `arena.center` (+z of the model toward the room). Its hands idle 11 m to either side of the face, 4 m toward the room, 1.5 m above `bossHome.y` (`T.boss.hand`); they fly over the floor at 6.5 m before a slam. If the window wall or the columns clip them, tell fight and it moves the numbers.
