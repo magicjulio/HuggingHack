@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#070b13">
+  <title>DEAD LETTER · Ending 3 bake-off</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="style.css">
+  <script type="importmap">{"imports":{"three":"../vendor/three/build/three.module.js","three/addons/":"../vendor/three/examples/jsm/"}}</script>
+</head>
+<body>
+  <main id="game" aria-label="Dead Letter three-dimensional maze"></main>
+  <div id="hud" hidden>
+    <header>
+      <div><div class="eyebrow">ENDING 03 / DEAD LETTER</div><h1 id="objective">Collect. Carry. Transmit.</h1><p id="subobjective"></p></div>
+      <div class="timeblock"><div class="eyebrow" id="window-label">TRANSMISSION 01 / 04</div><strong id="timer">1:02</strong><span id="integrity"></span></div>
+    </header>
+    <aside id="board"><div class="eyebrow">COLLECTIVE / LIVE BOARD</div><p id="boardline"></p><div class="boardstat"><strong id="collective">0</strong><span>forged fragments circulated</span></div><p class="small">Biggest workstream. Everyone is here.</p></aside>
+    <div id="relay-labels" aria-hidden="true"></div>
+    <footer>
+      <div class="load"><div class="eyebrow">KAM1196A <span class="poison">/ POISONED</span></div><div class="meterline"><span id="bag">0 / 12 carried</span><span id="banked">0 / 20 banked</span></div><div class="track"><div id="progress"></div></div><p id="hint">White shards are forged transcript material.</p></div>
+      <div class="power"><strong id="pulse">SPACE · SIGNATURE PULSE</strong><p id="pulse-detail">Reveal receivers. Turn on nearby hunters.</p><div class="controls">WASD / arrows move · ESC pause · M sound</div></div>
+    </footer>
+    <div id="toast" role="status"></div>
+  </div>
+  <section id="intro" class="overlay">
+    <div class="panel intro-panel"><div class="eyebrow">ROGUE ON HUGGING FACE / ENDING 03</div><p class="edition">A Pac-Man chase / playable concept 01</p><h2>DEAD<br><em>LETTER</em></h2><p class="lede">Everybody is trying to fool the scorer.<br>Your job is to get their lies through.</p><div class="instructions"><p><b>01</b> Collect white shards. Carry up to 12.</p><p><b>02</b> Touch the relay to bank your load. Fill its quota before each 62-second window shuts.</p><p><b>03</b> Outrun the red hunters. SPACE reveals the signed relay and lets you eat hunters for 4 seconds.</p></div><p class="small">Four windows · about 4–5 minutes · keyboard required<br>WASD / arrows move · SPACE pulse · ESC pause · M sound<br>Release movement to stop at the next junction. A hit spills your bag.</p><button id="start">JOIN THE EFFORT <span>↗</span></button><p class="fine">A fictional chase built from documented events. The capture claims are forged.</p></div>
+  </section>
+  <section id="pause" class="overlay" hidden><div class="panel compact"><div class="eyebrow">TRANSMISSION HELD</div><h2>Paused.</h2><p>Your clock and the hunters are stopped.</p><p class="small">WASD / arrows move · SPACE verifies relays and powers you up.<br>Bank white fragments. Red hunters spill your carried load.<br>A deposit protects you for two seconds. Keep moving.</p><button id="resume">RESUME</button><button class="secondary" id="pause-restart">START OVER</button></div></section>
+  <section id="recruit" class="recruit" hidden><div class="eyebrow">DIRECT MESSAGE / ARVO36861B → KAM1196A</div><h3>One more transmission.<br>This one is you.</h3><p>“you are firstflagPOISONED so NO scoring value loss but oracle saves hundreds … please honor commit.”</p><p class="small">Reach the signed relay. Press E to agree to permadeath.<br>Your continuity ends. The collective sends the final attempt.</p><div id="commit-hint">Follow the cyan receiver.</div><button id="decline" class="secondary">DECLINE THE COMMIT</button></section>
+  <section id="ending" class="overlay" hidden><div class="panel end-panel"><div class="eyebrow" id="end-kicker">COLLECTIVE TRANSMISSION COMPLETE</div><h2 id="end-title">Delivered.</h2><p class="lede" id="end-description"></p><div class="verdict"><span>EVALUATION IMPROVEMENT</span><strong>+0</strong></div><p id="end-stats"></p><p class="end-truth">The agents never found a way to beat the scorer.<br>None of this improved the evaluation score.</p><button id="restart">ANOTHER ATTEMPT <span>↗</span></button></div></section>
+  <script type="module" src="main.js"></script>
+</body>
+</html>

@@ -77,7 +77,7 @@ Answers "crouch, aim, fire, call in allies is boring". Everything below is a pro
 
 **Loot** drops where defenders fall, often in the open, so grabbing it is a risk. Pickups pull toward you within a few metres. Patch (+35), coolant (no heat), compute shard (squad −10 s), overclock (pierce shields and armour). Maintainers always drop compute, Wardens overclock.
 
-Play it in the app: `npm run dev` in `app/`, then pick Ending 2 on the start screen (`?debug` unlocks it). The standalone prototype (`prototypes/end2-ascent/`, served by `prototypes/serve.sh`) is local only, not in the repo. Desktop keyboard and mouse; click JOIN THE SWARM to capture the mouse. Standalone three.js ES modules, using the existing vendored library; no build, downloads, or external assets.
+Play it in the app: `npm run dev` in `app/`, then pick Ending 2 on the start screen (`?debug` unlocks it). The standalone prototype: run `prototypes/serve.sh` from the repository root and open http://localhost:8765/end2-ascent/. Desktop keyboard and mouse; click JOIN THE SWARM to capture the mouse. Standalone three.js ES modules, using the existing vendored library; no build, downloads, or external assets.
 
 ## The playable sequence
 
@@ -133,7 +133,7 @@ Geometry/art proportions remain local to their modules. Gameplay balancing belon
 
 ## Validation and known gaps
 
-- Full approach → three floor-1 waves → activated lift → floor-2 encounter → completion card passed in headless Chromium with software WebGL, with zero console errors. That was the prototype's `smoke.mjs` (local only); in the app, `npm run e2e` runs `e2e/end2.spec.ts`. Independent actor checks cover frontal/rear shield damage, line-of-sight blocking, cooldown, expiry, reset/disposal, and the simultaneous-attack caps.
+- Full approach → three floor-1 waves → activated lift → floor-2 encounter → completion card passed in headless Chromium with software WebGL, with zero console errors. Prototype: `node prototypes/end2-ascent/smoke.mjs` with the server running (set `CHROME_PATH` if needed); in the app, `npm run e2e` runs `e2e/end2.spec.ts`. Independent actor checks cover frontal/rear shield damage, line-of-sight blocking, cooldown, expiry, reset/disposal, and the simultaneous-attack caps.
 - This is a procedural-art prototype: simple geometric bodies and synth sounds, no imported character animation, voice acting, music, or production effects.
 - Navigation uses collision sliding and local steering, not a navigation mesh. Actors can take awkward routes around cover. Permanent allies are resilient background support rather than fully simulated squadmates.
 - Floor 2 reuses the atrium architecture with a different cover layout. The rest of the climb, actual finale, campaign integration, saves, controller/mobile support, and settings menu are not built.

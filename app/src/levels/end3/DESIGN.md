@@ -4,7 +4,7 @@ A side-view puzzle platformer built around the director's approved verb: **posit
 
 ## Play
 
-Play it in the app: `npm run dev` in `app/`, then pick Ending 3 on the start screen (`?debug` unlocks it). The standalone prototype (`prototypes/end3-ghost/`, served by `prototypes/serve.sh`) is local only, not in the repo.
+Play it in the app: `npm run dev` in `app/`, then pick Ending 3 on the start screen (`?debug` unlocks it). The standalone prototype: run `bash prototypes/serve.sh` from the repository root and open `http://localhost:8765/end3-ghost/`.
 
 - A/D or left/right arrows: move the currently selected body.
 - W, up arrow, or Space: jump. Release and press again for another jump.

@@ -1,7 +1,6 @@
 # app/ — engineer conventions
 
 Read with: `README.md` (how to run), `../docs/GAME.md` (design reference), `../docs/levels/` (level scripts).
-`prototypes/…` paths below say where the ending code was ported from. That folder is local only (gitignored), so it is missing from a fresh clone.
 
 ## Stack
 Vite + TypeScript + React 19 + React Three Fiber (Three.js, drei), zustand, Vitest, Playwright (local Chrome), ESLint + Prettier.

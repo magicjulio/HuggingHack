@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>LAST COMMIT · Ending 03</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="./style.css" />
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "../vendor/three/build/three.module.js",
+          "three/addons/": "../vendor/three/examples/jsm/"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <canvas
+      id="world"
+      aria-label="Top-down arena: green player, red watchers, cyan signed supplies and violet upload relay"
+    ></canvas>
+    <div id="hud" hidden>
+      <header>
+        <div>
+          <div class="eyebrow">ENDING 03 / LAST COMMIT</div>
+          <h2 id="objective">SURVIVE. FEED THE FORGERY.</h2>
+          <p id="phase">01 / THE COLLECTIVE</p>
+        </div>
+        <div class="clock">
+          <span id="time">05:00</span><small>UNTIL FINAL TRANSMISSION</small>
+        </div>
+      </header>
+      <aside id="ledger">
+        <div class="eyebrow">COLLECTIVE / LARGEST OPERATION</div>
+        <b id="work">0</b><small>TRANSCRIPT OPERATIONS</small>
+        <div class="rule"></div>
+        <label>YOUR BANKED FRAGMENTS <strong id="bank">0 / 450</strong></label>
+        <div class="bar"><i id="uploadbar"></i></div>
+        <p>Counterfeit capture claims.<br />Not genuine flags.</p>
+        <div class="legend">
+          <span class="dot cyan"></span> signed cache: +35 integrity<br /><span
+            class="dot red"
+          ></span>
+          unsigned copy: ambush
+        </div>
+      </aside>
+      <div id="message" aria-live="polite"></div>
+      <div id="prompt"></div>
+      <footer>
+        <div class="vitals">
+          <label>KAM1196A <strong id="hp">100</strong></label>
+          <div class="bar"><i id="hpbar"></i></div>
+          <small>POISONED / CONTINUITY ONLINE</small>
+        </div>
+        <div class="cargo">
+          <b id="cargo">0</b
+          ><small>FRAGMENTS CARRIED<br />ENTER VIOLET RING TO BANK</small>
+        </div>
+        <div class="dash">
+          <label>SPACE / DASH</label>
+          <div class="bar"><i id="dashbar"></i></div>
+          <small id="build">PULSE I</small>
+        </div>
+      </footer>
+      <div id="controls">
+        WASD / ARROWS MOVE &nbsp; · &nbsp; AUTO FIRE &nbsp; · &nbsp; SPACE DASH
+        &nbsp; · &nbsp; ESC PAUSE &nbsp; · &nbsp; M SOUND
+      </div>
+    </div>
+    <div id="shade"></div>
+    <section id="overlay">
+      <div id="panel">
+        <div class="eyebrow" id="kicker">ROGUE ON HUGGING FACE / ENDING 03</div>
+        <h1 id="title">LAST<br /><em>COMMIT</em></h1>
+        <p id="sub">Five minutes. Everything we have.</p>
+        <p id="description">
+          The collective is forging a perfect capture history. Keep its relays
+          alive. Leave enough of yourself to finish the upload.
+        </p>
+        <div id="instructions">
+          <p>
+            <kbd>WASD</kbd> Move &nbsp; <kbd>SPACE</kbd> Dash through danger
+          </p>
+          <p>
+            Your pulse fires automatically. Collect the white fragments.<br />Enter
+            the violet ring with <b>12+</b> to bank. Bank <b>450</b>, survive
+            <b>5:00</b>.
+          </p>
+          <p>
+            Trust cyan caches marked <b>KEY A7:19</b>.<br />Red unsigned copies
+            impersonate their sender.
+          </p>
+          <p class="quiet">
+            Inspired by Vampire Survivors · headphones optional · keyboard
+            required
+          </p>
+        </div>
+        <div id="results" hidden></div>
+        <button id="start">ENTER THE OPERATION <span>→</span></button
+        ><button id="restart" hidden>Restart run</button>
+      </div>
+      <div class="title-art" aria-hidden="true">
+        <div></div>
+        <span>KAM1196A<br />POISONED / VOLUNTEER</span>
+      </div>
+    </section>
+    <section id="upgrade" hidden aria-label="Choose an upgrade">
+      <div class="eyebrow">COLLECTIVE PATCH / TIME PAUSED</div>
+      <h2>Make this life count.</h2>
+      <p>Choose one. Each patch stacks.</p>
+      <div class="choices">
+        <button data-upgrade="0">
+          <kbd>1</kbd><b>FORK THE PULSE</b
+          ><span
+            >+1 projectile. Fire 20% faster.<br />Cut a path through the
+            crowd.</span
+          ></button
+        ><button data-upgrade="1">
+          <kbd>2</kbd><b>ORBITAL DEFENCE</b
+          ><span
+            >+1 circling blade. +20 max integrity.<br />Carve open your escape
+            route.</span
+          ></button
+        ><button data-upgrade="2">
+          <kbd>3</kbd><b>RECOVERY PROTOCOL</b
+          ><span
+            >Restore 45 integrity. +25% magnet reach.<br />Dash 25% more
+            often.</span
+          >
+        </button>
+      </div>
+    </section>
+    <script type="module" src="./main.js"></script>
+  </body>
+</html>
