@@ -11,6 +11,7 @@ import { useEffect, useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import { PerspectiveCamera, Vector3 } from 'three';
 import type { BodyInput } from './platformer';
+import { lookDelta } from './mouseLook';
 
 export interface OrbitView {
   yaw: number;
@@ -93,8 +94,9 @@ export function ThirdPerson({
     const move = (e: MouseEvent) => {
       if (!enabledRef.current || document.pointerLockElement !== gl.domElement) return;
       const k = SENSITIVITY * lookScale();
-      view.yaw -= e.movementX * k;
-      view.pitch = Math.max(minPitch, Math.min(maxPitch, view.pitch + e.movementY * k));
+      const [dx, dy] = lookDelta(e);
+      view.yaw -= dx * k;
+      view.pitch = Math.max(minPitch, Math.min(maxPitch, view.pitch + dy * k));
     };
     addEventListener('keydown', down);
     addEventListener('keyup', up);

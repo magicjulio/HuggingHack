@@ -11,6 +11,7 @@
 // Playtest tuning: floors 2 and 3 hit harder, heal slower and drop fewer patches (T.floors; the boss fight keeps
 // its own entry), and the Warden beam does 36/s (was 22).
 import { lookScale } from "../../../state/settings"; // app: settings
+import { lookDelta } from "../../../engine/mouseLook"; // app: drops pointer-lock spikes
 import * as THREE from "three";
 import { createWorld } from "./world.js";
 import { createActors } from "./actors.js";
@@ -1335,9 +1336,10 @@ on(window, "blur", () => {
 on(window, "mousemove", (e) => {
   if (!locked || paused || state !== "combat") return;
   const k = T.camera.sensitivity * (mouseAim ? 0.72 : 1) * lookScale(); // app: settings
-  yaw -= e.movementX * k;
+  const [dx, dy] = lookDelta(e);
+  yaw -= dx * k;
   pitch = THREE.MathUtils.clamp(
-    pitch - e.movementY * k,
+    pitch - dy * k,
     T.camera.minPitch,
     T.camera.maxPitch,
   );

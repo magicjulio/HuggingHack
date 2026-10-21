@@ -1,5 +1,6 @@
 
 import { lookScale, fixedQuality } from '../../state/settings'; // app: settings
+import { lookDelta } from '../../engine/mouseLook'; // app: drops pointer-lock spikes
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { EffectComposer, RenderPass, EffectPass, BloomEffect, ToneMappingEffect, ToneMappingMode } from 'postprocessing';
@@ -113,7 +114,8 @@ on(gl, 'click', () => { if (mode === 'play' && !paused && !locked()) lock(); });
 addEventListener('mousemove', (e) => {
   if (mode !== 'play' || !locked()) return;
   const k = LOOK * lookScale(); // app: settings
-  yaw -= e.movementX * k; pitch = Math.max(CAMERA.minPitch, Math.min(CAMERA.maxPitch, pitch + e.movementY * k));
+  const [dx, dy] = lookDelta(e);
+  yaw -= dx * k; pitch = Math.max(CAMERA.minPitch, Math.min(CAMERA.maxPitch, pitch + dy * k));
 });
 const PAUSE_KEYS = [['WASD', 'move · mouse look'], ['SPACE', 'jump · hold to glide'], ['SHIFT', 'dash']];
 function pause() {

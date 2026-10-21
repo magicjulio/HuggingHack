@@ -5,6 +5,7 @@
 // see showOv), the HTML ones are gone; the best time comes from
 // and goes to the app save (opts.best / opts.onFinish) instead of localStorage; `window.__game` → opts.debug.
 import { lookScale } from '../../../state/settings'; // app: settings
+import { lookDelta } from '../../../engine/mouseLook'; // app: drops pointer-lock spikes
 import * as THREE from 'three';
 import { buildWorld, PORT_COLORS, CLUSTER_FRONT, ROWS, ROW_GAP } from './world.js';
 import { buildEnemies } from './enemies.js';
@@ -73,9 +74,10 @@ let locked = false;
 on(window, 'mousemove', (e) => {
   if (!locked) return;
   const k = SENS * lookScale(); // app: settings
-  yaw -= e.movementX * k;
-  pitch = THREE.MathUtils.clamp(pitch - e.movementY * k, -1.35, 1.25);
-  if (Math.abs(e.movementX) + Math.abs(e.movementY) > 1) { mouseIdle = 0; introSpin = false; }
+  const [dx, dy] = lookDelta(e);
+  yaw -= dx * k;
+  pitch = THREE.MathUtils.clamp(pitch - dy * k, -1.35, 1.25);
+  if (Math.abs(dx) + Math.abs(dy) > 1) { mouseIdle = 0; introSpin = false; }
 });
 on(window, 'mousedown', (e) => {
   if (!locked) return;

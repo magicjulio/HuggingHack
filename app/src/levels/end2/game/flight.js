@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { lookScale } from "../../../state/settings"; // app: settings
+import { lookDelta } from "../../../engine/mouseLook"; // app: drops pointer-lock spikes
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { P, logoMaterials } from "./art.js";
@@ -327,8 +328,9 @@ export function createFlight(scene, T, brand) {
   host.on(window, "mousemove", (e) => {
     if (!running || !document.pointerLockElement) return;
     const k = (C.aimSensitivity ?? 1) * 2 * lookScale(); // app: settings
-    aim.x = THREE.MathUtils.clamp(aim.x + (e.movementX * k) / innerWidth, -0.9, 0.9);
-    aim.y = THREE.MathUtils.clamp(aim.y - (e.movementY * k) / innerHeight, -0.85, 0.85);
+    const [dx, dy] = lookDelta(e);
+    aim.x = THREE.MathUtils.clamp(aim.x + (dx * k) / innerWidth, -0.9, 0.9);
+    aim.y = THREE.MathUtils.clamp(aim.y - (dy * k) / innerHeight, -0.85, 0.85);
   });
   let oldFog, oldBackground;
   // The scene's hemisphere + sun (main.js) are day-strength for the atrium. The approach is a night

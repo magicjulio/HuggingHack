@@ -6,6 +6,7 @@
 import { lookScale } from '../state/settings';
 import { useEffect, useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
+import { lookDelta } from './mouseLook';
 
 /** Axis-aligned box on the floor plan (x/z, metres). */
 export interface Box2 {
@@ -124,10 +125,11 @@ export function FirstPerson({
     const move = (e: MouseEvent) => {
       if (!enabledRef.current || document.pointerLockElement !== gl.domElement) return;
       const l = look.current;
-      if (e.movementX || e.movementY) handedBack.current = true;
+      const [dx, dy] = lookDelta(e);
+      if (dx || dy) handedBack.current = true;
       const k = SENSITIVITY * lookScale();
-      l.yaw -= e.movementX * k;
-      l.pitch = Math.max(-1.4, Math.min(1.4, l.pitch - e.movementY * k));
+      l.yaw -= dx * k;
+      l.pitch = Math.max(-1.4, Math.min(1.4, l.pitch - dy * k));
     };
     addEventListener('keydown', down);
     addEventListener('keyup', up);
