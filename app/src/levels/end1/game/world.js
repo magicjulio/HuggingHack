@@ -1,7 +1,7 @@
 // The hall: computers as skyscrapers, their ports, colliders, and the research cluster.
 // Course is seeded, so every run is the same track (it's a race).
 import * as THREE from 'three';
-import { towerTextures, rackTextures, screenTexture, floorTexture, labelTexture, sandboxTexture } from './textures.js';
+import { towerTextures, rackTextures, screenTexture, floorTexture, labelTexture, logoTexture, sandboxTexture } from './textures.js';
 import { GlowPoints } from './fx.js';
 
 export const PORT_COLORS = {
@@ -11,7 +11,7 @@ export const PORT_COLORS = {
   core: new THREE.Color(0xeafff2),
 };
 
-const _kp = new THREE.Vector3(), _pulseC = new THREE.Color(0x38d8ff);
+const _kp = new THREE.Vector3();
 
 function rng(seed) {
   return () => {
@@ -262,10 +262,16 @@ export function buildWorld(scene) {
   const label = new THREE.Mesh(new THREE.PlaneGeometry(220, 27.5), new THREE.MeshBasicMaterial({
     map: labelTexture('RESEARCH CLUSTER'), transparent: true, depthWrite: false, fog: false,
   }));
-  label.position.set(0, CLUSTER.cy + CLUSTER.hy + 48, CLUSTER_FRONT - 20);
+  // the sign reads [OpenAI logo] RESEARCH CLUSTER, centred as a pair (the text fills about 172 of the plane's 220)
+  label.position.set(20, CLUSTER.cy + CLUSTER.hy + 48, CLUSTER_FRONT - 20);
   scene.add(label);
+  const logo = new THREE.Mesh(new THREE.PlaneGeometry(26, 26), new THREE.MeshBasicMaterial({
+    map: logoTexture(), transparent: true, depthWrite: false, fog: false,
+  }));
+  logo.position.set(-87, label.position.y, label.position.z);
+  scene.add(logo);
   // core: the cluster's control point (orchestration + its store of 956 secrets, docs/levels/end1-openai-infra.md).
-  // A pedestal on the roof, conduits from the roof edges feeding it, a gimbal of three rings around a bright node,
+  // A pedestal on the roof, a gimbal of three rings around a bright node,
   // and 956 gold glints (the secrets) orbiting it. takeCore(): rings lock into one plane, the glints fall in.
   const roofY = CLUSTER.cy + CLUSTER.hy;
   const coreG = new THREE.Group();
@@ -285,23 +291,6 @@ export function buildWorld(scene) {
   });
   const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 2.2, core.pos.y - roofY - 6 - 3.5, 8), plinthMat);
   mast.position.y = 6 + (core.pos.y - roofY - 6 - 3.5) / 2; plinth.add(mast);
-  // conduits on the roof, from the edges to the pedestal; data pulses run along them inward
-  const conduitMat = new THREE.MeshBasicMaterial({ color: 0x1f4a5c });
-  const conduits = [];
-  for (let k = 0; k < 12; k++) {
-    const a = (k / 12) * Math.PI * 2 + 0.13;
-    const reach = Math.min(Math.abs(CLUSTER.hx / Math.cos(a)), Math.abs(CLUSTER.hz / Math.sin(a))) * 0.97;
-    const from = new THREE.Vector3(CLUSTER.cx + Math.cos(a) * reach, roofY + 0.5, CLUSTER.cz + Math.sin(a) * reach);
-    // they converge on the pedestal, which sits at the front edge, not the roof centre
-    const to = new THREE.Vector3(core.pos.x + Math.cos(a) * 7.5, roofY + 0.5, Math.min(core.pos.z + Math.sin(a) * 7.5, CLUSTER_FRONT - 1));
-    if (from.distanceTo(core.pos) < 30) continue;
-    const len = from.distanceTo(to);
-    const c = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.8, len), conduitMat);
-    c.position.copy(from).lerp(to, 0.5); c.lookAt(to);
-    scene.add(c);
-    conduits.push({ from, to, len });
-  }
-  const pulses = new GlowPoints(conduits.length * 3, 2);
   // gimbal: three nested rings, each turning on its own axis
   const ringDefs = [[9, 0.38, 0xeafff2], [7.2, 0.32, 0x38d8ff], [5.5, 0.28, 0x5dffb0]];
   const rings = [];
@@ -324,19 +313,9 @@ export function buildWorld(scene) {
     keys.set(i, core.pos, R() < 0.15 ? pale : gold, 0.3 + R() * 0.45);
   }
   keys.mat.uniforms.uFar.value = 900;
-  scene.add(keys.points, pulses.points);
+  scene.add(keys.points);
   const tilt = new THREE.Euler(0.42, 0, 0.18);
   const tiltQ = new THREE.Quaternion().setFromEuler(tilt);
-  const beam = new THREE.Mesh(new THREE.CylinderGeometry(6, 10, 240, 16, 1, true), new THREE.MeshBasicMaterial({
-    color: 0x5dffb0, transparent: true, opacity: 0.12, blending: THREE.AdditiveBlending, depthWrite: false, fog: false, side: THREE.DoubleSide,
-  }));
-  beam.position.set(core.pos.x, core.pos.y + 120, core.pos.z);
-  scene.add(beam);
-  const beamCore = new THREE.Mesh(new THREE.CylinderGeometry(1.1, 1.1, 240, 8, 1, true), new THREE.MeshBasicMaterial({
-    color: 0xeafff2, transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending, depthWrite: false, fog: false,
-  }));
-  beamCore.position.copy(beam.position);
-  scene.add(beamCore);
   let takenAt = -1;
   const ringA = [0, 0, 0], ringFrom = [0, 0, 0];
   function takeCore() { takenAt = -2; }
@@ -410,8 +389,6 @@ export function buildWorld(scene) {
 
   function update(t) {
     clusterMat.uniforms.uTime.value = t;
-    beam.material.opacity = 0.1 + Math.sin(t * 2) * 0.03;
-    beamCore.material.opacity = 0.3 + Math.sin(t * 5) * 0.08;
     // taken: 0 → 1 over a second; the gimbal settles flat, the glints fall into the node
     if (takenAt === -2) { takenAt = t; ringFrom.splice(0, 3, ...ringA); }
     const k = takenAt < 0 ? 0 : THREE.MathUtils.smootherstep(t - takenAt, 0, 1.1);
@@ -430,13 +407,7 @@ export function buildWorld(scene) {
       _kp.set(Math.cos(a) * r, keyY[i] * (1 - k), Math.sin(a) * r).applyQuaternion(tiltQ).add(core.pos);
       keys.set(i, _kp);
     }
-    conduits.forEach((c, i) => {
-      for (let j = 0; j < 3; j++) {
-        const f = (t * 60 / c.len + j / 3 + i * 0.37) % 1;
-        pulses.set(i * 3 + j, _kp.copy(c.from).lerp(c.to, f).setY(c.from.y + 1), _pulseC, 2.2 * (1 - k));
-      }
-    });
-    keys.dirty(); pulses.dirty();
+    keys.dirty();
   }
 
   // all regular colliders; the respawn uses machine roofs
