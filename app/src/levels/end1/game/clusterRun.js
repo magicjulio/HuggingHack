@@ -153,7 +153,7 @@ function showOv(name) {
 
 function restart() {
   enemies.reset();
-  world.resetPorts();
+  world.resetPorts(); world.resetCore();
   player.reset(world.startPos);
   yaw = Math.PI * 0.92; pitch = -0.12; roll = 0; introSpin = true;
   detection = 0; lastHitT = -99; runTime = 0; scanCD = 0;
@@ -250,7 +250,7 @@ function fail() {
 }
 function finish() {
   state = 'finish'; finishT = 0;
-  sfx.finish(); flash('#ffffff', 1);
+  sfx.finish(); flash('#ffffff', 1); world.takeCore();
   particles.burst(world.core.pos, GREEN, 120, 60, 2.2, 1.4);
   const isBest = best === null || runTime < best;
   if (isBest) best = runTime;

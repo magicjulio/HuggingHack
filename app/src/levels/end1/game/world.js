@@ -11,6 +11,8 @@ export const PORT_COLORS = {
   core: new THREE.Color(0xeafff2),
 };
 
+const _kp = new THREE.Vector3(), _pulseC = new THREE.Color(0x38d8ff);
+
 function rng(seed) {
   return () => {
     seed |= 0; seed = (seed + 0x6D2B79F5) | 0;
@@ -20,6 +22,7 @@ function rng(seed) {
   };
 }
 
+const CORE_HALO = 36; // >30: never fades with distance, so the core stays a beacon
 export const ROWS = 38;
 export const ROW_GAP = 62;
 export const CLUSTER_FRONT = -2440;
@@ -261,15 +264,83 @@ export function buildWorld(scene) {
   }));
   label.position.set(0, CLUSTER.cy + CLUSTER.hy + 48, CLUSTER_FRONT - 20);
   scene.add(label);
-  // core: big ring + beacon column
-  const coreRing = new THREE.Mesh(new THREE.TorusGeometry(9, 1.6, 10, 40), new THREE.MeshBasicMaterial({ color: 0xeafff2, fog: false }));
-  coreRing.position.copy(core.pos);
-  scene.add(coreRing);
+  // core: the cluster's control point (orchestration + its store of 956 secrets, docs/levels/end1-openai-infra.md).
+  // A pedestal on the roof, conduits from the roof edges feeding it, a gimbal of three rings around a bright node,
+  // and 956 gold glints (the secrets) orbiting it. takeCore(): rings lock into one plane, the glints fall in.
+  const roofY = CLUSTER.cy + CLUSTER.hy;
+  const coreG = new THREE.Group();
+  coreG.position.copy(core.pos);
+  scene.add(coreG);
+  const plinthMat = new THREE.MeshLambertMaterial({ color: 0x1b2433, emissive: 0x070c14 });
+  const edgeMat = new THREE.MeshBasicMaterial({ color: 0x5dffb0, fog: false });
+  const plinth = new THREE.Group();
+  plinth.position.set(core.pos.x, roofY, core.pos.z);
+  scene.add(plinth);
+  [[5.5, 7, 3], [4, 5, 3]].forEach(([r0, r1, h], k) => {
+    const y = k * 3;
+    const tier = new THREE.Mesh(new THREE.CylinderGeometry(r0, r1, h, 8), plinthMat);
+    tier.position.y = y + h / 2; plinth.add(tier);
+    const edge = new THREE.Mesh(new THREE.CylinderGeometry(r0 + 0.15, r0 + 0.15, 0.35, 8, 1, true), edgeMat);
+    edge.position.y = y + h - 0.2; plinth.add(edge);
+  });
+  const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 2.2, core.pos.y - roofY - 6 - 3.5, 8), plinthMat);
+  mast.position.y = 6 + (core.pos.y - roofY - 6 - 3.5) / 2; plinth.add(mast);
+  // conduits on the roof, from the edges to the pedestal; data pulses run along them inward
+  const conduitMat = new THREE.MeshBasicMaterial({ color: 0x1f4a5c });
+  const conduits = [];
+  for (let k = 0; k < 12; k++) {
+    const a = (k / 12) * Math.PI * 2 + 0.13;
+    const reach = Math.min(Math.abs(CLUSTER.hx / Math.cos(a)), Math.abs(CLUSTER.hz / Math.sin(a))) * 0.97;
+    const from = new THREE.Vector3(CLUSTER.cx + Math.cos(a) * reach, roofY + 0.5, CLUSTER.cz + Math.sin(a) * reach);
+    // they converge on the pedestal, which sits at the front edge, not the roof centre
+    const to = new THREE.Vector3(core.pos.x + Math.cos(a) * 7.5, roofY + 0.5, Math.min(core.pos.z + Math.sin(a) * 7.5, CLUSTER_FRONT - 1));
+    if (from.distanceTo(core.pos) < 30) continue;
+    const len = from.distanceTo(to);
+    const c = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.8, len), conduitMat);
+    c.position.copy(from).lerp(to, 0.5); c.lookAt(to);
+    scene.add(c);
+    conduits.push({ from, to, len });
+  }
+  const pulses = new GlowPoints(conduits.length * 3, 2);
+  // gimbal: three nested rings, each turning on its own axis
+  const ringDefs = [[9, 0.38, 0xeafff2], [7.2, 0.32, 0x38d8ff], [5.5, 0.28, 0x5dffb0]];
+  const rings = [];
+  let parent = coreG;
+  for (const [r, tube, color] of ringDefs) {
+    const m = new THREE.Mesh(new THREE.TorusGeometry(r, tube, 8, 64), new THREE.MeshBasicMaterial({ color, fog: false, transparent: true }));
+    parent.add(m); rings.push(m); parent = m;
+  }
+  const node = new THREE.Mesh(new THREE.IcosahedronGeometry(2.6, 0), new THREE.MeshBasicMaterial({ color: 0xeafff2, fog: false }));
+  const nodeWire = new THREE.Mesh(new THREE.IcosahedronGeometry(3.6, 0), new THREE.MeshBasicMaterial({ color: 0x5dffb0, wireframe: true, fog: false }));
+  coreG.add(node, nodeWire);
+  // the store: 956 glints on a tilted orbit disc
+  const KEYS = 956;
+  const keys = new GlowPoints(KEYS, 1.5);
+  const keyR = new Float32Array(KEYS), keyA = new Float32Array(KEYS), keyY = new Float32Array(KEYS), keyW = new Float32Array(KEYS);
+  const gold = new THREE.Color(0xffc861), pale = new THREE.Color(0xfff1c9);
+  for (let i = 0; i < KEYS; i++) {
+    keyR[i] = 12 + Math.pow(R(), 1.6) * 10; keyA[i] = R() * Math.PI * 2;
+    keyY[i] = (R() - 0.5) * 1.6; keyW[i] = 0.25 + 3.2 / keyR[i];
+    keys.set(i, core.pos, R() < 0.15 ? pale : gold, 0.3 + R() * 0.45);
+  }
+  keys.mat.uniforms.uFar.value = 900;
+  scene.add(keys.points, pulses.points);
+  const tilt = new THREE.Euler(0.42, 0, 0.18);
+  const tiltQ = new THREE.Quaternion().setFromEuler(tilt);
   const beam = new THREE.Mesh(new THREE.CylinderGeometry(6, 10, 240, 16, 1, true), new THREE.MeshBasicMaterial({
     color: 0x5dffb0, transparent: true, opacity: 0.12, blending: THREE.AdditiveBlending, depthWrite: false, fog: false, side: THREE.DoubleSide,
   }));
   beam.position.set(core.pos.x, core.pos.y + 120, core.pos.z);
   scene.add(beam);
+  const beamCore = new THREE.Mesh(new THREE.CylinderGeometry(1.1, 1.1, 240, 8, 1, true), new THREE.MeshBasicMaterial({
+    color: 0xeafff2, transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending, depthWrite: false, fog: false,
+  }));
+  beamCore.position.copy(beam.position);
+  scene.add(beamCore);
+  let takenAt = -1;
+  const ringA = [0, 0, 0], ringFrom = [0, 0, 0];
+  function takeCore() { takenAt = -2; }
+  function resetCore() { takenAt = -1; rings.forEach((m) => { m.scale.setScalar(1); m.material.opacity = 1; }); }
 
   // ---------- ports: socket boxes + halos ----------
   const portMesh = new THREE.InstancedMesh(new THREE.BoxGeometry(2.2, 1.5, 0.9), new THREE.MeshBasicMaterial({ color: 0xffffff }), ports.length);
@@ -284,7 +355,7 @@ export function buildWorld(scene) {
   const halos = new GlowPoints(ports.length, 3);
   halos.mat.uniforms.uFar.value = 700;
   const haloPos = new THREE.Vector3();
-  ports.forEach((p, i) => halos.set(i, haloPos.copy(p.pos).addScaledVector(p.normal, 0.9), PORT_COLORS.open, p.core ? 60 : 7));
+  ports.forEach((p, i) => halos.set(i, haloPos.copy(p.pos).addScaledVector(p.normal, 0.9), PORT_COLORS.open, p.core ? CORE_HALO : 7));
   halos.dirty();
   scene.add(halos.points);
 
@@ -331,7 +402,7 @@ export function buildWorld(scene) {
 
   let target = null;
   function setTarget(p, inRange) {
-    if (target && target !== p) { halos.size[target.idx] = target.core ? 60 : 7; }
+    if (target && target !== p) { halos.size[target.idx] = target.core ? CORE_HALO : 7; }
     target = p;
     if (p && !p.core) halos.size[p.idx] = inRange ? 13 : 9;
     halos.dirty();
@@ -339,15 +410,39 @@ export function buildWorld(scene) {
 
   function update(t) {
     clusterMat.uniforms.uTime.value = t;
-    coreRing.rotation.z = t * 0.6;
-    const s = 1 + Math.sin(t * 4) * 0.06; coreRing.scale.set(s, s, s);
     beam.material.opacity = 0.1 + Math.sin(t * 2) * 0.03;
+    beamCore.material.opacity = 0.3 + Math.sin(t * 5) * 0.08;
+    // taken: 0 → 1 over a second; the gimbal settles flat, the glints fall into the node
+    if (takenAt === -2) { takenAt = t; ringFrom.splice(0, 3, ...ringA); }
+    const k = takenAt < 0 ? 0 : THREE.MathUtils.smootherstep(t - takenAt, 0, 1.1);
+    if (k === 0) {
+      ringA[0] = t * 0.45; ringA[1] = t * 0.8; ringA[2] = t * 1.25;
+    } else {
+      for (let j = 0; j < 3; j++) ringA[j] = ringFrom[j] + (Math.round(ringFrom[j] / Math.PI) * Math.PI - ringFrom[j]) * k;
+    }
+    rings[0].rotation.y = ringA[0]; rings[1].rotation.x = ringA[1]; rings[2].rotation.y = ringA[2];
+    rings[0].scale.setScalar(1 + k * 0.5);
+    const pulse = 1 + Math.sin(t * 4) * 0.08 + k * 0.6;
+    node.scale.setScalar(pulse);
+    nodeWire.rotation.set(t * 0.7, t * 1.1, 0); nodeWire.scale.setScalar(1 + Math.sin(t * 4 + 1) * 0.1 + k * 0.4);
+    for (let i = 0; i < KEYS; i++) {
+      const a = keyA[i] + t * keyW[i] * 0.35, r = keyR[i] * (1 - k);
+      _kp.set(Math.cos(a) * r, keyY[i] * (1 - k), Math.sin(a) * r).applyQuaternion(tiltQ).add(core.pos);
+      keys.set(i, _kp);
+    }
+    conduits.forEach((c, i) => {
+      for (let j = 0; j < 3; j++) {
+        const f = (t * 60 / c.len + j / 3 + i * 0.37) % 1;
+        pulses.set(i * 3 + j, _kp.copy(c.from).lerp(c.to, f).setY(c.from.y + 1), _pulseC, 2.2 * (1 - k));
+      }
+    });
+    keys.dirty(); pulses.dirty();
   }
 
   // all regular colliders; the respawn uses machine roofs
   return {
     machines, ports, colliders, drones, core, start, cluster: cl,
-    portState, refreshPort, resetPorts, hideRing, setTarget, update,
+    portState, refreshPort, resetPorts, hideRing, setTarget, update, takeCore, resetCore,
     halos, startPos: new THREE.Vector3(0, 46 + 0.6, 30 - 6),
     distanceTotal: -(core.pos.z - 24),
   };
