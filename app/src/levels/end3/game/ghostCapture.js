@@ -8,7 +8,7 @@ import * as THREE from "three";
 import { levels } from "./levels.js";
 import { loadArt } from "./art.js";
 import { MARKUP } from "./markup.js";
-import { archiveBlockCanvas } from "./rack.js";
+import { archiveBlockCanvas, grateCanvas } from "./rack.js";
 import { createSfx } from "../../ch2/ui/sfx.js"; // app: sound
 import { sfxVolume } from "../../../state/settings"; // app: settings
 
@@ -142,13 +142,17 @@ function makeRoom() {
         plane(x + 1.1, y, 1.8, 0.025, "#142a36", -3);
     }
   }
+  const px = T.pixelWidth / T.width;
   for (const p of L.platforms) {
-    // app: a tall archive block is rebuilt from the slab art's pieces at its own size (rack.js)
+    // app: a tall archive block is rebuilt from the slab art's pieces at its own size (rack.js);
+    // a ledge the scan sees through is an open grate (playtest: it has to read differently)
     let map = archive ? art.archivePlatform : art.platform;
-    if (archive && !p.oneWay && p.h >= RACK_MIN_H) {
-      const px = T.pixelWidth / T.width;
+    const grate = p.oneWay;
+    if (grate || (archive && p.h >= RACK_MIN_H)) {
       map = new THREE.CanvasTexture(
-        archiveBlockCanvas(art.archivePlatform.image, Math.round(p.w * px), Math.round(p.h * px)),
+        grate
+          ? grateCanvas(Math.round(p.w * px), Math.max(8, Math.round(p.h * px)), archive)
+          : archiveBlockCanvas(art.archivePlatform.image, Math.round(p.w * px), Math.round(p.h * px)),
       );
       map.magFilter = map.minFilter = THREE.NearestFilter;
       map.generateMipmaps = false;
@@ -590,7 +594,7 @@ function snapshot() {
 function pause() {
   if (state === "playing") {
     state = "paused";
-    showCard({ kind: "pause", title: "Paused", keys: INTRO.keys, action: { label: "Resume", onClick: pause }, onBackdrop: pause, hint: "Esc or click anywhere to resume" });
+    showCard({ kind: "pause", title: "Paused", keys: INTRO.keys, extra: coverLegend(), action: { label: "Resume", onClick: pause }, onBackdrop: pause, hint: "Esc or click anywhere to resume" });
   } else if (state === "paused") {
     state = "playing";
     showCard(null);
@@ -603,6 +607,18 @@ function showCard(card) {
 function begin() {
   sfx.unlock();
   if (art) start();
+}
+// app (playtest): what the two kinds of platform mean for the scanners, on the intro and pause cards
+function coverLegend() {
+  const el = document.createElement("div");
+  el.style.cssText = "width:300px;display:grid;gap:14px;padding:22px 24px;background:var(--color-panel-solid);border:1px solid var(--color-line);font:12px/1.5 var(--font-mono);cursor:default";
+  const row = (swatch, name, how) => `<div style="display:grid;grid-template-columns:34px 1fr;gap:4px 12px;align-items:center">` +
+    `<i style="width:34px;height:12px;${swatch}"></i><b style="font-weight:700;color:var(--color-text);text-transform:uppercase;letter-spacing:.08em">${name}</b>` +
+    `<span></span><span style="color:var(--color-text-dim)">${how}</span></div>`;
+  el.innerHTML = '<div style="font-size:10px;letter-spacing:.24em;color:var(--color-text-faint);text-transform:uppercase">Scanner sight</div>' +
+    row("border:2px solid #53d7df;border-width:3px 2px 2px;background:repeating-linear-gradient(90deg,transparent 0 2px,rgba(83,215,223,.5) 2px 4px,transparent 4px 6px)", "Grate", "the scan sees right through it. Jump up through it, S drops down") +
+    row("background:#2b3d4b;border-top:3px solid #7d9cad;box-shadow:0 4px 0 #080f18", "Solid block", "stops the scan: hide behind it");
+  return el;
 }
 const INTRO = {
   kind: "intro",
@@ -719,7 +735,7 @@ loadArt(THREE).then((a) => {
   if (disposed) return disposeArt(a);
   art = a;
   makeRoom();
-  showCard(INTRO);
+  showCard({ ...INTRO, extra: coverLegend() });
   if (opts.debug) window.__end3 = hooks;
   previous = performance.now();
   raf = requestAnimationFrame(frame);

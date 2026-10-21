@@ -76,3 +76,25 @@ export function archiveBlockCanvas(art, w, h) {
         c.drawImage(art, sx[0], sy[0], span(sx), span(sy), dx0, dy0, dx1 - dx0, dy1 - dy0);
   return image;
 }
+
+// app (playtest): ledges the scanners see through are open grates, so they read differently from the
+// solid blocks that hide you: a rail on top and below, thin slats, and open gaps the beam shows through.
+// Painted at screen size like the blocks above. `archive` = the Deep Archive's brighter cyan (rooms 4–6).
+export function grateCanvas(w, h, archive) {
+  const image = document.createElement("canvas");
+  image.width = w;
+  image.height = h;
+  const c = image.getContext("2d");
+  const rail = archive ? "#53d7df" : "#6fa9bd",
+    slat = archive ? "rgba(83,215,223,.5)" : "rgba(111,169,189,.45)";
+  c.fillStyle = "rgba(8,20,28,.25)"; // a faint tint so the gaps still read as part of the ledge
+  c.fillRect(0, 0, w, h);
+  c.fillStyle = slat;
+  for (let x = 2; x < w - 1; x += 6) c.fillRect(x, 0, 2, h);
+  c.fillStyle = rail;
+  c.fillRect(0, 0, w, 3);
+  c.fillRect(0, h - 2, w, 2);
+  c.fillRect(0, 0, 2, h);
+  c.fillRect(w - 2, 0, 2, h);
+  return image;
+}
