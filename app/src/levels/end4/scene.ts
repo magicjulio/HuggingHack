@@ -3,7 +3,7 @@ import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.j
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import deskUrl from '../../assets/models/ch1-desk.glb?url';
 import roomUrl from '../../assets/models/ch1-room.glb?url';
-import type { Clock } from './config';
+import { FILM_LENGTH, filmTime, type Clock } from './config';
 
 type V = [number, number, number];
 const v = (p: V) => new THREE.Vector3(...p);
@@ -607,7 +607,7 @@ export function createScene(host: HTMLElement, color: string) {
         letter.scale.setScalar(1 - fly * 0.97);
       }
     } else {
-      const film = phase === 'end' ? 46 : t;
+      const film = phase === 'end' ? FILM_LENGTH : filmTime(t, text);
       const power = 1 - ease((film - 39.4) / 0.45);
       monitorLight.intensity = 5 * power;
       rim.intensity = 2.1 * (1 - ease((film - 40) / 2));

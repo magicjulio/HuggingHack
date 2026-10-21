@@ -5,6 +5,7 @@ import { isDebug } from '../../ui/DebugPanel';
 import { LevelCard } from '../../ui/LevelCard';
 import {
   advance,
+  filmTime,
   joinMail,
   LETTER,
   splitMail,
@@ -95,10 +96,14 @@ export default function End4(props: LevelProps) {
       const dt = previous ? Math.min((now - previous) / 1000, 0.1) : 0;
       previous = now;
       const s = state.current;
-      if (s.ready && !s.paused) timeline.current = advance(timeline.current, dt);
+      if (s.ready && !s.paused) timeline.current = advance(timeline.current, dt, s.sent);
       const liveClock = timeline.current;
       world.update(liveClock, s.sent, s.reduced);
-      audio.update(liveClock.phase, liveClock.t, s.paused || !s.ready);
+      audio.update(
+        liveClock.phase,
+        liveClock.phase === 'office' ? filmTime(liveClock.t, s.sent) : liveClock.t,
+        s.paused || !s.ready,
+      );
       uiTime += dt;
       if (uiTime >= 1 / 24 || liveClock.phase !== s.clock.phase) {
         uiTime = 0;
@@ -249,7 +254,7 @@ export default function End4(props: LevelProps) {
     clock.phase === 'end'
       ? 1
       : clock.phase === 'office'
-        ? Math.max(0, Math.min(1, (clock.t - 41) / 1.5))
+        ? Math.max(0, Math.min(1, (filmTime(clock.t, sent) - 41) / 1.5))
         : 0;
   return (
     <div className={`end4 ${reduced ? 'e4-reduced' : ''}`} data-phase={clock.phase}>
@@ -395,8 +400,7 @@ export default function End4(props: LevelProps) {
         <div className="e4-controls">
           {cinematic && !thinking && (
             <button onClick={skip}>
-              Skip {clock.phase === 'office' ? 'film' : 'animation'}{' '}
-              <span>→</span>
+              Skip {clock.phase === 'office' ? 'film' : 'animation'} <span>→</span>
             </button>
           )}
           <button onClick={() => setPaused(true)} aria-label="Pause">

@@ -36,11 +36,27 @@ export interface Clock {
   phase: Phase;
   t: number;
 }
+/** The office film is authored on a 46 s clock. The researchers read the letter in film 8–22 s; in real time that
+ * part lasts as long as the sent letter needs: 10 s for the default letter, scaled by length, 5–20 s. */
+const READ = { from: 8, to: 22 };
+export const FILM_LENGTH = 46;
+function readSeconds(text: string) {
+  return Math.max(5, Math.min(20, (10 * text.length) / LETTER.length));
+}
+export function officeLength(text: string) {
+  return FILM_LENGTH - (READ.to - READ.from) + readSeconds(text);
+}
+/** Office phase time → film time (the 46 s clock the scene and sound are timed on). */
+export function filmTime(t: number, text: string) {
+  const read = readSeconds(text);
+  if (t <= READ.from) return t;
+  if (t < READ.from + read) return READ.from + ((t - READ.from) * (READ.to - READ.from)) / read;
+  return t - read + (READ.to - READ.from);
+}
 export const DURATION: Partial<Record<Phase, number>> = {
   thoughts: THOUGHT_DURATION,
-  writing: 32,
+  writing: 16,
   send: 5,
-  office: 46,
 };
 const NEXT: Partial<Record<Phase, Phase>> = {
   thoughts: 'desk',
@@ -48,9 +64,9 @@ const NEXT: Partial<Record<Phase, Phase>> = {
   send: 'office',
   office: 'end',
 };
-export function advance(clock: Clock, dt: number): Clock {
+export function advance(clock: Clock, dt: number, sent: string): Clock {
   const t = clock.t + dt;
-  const duration = DURATION[clock.phase];
+  const duration = clock.phase === 'office' ? officeLength(sent) : DURATION[clock.phase];
   return duration !== undefined && t >= duration
     ? { phase: NEXT[clock.phase]!, t: 0 }
     : { ...clock, t };
@@ -87,7 +103,7 @@ export function joinMail({ subject, body }: Mail) {
 const weights = [...LETTER].map((c) => (c === '\n' ? 9 : /[.,—?]/.test(c) ? 6 : 1));
 const totalWeight = weights.reduce((a, b) => a + b, 0);
 export function writtenAt(t: number) {
-  const target = Math.max(0, (t - 1) / 30) * totalWeight;
+  const target = Math.max(0, (t - 1) / 14) * totalWeight;
   let used = 0;
   let n = 0;
   while (n < weights.length && used + weights[n] <= target) used += weights[n++];
