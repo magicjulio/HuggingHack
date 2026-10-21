@@ -26,8 +26,6 @@ import {
   FLOOD_CLOUDS,
   FORGE_BIT_SPAWNS,
   FORGE_CLOUDS,
-  FORGE_CORE,
-  FORGE_DAIS_RADIUS,
   FORGE_HEART,
   FORGE_INPUTS,
   FORGE_SLOTS,
@@ -91,6 +89,9 @@ export interface LogLine {
 
 export type Target = { kind: 'npc'; id: NpcId } | { kind: 'item'; id: ItemId } | { kind: 'forge' };
 
+/** Surfaces of the forge island itself (layout ids): not its bridges or edge islands. */
+const FORGE_ISLAND = /^forge($|-dais-|-pylon-)/;
+
 export type ForgePhase = 'idle' | 'proof' | 'ready' | 'forging' | 'absorb' | 'done';
 export interface ForgeState {
   phase: ForgePhase;
@@ -102,7 +103,7 @@ export interface ForgeState {
   progress: number;
   /** Seconds in the current phase. */
   t: number;
-  /** Forging, but the player is off the dais: the fold waits for them. */
+  /** Forging, but the player is off the forge island: the fold waits for them. */
   held: boolean;
 }
 
@@ -725,13 +726,12 @@ export function createCh2Store(opts: Ch2Options = {}): Ch2Store {
       }
     }
 
-    /** On the dais or in the air above it (a jump does not pause the fold). */
+    /** On the forge island (its dais and pylons too) or in the air above it: a jump does not
+     * pause the fold, a bridge or an edge island does. */
     function onForge() {
       const p = sim.body.pos;
-      return (
-        Math.hypot(p.x - FORGE_CORE[0], p.z - FORGE_CORE[2]) <= FORGE_DAIS_RADIUS &&
-        p.y > FORGE_CORE[1] - 1
-      );
+      const s = sim.body.ground ?? sim.world.groundBelow(p.x, p.z, p.y + BODY.stepUp)?.s;
+      return !!s && FORGE_ISLAND.test(s.def.id);
     }
 
     function tickForge(dt: number) {
@@ -752,7 +752,7 @@ export function createCh2Store(opts: Ch2Options = {}): Ch2Store {
         return;
       }
       if (f.phase === 'forging') {
-        // the fold only runs with the player on the dais: no waiting it out on a bridge
+        // the fold only runs with the player on the forge island: no waiting it out on a bridge
         if (!onForge()) return void (f.held || set({ forge: { ...f, held: true } }));
         const progress = f.progress + dt / TIMING.roundSeconds;
         if (progress < 1) return set({ forge: { ...f, t, progress, held: false } });

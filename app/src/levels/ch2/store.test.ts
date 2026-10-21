@@ -112,7 +112,7 @@ describe('chapter 2', () => {
     s().addTokens(500); // survive the fight in a headless test
     let guard = 0;
     while (s().forge.phase === 'forging' && guard++ < 4000) {
-      // waves reset us to the forge pad, off the dais: walk back on, or the fold waits
+      // waves can knock us off the forge island: walk back on, or the fold waits
       if (s().forge.held) goNear(FORGE_SLOTS[0]);
       wait(0.5);
       s().addTokens(20);
@@ -230,7 +230,7 @@ describe('chapter 2', () => {
     expect(proof.at(-1)).toBe('proof_done');
   });
 
-  it('the fold only runs while the player is on the dais', () => {
+  it('the fold only runs while the player is on the forge island', () => {
     const { s, wait, goNear } = play();
     s().jumpTo(6);
     wait(TIMING.proofSeconds + 0.1);
@@ -242,8 +242,13 @@ describe('chapter 2', () => {
     const on = s().forge.progress;
     expect(on).toBeGreaterThan(0);
     expect(s().forge.held).toBe(false);
-    // off the dais, on the bridge side: the bar stops (and so does the round's time limit)
-    s().placePlayer([FORGE_SLOTS[0][0] * 2.2, FORGE_SLOTS[0][1] - 1.2, FORGE_SLOTS[0][2] * 2.2]);
+    // out on the island, away from the dais: still forging
+    s().placePlayer([9, 34.3, 0]);
+    wait(1);
+    expect(s().forge.held).toBe(false);
+    expect(s().forge.progress).toBeGreaterThan(on);
+    // on an edge island past a bridge: the bar stops (and so does the round's time limit)
+    s().placePlayer([0, 34, -17.6]);
     wait(0.2);
     expect(s().forge.held).toBe(true);
     const off = s().forge;

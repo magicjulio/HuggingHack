@@ -337,8 +337,6 @@ const F = L.forge;
 export const FORGE_CORE: V3 = v3(F.pos);
 /** The fold's hot core above the dais (level.html: 4.4 m up), where fight bits fly in. */
 export const FORGE_HEART: V3 = [F.pos[0], F.pos[1] + 4.4, F.pos[2]];
-/** The dais' outer edge: the fold only runs while the player is inside it. */
-export const FORGE_DAIS_RADIUS = Math.max(...F.dais.map((d) => d.r));
 /** Glowing slot frames, in input order (E and the item flying in). */
 export const FORGE_SLOTS: V3[] = F.slotPos.map(v3);
 /** Pylon angle of slot i: 45°, 135°, 225°, 315°. */

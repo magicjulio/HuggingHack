@@ -1,6 +1,6 @@
 /**
  * The forge fight's bar, top centre: three round segments filling in turn. It stops and turns
- * amber while the player is off the dais (store `forge.held`).
+ * amber while the player is off the forge island (store `forge.held`).
  */
 import { useCh2 } from '../context';
 import { TEXT } from '../config';
