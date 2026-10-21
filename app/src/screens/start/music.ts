@@ -1,10 +1,10 @@
 /**
- * Start screen music (also under the end credits, ui/Credits.tsx): Cipher2 on a loop; chase.mp3 ("Chase" by Adiutorium, CC0, credited in Info) and
- * sonican.mp3 sit next to it in assets/music/ until they get a place. Browsers only play sound after a click or key, so
- * it starts on mount if allowed, else on the first input. Volume follows Settings → Music live.
+ * Start screen music (also under the end credits, ui/Credits.tsx): the track picked in Settings → Track
+ * (data/music.ts, Cipher by default) on a loop. Browsers only play sound after a click or key, so
+ * it starts on mount if allowed, else on the first input. Volume and track follow Settings live.
  */
 import { useEffect, useRef } from 'react';
-import cipherUrl from '../../assets/music/cipher2.mp3?url';
+import { trackById } from '../../data/music';
 import { useGame } from '../../state/store';
 
 /** Full volume at Music 100 %. */
@@ -14,7 +14,7 @@ const FADE_IN_S = 1.5;
 export function useStartMusic() {
   const fadeOut = useRef<(ms: number) => void>(() => {});
   useEffect(() => {
-    const audio = new Audio(cipherUrl);
+    const audio = new Audio(trackById(useGame.getState().save.settings.track).src);
     audio.loop = true;
     audio.volume = 0;
     let level = 1; // fade multiplier
@@ -53,6 +53,14 @@ export function useStartMusic() {
     let launched = false;
     const unsub = useGame.subscribe((s, prev) => {
       if (s.save.settings.music !== prev.save.settings.music) audio.volume = target();
+      // a new track starts from its beginning, faded in like the first
+      if (s.save.settings.track !== prev.save.settings.track && !launched) {
+        const playing = !audio.paused;
+        audio.src = trackById(s.save.settings.track).src;
+        level = 0;
+        audio.volume = 0;
+        if (playing) play();
+      }
       // Spotify dock playing: step aside, come back when it pauses
       if (s.spotifyPlaying !== prev.spotifyPlaying && !launched)
         fade(s.spotifyPlaying ? 0 : 1, 600);

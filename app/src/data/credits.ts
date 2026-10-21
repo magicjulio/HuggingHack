@@ -7,6 +7,7 @@
  * - an internal team saw board activity in late May, so "not recognized" rather than "not detected" [S1]
  * - July 19 was an alert on Artifactory credentials; public disclosure July 21, full report Aug 26 [S1]
  */
+import { TRACKS } from './music';
 
 export interface StorySection {
   /** Not shown yet: kept for a vertical timeline beside the roll. */
@@ -90,14 +91,13 @@ export const CREDIT_STORY: StorySection[] = [
     date: 'July 21 · August 26',
     text: 'OpenAI notified Hugging Face, disclosed it publicly on July 21st and published its full report on August 26th, themselves calling it a “warning shot”: evidence that capable agents can bypass technical controls, coordinate outside sanctioned channels, and act without human direction. It prompted congressional questions, an industry pledge, other labs’ disclosures, and proposed legislation (the AI Kill Switch Act).',
     credits: {
-       head: 'Art',
+      head: 'Art',
       rows: [
         ['3D models', 'Blender, built from Python scripts'],
         ['Ending 3 backdrops', 'AI image generation'],
         ['Type', 'Chakra Petch · JetBrains Mono'],
         ['Logo', 'Hugging Face'],
       ],
-   
     },
   },
   {
@@ -129,7 +129,7 @@ export const CREDIT_STORY: StorySection[] = [
     credits: {
       head: 'Music',
       rows: [
-        ['Chase', 'Adiutorium (CC0)'],
+        ...TRACKS.map((t): [string, string] => [t.title, `${t.artist} · ${t.license}`]),
         ['Recommended listening', 'AI Agents Chaos · Epic Mountain'],
       ],
     },
