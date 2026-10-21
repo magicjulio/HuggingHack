@@ -1,6 +1,8 @@
 // Small WebAudio synth. Everything is generated, no files.
 import { sfxVolume } from '../../../state/settings'; // app: settings
-let ctx = null, master = null, windGain = null, windFilter = null, noiseBuf = null;
+// app (playtest): no wind loop and no whooshes any more, players found the air rush annoying;
+// connecting, letting go and zipping are clicks instead.
+let ctx = null, master = null, noiseBuf = null;
 
 export function initAudio() {
   if (ctx) { master.gain.value = 0.55 * sfxVolume(); if (ctx.state === 'suspended') ctx.resume(); return; } // app: settings
@@ -12,18 +14,12 @@ export function initAudio() {
   noiseBuf = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
   const d = noiseBuf.getChannelData(0);
   for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
-  // continuous wind, volume and brightness follow speed
-  const src = ctx.createBufferSource(); src.buffer = noiseBuf; src.loop = true;
-  windFilter = ctx.createBiquadFilter(); windFilter.type = 'bandpass'; windFilter.frequency.value = 400; windFilter.Q.value = 0.7;
-  windGain = ctx.createGain(); windGain.gain.value = 0;
-  src.connect(windFilter).connect(windGain).connect(master);
-  src.start();
 }
 
-// app: silence while paused or after leaving the level (the wind loop would keep playing)
+// app: silence while paused or after leaving the level
 export function setAudioPaused(paused) {
   if (!ctx) return;
-  if (paused) { windGain.gain.cancelScheduledValues(ctx.currentTime); windGain.gain.value = 0; ctx.suspend(); }
+  if (paused) ctx.suspend();
   else ctx.resume();
 }
 
@@ -50,13 +46,23 @@ function noise(f0, f1, dur, peak = 0.3, q = 1.5, type = 'bandpass') {
   const g = ctx.createGain(); env(g, t, 0.004, peak, dur);
   s.connect(f).connect(g).connect(master); s.start(t, Math.random()); s.stop(t + dur + 0.05);
 }
+// a dry contact click: a few ms of noise around `f`, no sweep
+function click(f, peak = 0.3, delay = 0) {
+  if (!ctx) return;
+  const t = ctx.currentTime + delay;
+  const s = ctx.createBufferSource(); s.buffer = noiseBuf;
+  const b = ctx.createBiquadFilter(); b.type = 'bandpass'; b.frequency.value = f; b.Q.value = 3;
+  const g = ctx.createGain(); env(g, t, 0.001, peak, 0.018);
+  s.connect(b).connect(g).connect(master); s.start(t, Math.random()); s.stop(t + 0.05);
+}
 
 export const sfx = {
   fire() { noise(3500, 900, 0.12, 0.35, 2.5); tone('sine', 1400, 500, 0.08, 0.08); },
-  latch(chain = 0) { tone('square', 180, 90, 0.06, 0.18); tone('sine', 520 + chain * 90, 520 + chain * 90, 0.12, 0.12); },
-  whiff() { noise(1200, 300, 0.25, 0.12, 1); },
+  // plugged in: a click with a little body, then a ping that climbs with the chain
+  latch(chain = 0) { click(3200, 0.4); tone('sine', 170, 120, 0.05, 0.14); tone('sine', 880 + chain * 110, 880 + chain * 110, 0.08, 0.08, 0.012); },
+  whiff() { click(900, 0.16); tone('triangle', 300, 220, 0.06, 0.05); },
   deny() { tone('sawtooth', 140, 110, 0.18, 0.18); tone('sawtooth', 147, 104, 0.18, 0.12); },
-  release() { noise(800, 2400, 0.1, 0.07, 1); },
+  release() { click(1900, 0.18); },
   chain(n) { [0, 4, 7, 12, 16].slice(0, Math.min(5, n + 1)).forEach((s, i) => tone('triangle', 660 * 2 ** (s / 12), 660 * 2 ** (s / 12), 0.12, 0.09, i * 0.035)); },
   laser() { tone('sawtooth', 2200, 300, 0.09, 0.12); noise(6000, 2000, 0.05, 0.08, 3); },
   hit() { tone('square', 900, 400, 0.05, 0.12); },
@@ -66,15 +72,10 @@ export const sfx = {
   tick(rate) { tone('square', 1500 + rate * 900, 1500 + rate * 900, 0.025, 0.06); },
   zap() { noise(5000, 200, 0.4, 0.4, 1); tone('sawtooth', 90, 40, 0.4, 0.3); },
   thud() { tone('sine', 140, 50, 0.18, 0.35); noise(600, 100, 0.12, 0.2, 1, 'lowpass'); },
-  launch() { noise(400, 3000, 0.3, 0.2, 1.2); tone('sine', 200, 700, 0.25, 0.12); },
-  zip() { noise(2500, 5000, 0.2, 0.12, 4); },
+  launch() { click(2400, 0.25); tone('sine', 200, 700, 0.25, 0.12); },
+  // reeling in: a fast ratchet
+  zip() { for (let i = 0; i < 6; i++) click(2000 + i * 350, 0.14, i * 0.03); },
   linkLost() { tone('sawtooth', 300, 60, 0.6, 0.25); },
   beep(hi) { tone('square', hi ? 1320 : 660, hi ? 1320 : 660, hi ? 0.35 : 0.15, 0.15); },
   finish() { [0, 4, 7, 12, 16, 19, 24].forEach((s, i) => tone('triangle', 440 * 2 ** (s / 12), 440 * 2 ** (s / 12), 0.5, 0.12, i * 0.07)); },
-  wind(speed, attached) {
-    if (!ctx) return;
-    const k = Math.min(1, speed / 70);
-    windGain.gain.setTargetAtTime(k * k * 0.32, ctx.currentTime, 0.08);
-    windFilter.frequency.setTargetAtTime(300 + k * 1400 + (attached ? 200 : 0), ctx.currentTime, 0.08);
-  },
 };

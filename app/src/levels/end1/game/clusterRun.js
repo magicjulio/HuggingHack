@@ -528,7 +528,6 @@ function updateVisuals(rdt, dt) {
   } else cableR.hide();
   glow.dirty();
 
-  sfx.wind(sp, !!player.attachedPort());
   speedLines.draw(state === 'run' ? THREE.MathUtils.clamp((sp - 35) / 40, 0, 1) : 0, rdt);
 }
 
