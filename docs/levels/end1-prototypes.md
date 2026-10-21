@@ -1,5 +1,7 @@
 # Ending 1 (OpenAI infra): four prototypes
 
+`prototypes/` is local only (gitignored), so the paths below are missing from a fresh clone. Since the outcome below, A is deleted and C and D live in `prototypes/archive/`. The winner, B, ships in `app/src/levels/end1/`.
+
 Julius, round 8 (verbatim: `story/julius-prompts/2026-10-16-endings-round8.md`): a race through the real world. The small model swings and hops from computer to computer to a huge research cluster. Fights on the computers. How each jump works is the core. Process: several versions → playable MVPs → Julius tests → the best one survives.
 
 Each version is inspired by one known game (Julius picked these four on 2026-10-16; "you dont have to copy the behaviour, just be inspired by them"), then fits the idea onto it. The teams work independently and get only Julius's prompt and their base game, so the ideas can differ.

@@ -4,7 +4,7 @@ A side-view puzzle platformer built around the director's approved verb: **posit
 
 ## Play
 
-Run `bash prototypes/serve.sh` from the repository root and open `http://localhost:8765/end3-ghost/`.
+Play it in the app: `npm run dev` in `app/`, then pick Ending 3 on the start screen (`?debug` unlocks it). The standalone prototype (`prototypes/end3-ghost/`, served by `prototypes/serve.sh`) is local only, not in the repo.
 
 - A/D or left/right arrows: move the currently selected body.
 - W, up arrow, or Space: jump. Release and press again for another jump.
@@ -71,4 +71,4 @@ Levels 4–6 were redesigned by three parallel agents and integrated as separate
 
 The movement pilot in `smoke.mjs` predates these modules and is obsolete for levels 4–6. Its historical complete-run results do not validate the current campaign. Existing scanner behavior checks apply to the unchanged engine; full route coverage would need updating before using that script for campaign validation.
 
-Launch with `bash prototypes/serve.sh`, then visit `http://localhost:8765/end3-ghost/`.
+Play it in the app as described under Play.

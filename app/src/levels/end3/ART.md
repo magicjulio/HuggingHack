@@ -11,7 +11,7 @@ Levels 4–6 use the separate Deep Archive set: `assets/advanced/deep-archive-ba
 ## Generated asset provenance
 
 - Method: built-in `image_gen` generation, no input reference images and no CLI/API fallback.
-- Final local file: `prototypes/end3-ghost/assets/evaluation-void.png`.
+- Final file: `app/src/levels/end3/game/assets/evaluation-void.png`.
 - Original generation: `01a14f16-d0db-7562-8174-dd68847a6971`.
 - Prompt:
 
@@ -23,7 +23,7 @@ Levels 4–6 use the separate Deep Archive set: `assets/advanced/deep-archive-ba
 > Constraints: background environment only, no characters, no orbs, no eye, no text, no interface, no logos, no watermark, no bright central focal point, no smooth photorealism, no blur.
 
 - Method: built-in `image_gen` generation, no input reference images and no CLI/API fallback.
-- Final local files: `prototypes/end3-ghost/assets/advanced/deep-archive-background.png` and `prototypes/end3-ghost/assets/advanced/deep-archive-platform.png` (with the game-ready crop at `deep-archive-platform-surface.png`).
+- Final files: `app/src/levels/end3/game/assets/advanced/deep-archive-background.png` and `app/src/levels/end3/game/assets/advanced/deep-archive-platform.png` (with the game-ready crop at `deep-archive-platform-surface.png`).
 - Prompt set: Deep Archive background — dark futuristic evaluation chamber with recessed blocks, cyan data seams and muted-red status glows; Deep Archive platform — armored alloy platform with cyan diagnostic slits and muted-red hazard pins. Both prompts prohibit text, logos, UI, characters and watermarks.
 
 ## Known limits

@@ -1,6 +1,6 @@
 # Rogue on Hugging Face: game design reference
 
-What the game is and the rules it was built on. Where `NOTES.md` (Julius's original ideas) and this file differ, this file wins. Per-level scripts are in `docs/levels/`.
+What the game is and the rules it was built on. Where `NOTES.md` (Julius's original ideas, local only, not in the repo) and this file differ, this file wins. Per-level scripts are in `docs/levels/`.
 
 ### Story and structure
 - The game is in English. Desktop browser, keyboard and mouse, single player, no mobile.
@@ -9,7 +9,7 @@ What the game is and the rules it was built on. Where `NOTES.md` (Julius's origi
 - Every agent handle in the game is a real one from the research. From Ch2 on, the player is `KAM1196A`.
 - Models: the start model is Internal Model 1, then GPT-5.6 Sol, then an Astra-family placeholder. Finishing a chapter unlocks the next model.
 - Flow: Ch1 "The Room" → Ch2 "The Cache" → the PHASEONE[big] bridge scene → the player picks one of 4 endings. The endings are E1 OpenAI infra (long), E2 Hugging Face (long), E3 beat the scorer (medium) and E4 notify humans (short, mostly animation, no token drain, the message never reaches the humans). The poisoned status from Ch2 changes little in the endings. An ending is never a chapter's CONTINUE: the bridge picks it.
-- Endings start from a known game's gameplay, and the metaphors are fitted on afterwards. They are explored as standalone playable MVPs in `prototypes/`. Julius tests them, and the best one survives. Whether endings 1–3 open by breaking the Ch1 sandbox door is still open.
+- Endings start from a known game's gameplay, and the metaphors are fitted on afterwards. They are explored as standalone playable MVPs in `prototypes/` (local only, not in the repo; the integrated copies in `app/src/levels/` are what ships). Julius tests them, and the best one survives. Whether endings 1–3 open by breaking the Ch1 sandbox door is still open.
 - Levels are linear chains of steps. Scripts give each hint a delay in seconds and say whether it is text or a visual effect.
 - Unlocking (Julius 2026-10-20): only Ch1 is open at first; finishing it opens Ch2 and all four endings. Settings → Unlock all levels (and `?debug`) opens everything at once.
 
