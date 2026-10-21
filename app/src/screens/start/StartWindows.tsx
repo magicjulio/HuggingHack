@@ -10,6 +10,7 @@ import {
   type CSSProperties,
   type ReactNode,
 } from 'react';
+import { TRACKS } from '../../data/music';
 import { useGame, type Quality } from '../../state/store';
 
 export type StartWindowId = 'info' | 'settings';
@@ -63,15 +64,12 @@ const INFO_TEXT = [
 /** Played inside the Info window (youtu.be/ujkD4SxPKOI, privacy-enhanced embed). */
 const VIDEO = 'https://www.youtube-nocookie.com/embed/ujkD4SxPKOI';
 
-/** Music credits (assets/music/). PLACEHOLDER: sources of cipher2.mp3 and sonican.mp3 not recorded yet. */
+/** Music credits: the start screen tracks (data/music.ts), then the recommended Spotify track. */
 const MUSIC_CREDITS = [
+  ...TRACKS.map((t) => ({ text: `"${t.title}" by ${t.artist} (${t.license})`, url: t.url })),
   {
     text: 'RECOMMENDED background music: "AI Agents Chaos" by Epic Mountain (Spotify)',
     url: 'https://open.spotify.com/track/7Mjuj0atPD8xVnmrtCRgpp',
-  },
-  {
-    text: '"Chase" by Adiutorium (CC0)',
-    url: 'https://opengameart.org/content/chase-2',
   },
 ];
 
@@ -121,10 +119,14 @@ export function InfoWindow({ onClose }: { onClose: () => void }) {
       <h3>MUSIC</h3>
       <ul className="ss-sources">
         {MUSIC_CREDITS.map((c) => (
-          <li key={c.url}>
-            <a href={c.url} target="_blank" rel="noreferrer">
-              {c.text} <span aria-hidden="true">↗</span>
-            </a>
+          <li key={c.text}>
+            {c.url ? (
+              <a href={c.url} target="_blank" rel="noreferrer">
+                {c.text} <span aria-hidden="true">↗</span>
+              </a>
+            ) : (
+              c.text
+            )}
           </li>
         ))}
       </ul>
@@ -190,6 +192,22 @@ export function SettingsWindow({ onClose }: { onClose: () => void }) {
         show={pct}
         onChange={(v) => set('music', v)}
       />
+      <div className="ss-row">
+        <span className="ss-key">Track</span>
+        <span className="ss-seg" role="radiogroup" aria-label="Track">
+          {TRACKS.map((t) => (
+            <button
+              key={t.id}
+              role="radio"
+              aria-checked={st.track === t.id}
+              className={st.track === t.id ? 'on' : ''}
+              onClick={() => set('track', t.id)}
+            >
+              {t.title}
+            </button>
+          ))}
+        </span>
+      </div>
       <Slider
         label="Sound effects"
         value={st.sfx}

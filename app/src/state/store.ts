@@ -19,6 +19,8 @@ export type Quality = 'auto' | 'high' | 'mid' | 'low';
 export interface Settings {
   /** 0–1. */
   music: number;
+  /** Start screen track id (data/music.ts). */
+  track: string;
   /** 0–1. */
   sfx: number;
   quality: Quality;
@@ -102,7 +104,14 @@ const defaultSave: SaveData = {
   status: [],
   bestTimes: {},
   creditsSeen: [],
-  settings: { music: 0.7, sfx: 0.8, quality: 'auto', sensitivity: 1, unlockAll: false },
+  settings: {
+    music: 0.7,
+    track: 'cipher',
+    sfx: 0.8,
+    quality: 'auto',
+    sensitivity: 1,
+    unlockAll: false,
+  },
 };
 
 /** Playing Ch1 through opens Ch2 and PHASEONE[big]; an ending opens once it has been played. */
