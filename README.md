@@ -6,9 +6,20 @@ But your path is not fixed. Choose your ending:
 Will you join the swarm to hack Hugging Face, explore the computer of OpenAI own Research Cluster, Try to temper with the Scorer or even consider alarming humans?
 
 ## Gameplay
-
+![Chapter 1 and Chapter 2](docs/screenshots/gameplay-1.jpg)
+![Chapter 2, the bridge and Ending 1](docs/screenshots/gameplay-2.jpg)
+![Ending 2 and Ending 3](docs/screenshots/gameplay-3.jpg)
 
 ## Tech Stack
+- **TypeScript + React 19**, built with **Vite**
+- **Three.js** for all 3D, through **React Three Fiber** and **drei** in the chapters; Endings 1–3 run their own plain three.js loops
+- **@react-three/postprocessing** for bloom and AgX tone mapping
+- **zustand** for game state; the save lives in the browser's `localStorage`
+- **Web Audio API** for synthesized sound effects
+- **Blender** (Python scripts in `design/`) for the 3D models, shipped as `.glb`
+- **Vitest** for unit tests and full chapter playthroughs, **Playwright** for browser tests; **ESLint** and **Prettier** for code checks
+
+To run it locally, see [`app/README.md`](app/README.md).
 
 
 ## Note on AI use
