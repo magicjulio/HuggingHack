@@ -46,7 +46,7 @@ export interface SaveData {
   status: string[];
   /** Best run time in seconds per level, for timed levels (Ending 1 race). */
   bestTimes: Record<string, number>;
-  /** Endings whose end credits have played once; after that they only play on request. */
+  /** Endings after which the end credits rolled. Any entry means they have played once; after that they only play on request. */
   creditsSeen: string[];
   settings: Settings;
 }
@@ -86,7 +86,7 @@ interface GameState {
   startChapter: (id: string) => void;
   /** Keep `seconds` as the level's best time if it beats the saved one. */
   recordBestTime: (id: string, seconds: number) => void;
-  /** The end credits have played after ending `id`. */
+  /** The end credits have played after ending `id` (only the first ending finished rolls them). */
   markCreditsSeen: (id: string) => void;
   setSetting: <K extends keyof Settings>(key: K, value: Settings[K]) => void;
   /** Delete the save, every setting and all other browser data of this site, then reload. */

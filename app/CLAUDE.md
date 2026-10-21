@@ -26,8 +26,8 @@ src/
   ui/                    generic DOM UI: Hud.tsx, Window.tsx, DebugPanel.tsx, ui.css; gpu.ts (WebGL 2 / CPU-rendering check that GameScreen
                          runs before a level; GameScreen also offers a restart when a level's WebGL context is lost); LevelCard.tsx + card.css = the one
                          card for intro, pause, fail, finish and loading in every level (see Conventions)
-                         Credits.tsx + credits.css: end credits (one roll: story + credits side by side, start music; Space pauses, arrows set the speed); GameScreen rolls them straight after an
-                         ending's first finish (no finish card; later finishes show the card with Rewatch credits), `?credits` plays them alone
+                         Credits.tsx + credits.css: end credits (one roll: story + credits side by side, start music; Space pauses, arrows set the speed); GameScreen rolls them once per game, straight after
+                         the first ending finished (no finish card); every later ending finish shows the card with Rewatch credits, `?credits` plays them alone
   levels/
     index.ts             registry: chapter id → lazy component, LevelProps
     ch1/                 Chapter 1 "The Room"

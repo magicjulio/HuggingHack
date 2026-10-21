@@ -1,7 +1,7 @@
 /**
  * Hosts the selected chapter. Falls back to a placeholder for chapters that are not built.
- * The first time an ending is finished, the credits roll straight after its last scene (no finish
- * card), then the menu; on later finishes its finish card shows, with Rewatch credits.
+ * The first time any ending is finished, the credits roll straight after its last scene (no finish
+ * card), then the menu; every later ending finish shows its finish card, with Rewatch credits.
  * Before a level mounts it checks the browser can draw it (ui/gpu.ts); while one runs, a WebGL
  * context the browser takes away and doesn't give back offers a restart.
  */
@@ -62,7 +62,8 @@ export function GameScreen() {
   // `credits` = rolling now
   const [credits, setCredits] = useState(false);
   const ending = !!chapterById(chapter)?.ending;
-  const seen = save.creditsSeen.includes(chapter);
+  // once per game, whichever ending came first
+  const seen = save.creditsSeen.length > 0;
   const onFinish = useCallback(
     (result?: ChapterResult) => {
       finishChapter(chapter, result);

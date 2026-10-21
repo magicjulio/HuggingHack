@@ -81,12 +81,12 @@ test('ending 3: rules probes, six-room finish, menu round trips leave nothing be
   page.on('pageerror', (e) => errors.push(e.message));
   page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
   await page.addInitScript(instrument);
-  // credits already seen, so the finish card shows (a first finish rolls the credits instead: end4.spec)
+  // credits already rolled after another ending, so the finish card shows (a first finish rolls them: end4.spec)
   await page.addInitScript(() => {
     if (!localStorage.getItem('rogue-on-hf-save'))
       localStorage.setItem(
         'rogue-on-hf-save',
-        JSON.stringify({ state: { save: { creditsSeen: ['end3'] } }, version: 1 }),
+        JSON.stringify({ state: { save: { creditsSeen: ['end1'] } }, version: 1 }),
       );
   });
 
