@@ -8,6 +8,14 @@ import { Bloom, EffectComposer, ToneMapping } from '@react-three/postprocessing'
 import { ToneMappingMode } from 'postprocessing';
 import { Quaternion, Vector3 } from 'three';
 import { FirstPerson, type CameraPose } from '../../engine/FirstPerson';
+import { LazyShadows } from '../../engine/LazyShadows';
+import {
+  fixedTier,
+  QUALITY,
+  QualityMonitor,
+  qualityDpr,
+  type QualityTier,
+} from '../../engine/quality';
 import { Hud } from '../../ui/Hud';
 import { DebugPanel, isDebug } from '../../ui/DebugPanel';
 import { LevelCard } from '../../ui/LevelCard';
@@ -262,6 +270,7 @@ function Ch1View({ modelName, color, onExit, onContinue }: LevelProps) {
    * click, so the game keeps running and asks for one quietly.
    */
   const [pauseMenu, setPauseMenu] = useState(true);
+  const [quality, setQuality] = useState<QualityTier>(fixedTier() ?? 'high');
   const pauseRef = useRef(pauseMenu);
   pauseRef.current = pauseMenu;
   const sides = useRef<(HTMLDivElement | null)[]>([null, null]);
@@ -376,8 +385,11 @@ function Ch1View({ modelName, color, onExit, onContinue }: LevelProps) {
     >
       <Canvas
         shadows={RENDER.shadows && 'percentage'}
+        // the other levels' cap (≤ 1.5): a 2× screen would draw 1.8× the pixels for little to see
+        dpr={qualityDpr(quality)}
         camera={{ fov: 70, near: 0.02, far: 60 }}
         onCreated={({ gl }) => (canvasEl.current = gl.domElement)}
+        data-quality={quality}
       >
         {s.phase === 'intro' ? (
           <IntroScene color={color} onDone={() => store.getState().finishIntro()} />
@@ -389,8 +401,10 @@ function Ch1View({ modelName, color, onExit, onContinue }: LevelProps) {
           </>
         )}
         <Ticker paused={paused} />
+        {RENDER.shadows && <LazyShadows />}
+        <QualityMonitor tier={quality} onTier={setQuality} />
         {RENDER.bloom && (
-          <EffectComposer multisampling={4}>
+          <EffectComposer multisampling={QUALITY[quality].msaa}>
             <Bloom
               mipmapBlur
               luminanceThreshold={RENDER.bloomThreshold}

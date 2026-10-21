@@ -58,6 +58,8 @@ function DebugView() {
     if (!(import.meta.env.DEV || isDebug())) return;
     const w = window as unknown as { __ch1view?: unknown };
     w.__ch1view = {
+      /** For perf probes: hide parts, count lights. */
+      scene,
       /** `dy`, `dz`: world metres from the node's origin. */
       at: (name: string, dy = 0, dz = 0) => {
         const o = scene.getObjectByName(name);
