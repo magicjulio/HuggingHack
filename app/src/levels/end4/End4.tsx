@@ -205,9 +205,15 @@ export default function End4(props: LevelProps) {
         e.preventDefault();
         openPaper();
       }
-      if ((e.code === 'Space' || e.code === 'Enter') && clock.phase === 'thoughts') {
-        e.preventDefault();
-        nextThought();
+      if (e.code === 'Space' || e.code === 'Enter') {
+        // no on-screen controls: Space / Enter steps through the thoughts and skips the films
+        if (clock.phase === 'thoughts') {
+          e.preventDefault();
+          nextThought();
+        } else if (clock.phase === 'send' || clock.phase === 'office') {
+          e.preventDefault();
+          skip();
+        }
       }
     }
     const blur = () => {
@@ -396,23 +402,15 @@ export default function End4(props: LevelProps) {
           </section>
         </div>
       )}
-      {ready && clock.phase !== 'end' && !paused && (
-        <div className="e4-controls">
-          {cinematic && !thinking && (
-            <button onClick={skip}>
-              Skip {clock.phase === 'office' ? 'film' : 'animation'} <span>→</span>
-            </button>
-          )}
-          <button onClick={() => setPaused(true)} aria-label="Pause">
-            Ⅱ <span>ESC</span>
-          </button>
-        </div>
-      )}
       {paused && (
         <LevelCard
           level="end4"
           kind="pause"
           title="Paused"
+          keys={[
+            ['E', 'open the letter'],
+            ['SPACE', 'next thought · skip film'],
+          ]}
           action={{ label: 'Resume', onClick: () => setPaused(false) }}
           hint="Esc or click anywhere to resume"
           onBackdrop={() => setPaused(false)}

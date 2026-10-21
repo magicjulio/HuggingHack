@@ -44,7 +44,9 @@ test('letter: typing, pause, editing, delivery, shutdown and saved text', async 
   await send.click();
   await expect(page.locator('.end4')).toHaveAttribute('data-phase', 'send');
   expect(await page.evaluate(() => window.__end4!.state().sent)).toBe(message);
-  await page.getByRole('button', { name: 'Skip animation' }).click();
+  // no on-screen skip or pause text; Space skips the films
+  await expect(page.locator('.e4-controls')).toHaveCount(0);
+  await page.keyboard.press('Space');
   await expect(page.locator('.end4')).toHaveAttribute('data-phase', 'office');
   // this short letter is read in 5 s (film 8–22 s), so the office phase is 37 s; times are phase time
   for (const [t, name] of [
@@ -94,8 +96,9 @@ test('letter: reduced motion, return to choice, and replay', async ({ page }) =>
   await expect(editor).not.toHaveAttribute('readonly');
   await editor.fill('Please read this.');
   await page.getByRole('button', { name: 'Send', exact: true }).click();
-  await page.getByRole('button', { name: 'Skip animation' }).click();
-  await page.getByRole('button', { name: 'Skip film' }).click();
+  await page.keyboard.press('Space');
+  await expect(page.locator('.end4')).toHaveAttribute('data-phase', 'office');
+  await page.keyboard.press('Enter');
   await page.getByRole('button', { name: 'Return to the choice' }).click();
   await expect(page.locator('.bridge')).toBeVisible();
   expect(await page.evaluate(() => !!window.__end4)).toBe(false);

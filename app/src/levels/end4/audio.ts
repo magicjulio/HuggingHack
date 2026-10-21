@@ -1,4 +1,4 @@
-/** Quiet local synth: room tone, footsteps, paper, relay, and the fan winding down. */
+/** Quiet local synth: room tone, paper, relay, and the fan winding down. */
 import { sfxVolume } from '../../state/settings';
 export function createSound() {
   let ctx: AudioContext | undefined;
@@ -7,7 +7,6 @@ export function createSound() {
   let tone: GainNode;
   let muted = false;
   let stopped = false;
-  let lastStep = -1;
   let pulled = false;
   function start() {
     if (stopped) return;
@@ -58,13 +57,6 @@ export function createSound() {
         phase === 'end' ? 1 : phase === 'office' ? Math.max(0, Math.min(1, (t - 39.4) / 2.5)) : 0;
       tone.gain.setTargetAtTime(0.08 * (1 - shutdown), ctx.currentTime, 0.12);
       hum.frequency.setTargetAtTime(62 - shutdown * 37, ctx.currentTime, 0.15);
-      if (phase === 'office' && t < 7) {
-        const step = Math.floor(t * 2.3);
-        if (step !== lastStep) {
-          lastStep = step;
-          noise(0.14, 0.4, 400);
-        }
-      }
       if (phase === 'office' && t >= 39.4 && !pulled) {
         pulled = true;
         noise(0.09, 0.7, 1300);
