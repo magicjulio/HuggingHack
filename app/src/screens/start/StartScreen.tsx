@@ -5,7 +5,8 @@
  *
  * Controls: W/S or ↑/↓ chapter · A/D or ←/→ model · Enter start. Boot intro skippable by any key/click.
  * The chapter list is a route: Ch1 → Ch2 → the PHASEONE[big] fork into the four endings, drawn as
- * parallel workstreams. Info and Settings open as windows from the icon buttons top right.
+ * parallel workstreams. The fork bar starts PHASEONE[big], where the endings are picked; an ending
+ * lane stays grey and redacted until that ending has been played (or Unlock all is on). Info and Settings open as windows from the icon buttons top right.
  */
 import {
   useCallback,
@@ -15,10 +16,11 @@ import {
   type CSSProperties,
   type MouseEvent,
 } from 'react';
-import { CHAPTERS } from '../../data/chapters';
+import { CHAPTERS, chapterById } from '../../data/chapters';
 
 const LISTED = CHAPTERS.filter((c) => !c.hidden);
-const ROUTE = LISTED.filter((c) => !c.ending);
+const FORK = CHAPTERS.find((c) => c.id === 'bridge')!;
+const ROUTE = LISTED.filter((c) => !c.ending && c !== FORK);
 const ENDINGS = LISTED.filter((c) => c.ending);
 // The bridge's lanes (docs/GAME.md): cyan machine hall, yellow tower, red scorer floor, the faint
 // back door toward the sandbox (Ch1 violet).
@@ -28,6 +30,8 @@ const LANE: Record<string, string> = {
   end3: 'var(--color-lamp-red)',
   end4: 'var(--color-violet)',
 };
+// an ending not played yet: its lane stays grey until it has been picked in PHASEONE[big]
+const LOCKED_LANE = 'var(--color-text-faint)';
 import { MODELS, modelById } from '../../data/models';
 import { useGame } from '../../state/store';
 import { cycleUnlocked } from '../../state/selection';
@@ -45,6 +49,8 @@ const BOOT_LINES = [
   '> ready.',
 ];
 const LAUNCH_MS = 1100;
+/** Shown for an ending that has not been played yet. */
+const UNKNOWN = '▒▒▒▒ ▒▒▒▒▒';
 
 const prefersReducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -187,8 +193,10 @@ export function StartScreen() {
     showToast(msg, true);
   };
   const onChapter = (id: string) => (e: MouseEvent<HTMLButtonElement>) => {
-    if (!selectChapter(id)) deny(e.currentTarget, 'CHAPTER LOCKED — not reachable yet');
-    else art.current.pulse = 1;
+    if (selectChapter(id)) art.current.pulse = 1;
+    else if (chapterById(id)?.ending)
+      deny(e.currentTarget, 'ENDING LOCKED — choose it in PHASEONE[big]');
+    else deny(e.currentTarget, 'CHAPTER LOCKED — not reachable yet');
   };
   const onModel = (id: string) => (e: MouseEvent<HTMLButtonElement>) => {
     if (!selectModel(id)) deny(e.currentTarget, 'MODEL LOCKED — unlock it by playing');
@@ -226,30 +234,42 @@ export function StartScreen() {
   // the chapter panel scrolls on short screens: keep the W/S selection in view
   const levelsRef = useRef<HTMLElement>(null);
   useEffect(() => {
-    levelsRef.current?.querySelector('.card.selected')?.scrollIntoView({ block: 'nearest' });
+    levelsRef.current?.querySelector('.selected')?.scrollIntoView({ block: 'nearest' });
   }, [save.selectedChapter]);
 
   const selected = CHAPTERS.find((c) => c.id === save.selectedChapter);
-  // "start chapter 2" · "start ending 1" (endings are indexed E1…E4)
-  const startLabel = selected?.ending
-    ? `start ending ${selected.index.replace(/^E/, '')}`
-    : `start chapter ${selected?.index.replace(/^0/, '') ?? '1'}`;
+  // "start chapter 2" · "enter phaseone[big]" · "start ending 1" (endings are indexed E1…E4)
+  const startLabel =
+    selected === FORK
+      ? `enter ${FORK.title}`
+      : selected?.ending
+        ? `start ending ${selected.index.replace(/^E/, '')}`
+        : `start chapter ${selected?.index.replace(/^0/, '') ?? '1'}`;
 
   // `i` = lane number inside the fork (each lane's line climbs i rows up to the fork bar)
   const chapterRow = (c: (typeof LISTED)[number], i: number) => {
     const locked = isChapterLocked(c.id);
+    // a locked ending gives nothing away: no title; E4 (the quiet one) not even its number
+    const hide = c.ending && locked;
     return (
       <li
         key={c.id}
-        style={c.ending ? ({ '--lane': LANE[c.id], '--i': i } as CSSProperties) : undefined}
+        style={
+          c.ending
+            ? ({ '--lane': locked ? LOCKED_LANE : LANE[c.id], '--i': i } as CSSProperties)
+            : undefined
+        }
       >
         <button
           className={'card' + (c.id === save.selectedChapter ? ' selected' : '')}
           data-locked={locked || undefined}
+          aria-label={hide ? `${c.index} locked` : undefined}
           onClick={onChapter(c.id)}
         >
-          <span className="idx">{c.index}</span>
-          <span className={'name' + (c.title ? '' : ' redact')}>{c.title ?? c.redacted}</span>
+          <span className="idx">{hide && c.id === 'end4' ? 'E?' : c.index}</span>
+          <span className={'name' + (c.title && !hide ? '' : ' redact')}>
+            {hide ? UNKNOWN : (c.title ?? c.redacted)}
+          </span>
         </button>
       </li>
     );
@@ -302,11 +322,15 @@ export function StartScreen() {
           <h2>CHAPTERS</h2>
           <ul className="route">{ROUTE.map(chapterRow)}</ul>
           <div className="fork">
-            <p className="fork-head">
+            <button
+              className={'fork-head' + (save.selectedChapter === FORK.id ? ' selected' : '')}
+              data-locked={isChapterLocked(FORK.id) || undefined}
+              onClick={onChapter(FORK.id)}
+            >
               <span className="fork-node" aria-hidden="true" />
-              PHASEONE[big]
+              {FORK.title}
               <em>pick a workstream</em>
-            </p>
+            </button>
             <ul className="lanes">{ENDINGS.map(chapterRow)}</ul>
           </div>
         </section>

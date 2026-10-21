@@ -48,7 +48,7 @@ Handy URL flags (combine with `&`):
 | T · Esc | think · pause |
 | Enter | skip the ending cutscene (only on a replay) |
 
-**Ending 1 "Cluster Run" (the swing race, pick E1 on the start screen):**
+**Ending 1 "Cluster Run" (the swing race, pick E1 in PHASEONE[big]; on the start screen once played):**
 | Key | Action |
 |---|---|
 | click | start the run / resume (locks the mouse) |
@@ -61,7 +61,7 @@ Handy URL flags (combine with `&`):
 
 The Ch1 end card's **CONTINUE** goes straight into Chapter 2. Chapter 2's level is the designer's `src/levels/ch2/layout.json`.
 
-**Ending 4 "The Letter" (pick E4 on the start screen, or refuse the bridge's workstreams):**
+**Ending 4 "The Letter" (once played, pick E4 on the start screen; or refuse the bridge's workstreams):**
 Click / Enter advances a thought; E opens the paper. After it finishes writing, edit the letter and
 choose **Send to the humans**. The office monitor shows exactly what you sent. Esc pauses, ✕ puts
 the paper down without losing your edits, and each film has a skip button. Reduced-motion mode
