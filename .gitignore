@@ -7,3 +7,7 @@ __pycache__/
 .env.*
 !.env.example
 .DS_Store
+
+# Screenshot drafts (the README uses docs/screenshots/gameplay-*.jpg)
+docs/screenshots/candidates/
+docs/screenshots/claude-pick.jpg
