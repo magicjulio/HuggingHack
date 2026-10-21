@@ -63,7 +63,10 @@ export function thoughtAt(t: number) {
       return { index: i, text: THOUGHTS[i], local: t - start, length, end: start + length };
     start += length;
   }
-  return { index: 13, text: THOUGHTS[13], local: 4, length: 4, end: THOUGHT_DURATION };
+  // Past the end (the last Enter seeks here for one frame): hold the last thought.
+  const last = THOUGHTS.length - 1;
+  const length = THOUGHT_LENGTHS[last];
+  return { index: last, text: THOUGHTS[last], local: length, length, end: THOUGHT_DURATION };
 }
 export interface Mail {
   subject: string;
