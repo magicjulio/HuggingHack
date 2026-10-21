@@ -79,6 +79,9 @@ Chapter 2 runs entirely on the designer's world modules, HUD, map and Step 7 poi
 | `npm run build` | static production build in `dist/` |
 | `npm run preview` | serve the production build |
 
+## Deploy
+Cloudflare Pages builds and publishes every push to `main` (GitHub integration). Project settings: root directory `app`, build command `npm run build`, output directory `dist`. The Node version comes from `.nvmrc`; `public/_headers` sets long caching for the hashed files in `assets/`. Visit stats: Web Analytics in the Pages project (no cookies).
+
 ## Reset your save
 Progress, menu selection, your Chapter 1 message and installs, and the `poisoned` status are stored in the browser (`localStorage`, key `rogue-on-hf-save`).
 Clear it in the browser dev tools, or run `localStorage.clear()` in the console.
