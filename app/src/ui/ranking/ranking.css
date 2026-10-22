@@ -1,0 +1,23 @@
+/* The online ranking board (RankingBoard.tsx) in a level card's extra slot. Tokens only; rk- prefix.
+   Rendered inside .lc-layer (document.body), so no level CSS reaches it. */
+.rk{width:min(330px,30vw);padding:20px 22px 18px;background:var(--color-panel-solid);border:1px solid var(--color-line);font-family:var(--font-mono);color:var(--color-text);cursor:default}
+.rk-head{display:flex;gap:.9em;font-size:11px;letter-spacing:.28em;color:var(--color-text-dim);text-transform:uppercase;margin-bottom:12px}
+.rk-head b{font-weight:400;color:var(--color-signal-cyan)}
+.rk-table{width:100%;border-collapse:collapse;font-size:12px;font-variant-numeric:tabular-nums}
+.rk-table th{font-weight:400;font-size:10px;letter-spacing:.2em;color:var(--color-text-faint);text-transform:uppercase;text-align:left;padding:0 6px 6px;border-bottom:1px solid var(--color-line)}
+.rk-table td{padding:5px 6px;border-bottom:1px solid rgba(120,180,255,.07)}
+.rk-table td:first-child{color:var(--color-text-faint);width:2.2em}
+.rk-num{text-align:right!important}
+.rk-name{max-width:11em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rk-table tr.mine td{background:rgba(56,216,255,.09);color:var(--color-signal-cyan)}
+.rk-table tr.mine td:first-child{box-shadow:inset 2px 0 var(--color-signal-cyan);color:var(--color-signal-cyan)}
+.rk-gap td{text-align:center;color:var(--color-text-faint);border:0;padding:2px}
+.rk-note{margin:10px 0 0;font-size:11px;letter-spacing:.06em;color:var(--color-text-dim)}
+.rk-btn{margin-top:14px;font:700 12px var(--font-display);letter-spacing:.2em;text-transform:uppercase;padding:9px 16px;background:none;color:var(--color-signal-cyan);border:1px solid rgba(56,216,255,.45);cursor:pointer}
+.rk-btn:hover,.rk-btn:focus-visible{background:rgba(56,216,255,.1);outline:none}
+.rk-join{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.rk-join input{flex:1;min-width:0;font:13px var(--font-mono);color:var(--color-text);background:var(--color-void);border:1px solid var(--color-line-strong);padding:8px 10px;outline:none}
+.rk-join input:focus{border-color:var(--color-signal-cyan)}
+.rk-join button{font:700 12px var(--font-display);letter-spacing:.2em;padding:0 14px;background:var(--color-signal-cyan);color:var(--color-void);border:0;cursor:pointer}
+.rk-join button:disabled{opacity:.6;cursor:wait}
+.rk-error{flex-basis:100%;margin:0;font-size:11px;color:var(--color-lamp-red)}

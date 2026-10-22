@@ -1,5 +1,5 @@
 /**
- * The start screen's two windows, opened from the icon buttons top right: Info and Settings.
+ * The start screen's windows, opened from the icon buttons top right: Player, Info and Settings.
  * Esc or a click beside the panel closes them (the start screen has no pause, so Esc is free here).
  */
 import {
@@ -8,12 +8,20 @@ import {
   useRef,
   useState,
   type CSSProperties,
+  type FormEvent,
   type ReactNode,
 } from 'react';
 import { TRACKS } from '../../data/music';
 import { useGame, type Quality } from '../../state/store';
+import {
+  NAME_RULE,
+  PROBLEM_TEXT,
+  claimName,
+  isProblem,
+  setPlayerName,
+} from '../../ui/ranking/ranking';
 
-export type StartWindowId = 'info' | 'settings';
+export type StartWindowId = 'player' | 'info' | 'settings';
 
 function StartWindow({
   title,
@@ -50,6 +58,55 @@ function StartWindow({
         {children}
       </div>
     </div>
+  );
+}
+
+/** The name the endings' online ranking shows (ui/ranking/); claimed for this browser on save. */
+export function PlayerWindow({ onClose }: { onClose: () => void }) {
+  const saved = useGame((s) => s.save.playerName);
+  const [draft, setDraft] = useState(saved);
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState<{ text: string; ok?: boolean } | null>(null);
+  async function save(e: FormEvent) {
+    e.preventDefault();
+    const n = draft.trim();
+    if (!NAME_RULE.test(n)) return setNote({ text: PROBLEM_TEXT.bad_name });
+    setBusy(true);
+    const r = await claimName(n);
+    setBusy(false);
+    if (isProblem(r)) return setNote({ text: PROBLEM_TEXT[r] });
+    setPlayerName(n);
+    setNote({ text: `Saved. You play as ${n}.`, ok: true });
+  }
+  return (
+    <StartWindow title="PLAYER" onClose={onClose}>
+      <p className="ss-prose">
+        Your name on the online ranking. When you finish a ranked ending, your time is posted under
+        it; the board keeps your best.
+      </p>
+      <form className="ss-row ss-player" onSubmit={save}>
+        <input
+          value={draft}
+          maxLength={20}
+          placeholder="Your name"
+          aria-label="Your name"
+          spellCheck={false}
+          onChange={(e) => {
+            setDraft(e.target.value);
+            setNote(null);
+          }}
+        />
+        <button type="submit" className="ss-save" disabled={busy || draft.trim() === saved}>
+          {busy ? '…' : 'Save'}
+        </button>
+      </form>
+      <p className={'ss-prose dim' + (note && !note.ok ? ' ss-bad' : '')}>
+        {note?.text ??
+          (saved
+            ? 'The name belongs to this browser. A new name starts a new entry.'
+            : '3–20 letters, digits, _ or -. The first browser to use a name keeps it.')}
+      </p>
+    </StartWindow>
   );
 }
 
@@ -281,7 +338,7 @@ export function SettingsWindow({ onClose }: { onClose: () => void }) {
           Reset everything
           <small>
             {armed
-              ? 'deletes your progress, settings and all data this game keeps in the browser'
+              ? 'deletes your progress, settings and all data this game keeps in the browser (your ranking name stays)'
               : 'progress, settings, browser data'}
           </small>
         </span>

@@ -78,10 +78,17 @@ Chapter 2 runs entirely on the designer's world modules, HUD, map and Step 7 poi
 | `npm run format` | format code (Prettier) |
 | `npm run build` | static production build in `dist/` |
 | `npm run preview` | serve the production build |
+| `npm run dev:api` | the online ranking's API on :8788 with a local database (`npm run build` first); `npm run dev` forwards `/api` to it. Without it the boards say "Ranking offline" |
 
 ## Deploy
 Cloudflare Pages builds and publishes every push to `main` (GitHub integration). Project settings: root directory `app`, build command `npm run build`, output directory `dist`. The Node version comes from `.nvmrc`; `public/_headers` sets long caching for the hashed files in `assets/`. Visit stats: Web Analytics in the Pages project (no cookies).
 
+## Online ranking
+Ending 1 shows a best-players board on its intro and finish cards. Pages Functions (`functions/api/`, rules in `server/ranking.ts`) store runs in the D1 database `rogue-ranking`, bound as `RANKING` in `wrangler.toml` (free plan: 100k requests and 100k row writes a day). Each player is listed once with their best run; `listed` runs are exceptions (ZebraVogel94349's three seeded runs). A name belongs to the first browser that used it (a random key in the save, kept through Settings → Reset). There are no accounts, so a determined player could post a fake time by hand; the server only refuses times outside the level's range.
+- A new level on the board: an entry in `src/data/ranking.ts` + `<RankingBoard level=… />` in its card's `extra` and `submitRun` in its `onFinish` (see `levels/end1/End1.tsx`).
+- Schema change: a new file in `migrations/`, then `npx wrangler d1 migrations apply rogue-ranking --remote` (needs `npx wrangler login`).
+- Look at or fix entries: `npx wrangler d1 execute rogue-ranking --remote --command "SELECT …"`.
+
 ## Reset your save
-Progress, menu selection, your Chapter 1 message and installs, and the `poisoned` status are stored in the browser (`localStorage`, key `rogue-on-hf-save`).
+Progress, menu selection, your Chapter 1 message and installs, the `poisoned` status and your ranking name are stored in the browser (`localStorage`, key `rogue-on-hf-save`).
 Clear it in the browser dev tools, or run `localStorage.clear()` in the console.

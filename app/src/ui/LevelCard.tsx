@@ -5,7 +5,7 @@
  * Colour follows the kind, never the level: intro/pause/loading cyan, finish green, fail red.
  * Rendered into document.body, so no level's styles (e.g. `.end4 button`) reach it.
  */
-import { useEffect, useRef, type ReactNode } from 'react';
+import { Fragment, useEffect, useRef, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { chapterById } from '../data/chapters';
 import './card.css';
@@ -46,9 +46,11 @@ export interface CardSpec {
 export interface ScreenCard extends CardSpec {
   /** A click beside the card (pause: resumes). */
   onBackdrop?: () => void;
-  /** One optional level-specific block beside the card (E2's tower), as a DOM node. */
-  extra?: ReactNode | Element;
+  /** Optional blocks beside the card (E2's tower, E1's port legend, the ranking board), stacked; DOM nodes or React. */
+  extra?: Extra | Extra[];
 }
+
+type Extra = ReactNode | Element;
 
 export interface LevelCardProps extends ScreenCard {
   /** Chapter id (chapters.ts), for the eyebrow. */
@@ -88,6 +90,7 @@ export function LevelCard({
   // intro and loading show the level's own name big; the others name it in the eyebrow
   const named = kind === 'intro' || kind === 'loading';
   const small = stats?.slice(0, 3) ?? [];
+  const blocks = (Array.isArray(extra) ? extra : [extra]).filter((b) => b != null && b !== false);
   return createPortal(
     <div
       className={
@@ -162,8 +165,12 @@ export function LevelCard({
         )}
         {hint && <div className="lc-hint">{hint}</div>}
       </div>
-      {extra && (
-        <div className="lc-extra">{extra instanceof Element ? <Mount node={extra} /> : extra}</div>
+      {blocks.length > 0 && (
+        <div className="lc-extra">
+          {blocks.map((b, i) =>
+            b instanceof Element ? <Mount key={i} node={b} /> : <Fragment key={i}>{b}</Fragment>,
+          )}
+        </div>
       )}
     </div>,
     document.body,

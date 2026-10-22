@@ -39,8 +39,8 @@
 .lc-link:hover,.lc-link:focus-visible{color:var(--color-text);border-color:currentColor;outline:none}
 .lc-hint{font-size:10px;letter-spacing:.2em;color:var(--color-text-faint);text-transform:uppercase}
 
-/* optional slot: one level-specific block beside the card (E2's tower) */
-.lc-extra{margin-left:auto;margin-right:4vw;align-self:center}
+/* optional slot: level-specific blocks beside the card (E2's tower, E1's legend + ranking), stacked */
+.lc-extra{margin-left:auto;margin-right:4vw;align-self:center;display:flex;flex-direction:column;gap:18px;max-height:92vh;overflow:auto}
 @media (max-width:900px){.lc-extra{display:none}}
 
 /* loading: no panel, just the eyebrow, title and a thin bar bottom left */

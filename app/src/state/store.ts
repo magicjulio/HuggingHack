@@ -48,6 +48,10 @@ export interface SaveData {
   bestTimes: Record<string, number>;
   /** Endings after which the end credits rolled. Any entry means they have played once; after that they only play on request. */
   creditsSeen: string[];
+  /** Name on the online ranking (start screen → Player, or Join ranking on a finish card); '' = none. */
+  playerName: string;
+  /** This browser's random key that owns `playerName` on the server (ui/ranking/ranking.ts). */
+  playerToken: string;
   settings: Settings;
 }
 
@@ -104,6 +108,8 @@ const defaultSave: SaveData = {
   status: [],
   bestTimes: {},
   creditsSeen: [],
+  playerName: '',
+  playerToken: '',
   settings: {
     music: 0.7,
     track: 'cipher',
@@ -249,10 +255,13 @@ export const useGame = create<GameState>()(
         }),
       resetAll: () => {
         // Settings → Reset: everything this site keeps in the browser, then a fresh page.
+        // The ranking name stays: its key is the only way to post under it again.
+        const { playerName, playerToken } = get().save;
         useGame.persist.clearStorage();
         try {
           localStorage.clear();
           sessionStorage.clear();
+          if (playerToken) useGame.setState({ save: { ...defaultSave, playerName, playerToken } });
         } catch {
           /* storage blocked: nothing to clear */
         }

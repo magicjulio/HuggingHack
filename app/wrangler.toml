@@ -1,0 +1,11 @@
+# Cloudflare Pages project "rogue-on-hf" (root directory app/). Read by Pages on every build and by
+# `npm run dev:api`. The D1 database holds the online ranking (server/ranking.ts, migrations/).
+name = "rogue-on-hf"
+pages_build_output_dir = "dist"
+compatibility_date = "2026-10-21"
+
+[[d1_databases]]
+binding = "RANKING"
+database_name = "rogue-ranking"
+database_id = "0533a26c-301f-4d21-9b35-8e2433a17be6"
+migrations_dir = "migrations"

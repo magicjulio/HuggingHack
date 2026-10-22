@@ -37,7 +37,7 @@ import { useGame } from '../../state/store';
 import { cycleUnlocked } from '../../state/selection';
 import { Orb2D, Swarm, type ArtState } from './canvasArt';
 import { useStartMusic } from './music';
-import { InfoWindow, SettingsWindow, type StartWindowId } from './StartWindows';
+import { InfoWindow, PlayerWindow, SettingsWindow, type StartWindowId } from './StartWindows';
 import './start-screen.css';
 
 const BOOT_LINES = [
@@ -57,6 +57,7 @@ const prefersReducedMotion = () => window.matchMedia('(prefers-reduced-motion: r
 /** `onCredits`: Info's Watch credits button (App rolls them, then shows this screen again). */
 export function StartScreen({ onCredits }: { onCredits: () => void }) {
   const save = useGame((s) => s.save);
+  const playerName = save.playerName;
   const bootShown = useGame((s) => s.bootShown);
   const { selectChapter, selectModel, isChapterLocked, isModelLocked, markBootShown, startGame } =
     useGame.getState();
@@ -299,6 +300,17 @@ export function StartScreen({ onCredits }: { onCredits: () => void }) {
         </header>
 
         <nav className="ss-icons" aria-label="Menu">
+          <button
+            className={'ss-icon' + (playerName ? ' has-name' : '')}
+            aria-label="Player"
+            title={playerName ? `Playing as ${playerName}` : 'Player name'}
+            onClick={() => setWin('player')}
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="12" cy="8.5" r="4" />
+              <path d="M4.5 20.5c.8-4 3.8-6 7.5-6s6.7 2 7.5 6" />
+            </svg>
+          </button>
           <button className="ss-icon" aria-label="Info" title="Info" onClick={() => setWin('info')}>
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <circle cx="12" cy="12" r="9.5" />
@@ -389,6 +401,7 @@ export function StartScreen({ onCredits }: { onCredits: () => void }) {
         </div>
       </main>
 
+      {win === 'player' && <PlayerWindow onClose={closeWin} />}
       {win === 'info' && <InfoWindow onClose={closeWin} onCredits={onCredits} />}
       {win === 'settings' && <SettingsWindow onClose={closeWin} />}
 
