@@ -37,7 +37,7 @@ What the game is and the rules it was built on. Where `NOTES.md` (Julius's origi
   - No new enemy kinds besides the boss: gunner, shield, Hugger, Warden, Maintainer.
   - The ending must not claim the scorer files were found. What follows the boss is open for Julius.
   - The landing (a laser approach in 5 phases) is accepted for now and is not skippable. Leave it alone unless Julius reopens it.
-- **E3 "Ghost Capture"** (`prototypes/end3-ghost/`, approved; `story/levels/end3-beat-the-scorer.md` is a rejected v0): a side-view stealth platformer. You switch to a forged-capture ghost to lock the scanners. Six rooms, and the outcome is a hollow **+0**. Integrated in `app/src/levels/end3/` (catalogue id `end3`). Finishing saves completion only, with no best time.
+- **E3 "Ghost Capture"** (`prototypes/end3-ghost/`, approved; `story/levels/end3-beat-the-scorer.md` is a rejected v0): a side-view stealth platformer. You switch to a forged-capture ghost to lock the scanners. Six rooms, and the outcome is a hollow **+0**. Integrated in `app/src/levels/end3/` (catalogue id `end3`). Finishing saves completion; the online ranking (Julius 2026-10-24) lists time and retries, for competition only, with no tie to the story.
 - **E4 "No User"**: `story/levels/end4-notify-humans.md` v0 is waiting for Julius's review.
 
 ### Look and sound

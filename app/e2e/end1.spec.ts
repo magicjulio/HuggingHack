@@ -10,6 +10,8 @@ test('ending 1: picked on the start screen, runs, swings, back to the menu clean
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message));
   page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
+  // the online ranking's API (functions/) doesn't run under e2e: an empty board
+  await page.route('**/api/**', (r) => r.fulfill({ json: { top: [], me: null } }));
 
   await page.goto('/?skipboot&debug');
   await page.getByText('OpenAI Infra', { exact: true }).click();

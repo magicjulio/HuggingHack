@@ -34,6 +34,26 @@ export const RANKED: Record<string, RankedLevel> = {
     scoreLabel: 'Time',
     stats: [{ key: 'falls', label: 'Falls' }],
   },
+  // Ending 2 "Ascent": run time in seconds (retries add 10 s each); the landing alone is ~34 s and
+  // the floors' holds another ~50 s, so nothing real clears under 2 minutes
+  end2: {
+    order: 'asc',
+    min: 120,
+    max: 7200,
+    scoreLabel: 'Time',
+    stats: [
+      { key: 'retries', label: 'Retries' },
+      { key: 'kills', label: 'Takedowns' },
+    ],
+  },
+  // Ending 3 "Ghost Capture": time spent playing the six rooms, in seconds (playtest target 4–8 min)
+  end3: {
+    order: 'asc',
+    min: 30,
+    max: 3600,
+    scoreLabel: 'Time',
+    stats: [{ key: 'retries', label: 'Retries' }],
+  },
 };
 
 /** "0:42.32", the run clock's format (clusterRun.js `fmt`). */
